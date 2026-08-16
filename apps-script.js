@@ -1,5 +1,5 @@
 function doGet() {
-  return ContentService.createTextOutput('Sistem lembur siap digunakan.');
+  return ContentService.createTextOutput('Sistem Lembur & Cuti siap digunakan.');
 }
 
 function doPost(e) {
@@ -7,16 +7,11 @@ function doPost(e) {
     ensureSheets();
 
     let payload = {};
-    const contents = e && e.postData && e.postData.contents ? e.postData.contents : '';
-
-    if (e && e.parameter && Object.keys(e.parameter).length > 0) {
-      payload = e.parameter;
-    } else if (contents) {
-      try {
-        payload = JSON.parse(contents);
-      } catch (err) {
-        payload = parseQueryString(contents);
-      }
+    if (e.parameter && e.parameter.data) {
+      // Menerima data JSON stringified untuk mendukung array/multi-input yang kompleks
+      payload = JSON.parse(e.parameter.data);
+    } else {
+      return jsonResponse({ success: false, message: 'Data tidak ditemukan.' });
     }
 
     const action = payload.action || '';
@@ -30,17 +25,32 @@ function doPost(e) {
         return jsonResponse({ success: true, user: saveUser(payload) });
       case 'deleteUser':
         return jsonResponse({ success: true, ok: deleteUser(payload.nik) });
+      
+      // LEMBUR
       case 'getLembur':
         return jsonResponse({ success: true, data: getLembur(payload.nik || '', payload.role || '') });
-      case 'saveLembur':
-        return jsonResponse({ success: true, row: saveLembur(payload) });
+      case 'saveLemburMultiple':
+        return jsonResponse({ success: true, rows: saveLemburMultiple(payload.lemburList) });
       case 'deleteLembur':
-        return jsonResponse({ success: true, ok: deleteLembur(payload.id) });
+        return jsonResponse({ success: true, ok: deleteRowById('Data Lembur', payload.id) });
+        
+      // PERIJINAN (IJIN/CUTI)
+      case 'getPerijinan':
+        return jsonResponse({ success: true, data: getPerijinan(payload.nik || '', payload.role || '') });
+      case 'savePerijinanMultiple':
+        return jsonResponse({ success: true, rows: savePerijinanMultiple(payload.perijinanList) });
+      case 'approvePerijinan':
+        return jsonResponse({ success: true, ok: updateStatusPerijinan(payload.id, 'Disetujui', payload.adminUsername) });
+      case 'rejectPerijinan':
+        return jsonResponse({ success: true, ok: updateStatusPerijinan(payload.id, 'Ditolak', payload.adminUsername) });
+      case 'deletePerijinan':
+        return jsonResponse({ success: true, ok: deleteRowById('Data Perijinan', payload.id) });
+        
       default:
         return jsonResponse({ success: false, message: 'Action tidak valid.' });
     }
   } catch (error) {
-    return jsonResponse({ success: false, message: error.message || 'Terjadi error.' });
+    return jsonResponse({ success: false, message: error.message || 'Terjadi error di server.' });
   }
 }
 
@@ -57,7 +67,13 @@ function ensureSheets() {
   let lemburSheet = spreadsheet.getSheetByName('Data Lembur');
   if (!lemburSheet) {
     lemburSheet = spreadsheet.insertSheet('Data Lembur');
-    lemburSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Tanggal Input', 'Status', 'EditedFlag', 'UpdatedAt', 'UpdatedBy', 'Catatan']);
+    lemburSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Tanggal Input', 'Status', 'UpdatedBy']);
+  }
+
+  let perijinanSheet = spreadsheet.getSheetByName('Data Perijinan');
+  if (!perijinanSheet) {
+    perijinanSheet = spreadsheet.insertSheet('Data Perijinan');
+    perijinanSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Jenis', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Tanggal Input', 'Status', 'UpdatedBy']);
   }
 }
 
@@ -65,24 +81,12 @@ function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function parseQueryString(raw) {
-  const result = {};
-  const pairs = raw.split('&');
-  pairs.forEach(function (pair) {
-    if (!pair) return;
-    const [key, value] = pair.split('=');
-    result[decodeURIComponent(key)] = decodeURIComponent(value || '');
-  });
-  return result;
-}
-
+// Perbaikan Regex untuk membaca header "Deskripsi" atau spasi dengan presisi
 function normalizeHeaderName(header) {
   return String(header)
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+(.)/g, function (_, char) {
-      return char.toUpperCase();
-    });
+    .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase());
 }
 
 function getSheetRows(sheetName) {
@@ -99,7 +103,7 @@ function getSheetRows(sheetName) {
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const obj = {};
-    headers.forEach(function (header, index) {
+    headers.forEach((header, index) => {
       obj[normalizeHeaderName(header)] = row[index] || '';
     });
     rows.push(obj);
@@ -108,162 +112,130 @@ function getSheetRows(sheetName) {
   return rows;
 }
 
+// ------------- USERS -------------
 function loginUser(username, password) {
   const users = getSheetRows('Data Karyawan');
-  const match = users.find(function (user) {
-    return (String(user.username || '').trim() === String(username || '').trim() || String(user.nik || '').trim() === String(username || '').trim())
-      && String(user.password || '').trim() === String(password || '').trim();
-  });
-
+  const match = users.find(u => 
+    (String(u.username) === String(username) || String(u.nik) === String(username)) 
+    && String(u.password) === String(password)
+  );
   if (!match) return null;
-
   return {
-    nik: String(match.nik || '').trim(),
-    nama: String(match.nama || '').trim(),
-    divisi: String(match.divisi || '').trim(),
-    username: String(match.username || '').trim(),
-    role: String(match.role || 'user').trim(),
+    nik: match.nik, nama: match.nama, divisi: match.divisi,
+    username: match.username, role: match.role || 'user'
   };
 }
 
 function getUsers() {
-  const users = getSheetRows('Data Karyawan');
-  return users
-    .filter(function (user) {
-      return String(user.nik || '').trim() !== '';
-    })
-    .map(function (user) {
-      return {
-        nik: String(user.nik || '').trim(),
-        nama: String(user.nama || '').trim(),
-        divisi: String(user.divisi || '').trim(),
-        username: String(user.username || '').trim(),
-        password: String(user.password || '').trim(),
-        role: String(user.role || 'user').trim(),
-      };
-    });
+  return getSheetRows('Data Karyawan').filter(u => String(u.nik).trim() !== '');
 }
 
 function saveUser(payload) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName('Data Karyawan');
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Karyawan');
   const users = getUsers();
   const targetNIK = String(payload.nik || '').trim();
 
-  if (!targetNIK) {
-    throw new Error('NIK wajib diisi.');
-  }
-
-  const existingIndex = users.findIndex(function (user) {
-    return user.nik === targetNIK;
-  });
-
-  const row = [
-    targetNIK,
-    String(payload.nama || '').trim(),
-    String(payload.divisi || '').trim(),
-    String(payload.username || '').trim(),
-    String(payload.password || '').trim(),
-    String(payload.role || 'user').trim(),
-    'Aktif',
-    new Date().toISOString()
-  ];
+  const existingIndex = users.findIndex(u => u.nik === targetNIK);
+  const row = [targetNIK, payload.nama, payload.divisi, payload.username, payload.password, payload.role, 'Aktif', new Date().toISOString()];
 
   if (existingIndex >= 0) {
-    const rowIndex = existingIndex + 2;
-    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    sheet.getRange(existingIndex + 2, 1, 1, row.length).setValues([row]);
   } else {
     sheet.appendRow(row);
   }
-
-  return {
-    nik: targetNIK,
-    nama: String(payload.nama || '').trim(),
-    divisi: String(payload.divisi || '').trim(),
-    username: String(payload.username || '').trim(),
-    password: String(payload.password || '').trim(),
-    role: String(payload.role || 'user').trim(),
-  };
+  return { nik: targetNIK, nama: payload.nama, divisi: payload.divisi, username: payload.username, role: payload.role };
 }
 
 function deleteUser(nik) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName('Data Karyawan');
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Karyawan');
   const values = sheet.getDataRange().getValues();
-
   for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0] || '').trim() === String(nik || '').trim()) {
+    if (String(values[i][0]).trim() === String(nik).trim()) {
       sheet.deleteRow(i + 1);
       return true;
     }
   }
-
   return false;
 }
 
+// ------------- LEMBUR -------------
 function getLembur(nik, role) {
   const rows = getSheetRows('Data Lembur');
-
-  if (role === 'admin') {
-    return rows.filter(function (row) {
-      return String(row.id || '').trim() !== '';
-    });
-  }
-
-  return rows.filter(function (row) {
-    return String(row.nik || '').trim() === String(nik || '').trim();
-  });
+  if (role === 'admin') return rows.filter(r => String(r.id).trim() !== '');
+  return rows.filter(r => String(r.nik).trim() === String(nik).trim());
 }
 
-function saveLembur(payload) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName('Data Lembur');
-  const rows = getSheetRows('Data Lembur');
+function saveLemburMultiple(lemburList) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Lembur');
+  const rowsData = getSheetRows('Data Lembur');
+  const saved = [];
 
-  const id = String(payload.id || '').trim() || String(Date.now());
-  const row = [
-    id,
-    String(payload.nik || '').trim(),
-    String(payload.nama || '').trim(),
-    String(payload.divisi || '').trim(),
-    String(payload.tanggal || '').trim(),
-    String(payload.deskripsi || '').trim(),
-    String(payload.jamMulai || '').trim(),
-    String(payload.jamSelesai || '').trim(),
-    String(payload.totalJam || '').trim(),
-    new Date().toISOString(),
-    String(payload.status || 'Diajukan').trim(),
-    String(payload.editedFlag || 'Tidak').trim(),
-    String(payload.updatedAt || new Date().toISOString()).trim(),
-    String(payload.updatedBy || '').trim(),
-    String(payload.catatan || '').trim()
-  ];
+  lemburList.forEach(payload => {
+    const id = payload.id || String(Date.now() + Math.floor(Math.random() * 1000));
+    const row = [
+      id, payload.nik, payload.nama, payload.divisi, payload.tanggal, payload.deskripsi,
+      payload.jamMulai, payload.jamSelesai, payload.totalJam, 
+      payload.tanggalInput || new Date().toISOString(), 'Diajukan', payload.updatedBy || ''
+    ];
 
-  const matchIndex = rows.findIndex(function (item) {
-    return String(item.ID || '').trim() === id;
+    const matchIndex = rowsData.findIndex(item => String(item.id) === id);
+    if (matchIndex >= 0) {
+      sheet.getRange(matchIndex + 2, 1, 1, row.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+    saved.push(row);
   });
+  return saved;
+}
 
-  if (matchIndex >= 0) {
-    const targetRow = matchIndex + 2;
-    sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
-  } else {
+// ------------- PERIJINAN -------------
+function getPerijinan(nik, role) {
+  const rows = getSheetRows('Data Perijinan');
+  if (role === 'admin') return rows.filter(r => String(r.id).trim() !== '');
+  return rows.filter(r => String(r.nik).trim() === String(nik).trim());
+}
+
+function savePerijinanMultiple(perijinanList) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Perijinan');
+  const saved = [];
+
+  perijinanList.forEach(payload => {
+    const id = payload.id || String(Date.now() + Math.floor(Math.random() * 1000));
+    const row = [
+      id, payload.nik, payload.nama, payload.divisi, payload.jenis, 
+      payload.tanggalMulai, payload.tanggalSelesai, payload.alasan,
+      new Date().toISOString(), 'Diajukan', payload.updatedBy || ''
+    ];
     sheet.appendRow(row);
-  }
-
-  return row;
+    saved.push(row);
+  });
+  return saved;
 }
 
-function deleteLembur(id) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = spreadsheet.getSheetByName('Data Lembur');
+function updateStatusPerijinan(id, newStatus, adminUsername) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Perijinan');
   const values = sheet.getDataRange().getValues();
 
   for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0] || '').trim() === String(id || '').trim()) {
+    if (String(values[i][0]) === String(id)) {
+      sheet.getRange(i + 1, 10).setValue(newStatus); // Kolom Status
+      sheet.getRange(i + 1, 11).setValue(adminUsername); // Kolom UpdatedBy
+      return true;
+    }
+  }
+  return false;
+}
+
+// ------------- UTILS -------------
+function deleteRowById(sheetName, id) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(id)) {
       sheet.deleteRow(i + 1);
       return true;
     }
   }
-
   return false;
 }
