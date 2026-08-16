@@ -76,6 +76,15 @@ function parseQueryString(raw) {
   return result;
 }
 
+function normalizeHeaderName(header) {
+  return String(header)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+(.)/g, function (_, char) {
+      return char.toUpperCase();
+    });
+}
+
 function getSheetRows(sheetName) {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getSheetByName(sheetName);
@@ -91,7 +100,7 @@ function getSheetRows(sheetName) {
     const row = values[i];
     const obj = {};
     headers.forEach(function (header, index) {
-      obj[String(header).trim()] = row[index] || '';
+      obj[normalizeHeaderName(header)] = row[index] || '';
     });
     rows.push(obj);
   }
@@ -102,18 +111,18 @@ function getSheetRows(sheetName) {
 function loginUser(username, password) {
   const users = getSheetRows('Data Karyawan');
   const match = users.find(function (user) {
-    return (String(user.Username || '').trim() === String(username || '').trim() || String(user.NIK || '').trim() === String(username || '').trim())
-      && String(user.Password || '').trim() === String(password || '').trim();
+    return (String(user.username || '').trim() === String(username || '').trim() || String(user.nik || '').trim() === String(username || '').trim())
+      && String(user.password || '').trim() === String(password || '').trim();
   });
 
   if (!match) return null;
 
   return {
-    nik: String(match.NIK || '').trim(),
-    nama: String(match.Nama || '').trim(),
-    divisi: String(match.Divisi || '').trim(),
-    username: String(match.Username || '').trim(),
-    role: String(match.Role || 'user').trim(),
+    nik: String(match.nik || '').trim(),
+    nama: String(match.nama || '').trim(),
+    divisi: String(match.divisi || '').trim(),
+    username: String(match.username || '').trim(),
+    role: String(match.role || 'user').trim(),
   };
 }
 
@@ -121,16 +130,16 @@ function getUsers() {
   const users = getSheetRows('Data Karyawan');
   return users
     .filter(function (user) {
-      return String(user.NIK || '').trim() !== '';
+      return String(user.nik || '').trim() !== '';
     })
     .map(function (user) {
       return {
-        nik: String(user.NIK || '').trim(),
-        nama: String(user.Nama || '').trim(),
-        divisi: String(user.Divisi || '').trim(),
-        username: String(user.Username || '').trim(),
-        password: String(user.Password || '').trim(),
-        role: String(user.Role || 'user').trim(),
+        nik: String(user.nik || '').trim(),
+        nama: String(user.nama || '').trim(),
+        divisi: String(user.divisi || '').trim(),
+        username: String(user.username || '').trim(),
+        password: String(user.password || '').trim(),
+        role: String(user.role || 'user').trim(),
       };
     });
 }
@@ -197,12 +206,12 @@ function getLembur(nik, role) {
 
   if (role === 'admin') {
     return rows.filter(function (row) {
-      return String(row.ID || '').trim() !== '';
+      return String(row.id || '').trim() !== '';
     });
   }
 
   return rows.filter(function (row) {
-    return String(row.NIK || '').trim() === String(nik || '').trim();
+    return String(row.nik || '').trim() === String(nik || '').trim();
   });
 }
 
