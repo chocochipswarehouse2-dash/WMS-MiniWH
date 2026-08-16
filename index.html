@@ -106,14 +106,20 @@
 
         <section id="statusTab" class="tab-panel">
           <div class="panel">
-            <h3>Rekap Lembur Saya</h3>
+            <div class="panel-header-row">
+              <h3>Rekap Lembur Saya</h3>
+              <button type="button" id="downloadStatusPdfBtn" class="primary-btn small-btn">Download PDF</button>
+            </div>
             <div id="statusTableWrap" class="table-wrap"></div>
           </div>
         </section>
 
         <section id="adminTab" class="tab-panel hidden">
           <div class="panel">
-            <h3>Rekap Semua Lembur</h3>
+            <div class="panel-header-row">
+              <h3>Rekap Semua Lembur</h3>
+              <button type="button" id="downloadAdminPdfBtn" class="primary-btn small-btn">Download PDF</button>
+            </div>
             <div id="adminTableWrap" class="table-wrap"></div>
           </div>
         </section>
@@ -172,6 +178,8 @@
 
     <div id="toast" class="toast hidden"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

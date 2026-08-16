@@ -43,6 +43,8 @@ const tabs = document.querySelectorAll('.tab-btn');
 const panels = document.querySelectorAll('.tab-panel');
 const adminTabButton = document.getElementById('adminTabButton');
 const settingTabButton = document.getElementById('settingTabButton');
+const downloadStatusPdfBtn = document.getElementById('downloadStatusPdfBtn');
+const downloadAdminPdfBtn = document.getElementById('downloadAdminPdfBtn');
 
 function calculateTotalHours(startTime, endTime) {
   if (!startTime || !endTime) return '';
@@ -93,6 +95,43 @@ function switchTab(tabName) {
     panel.classList.toggle('active', panel.id === tabName);
     panel.classList.toggle('hidden', panel.id !== tabName);
   });
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+  return date.toLocaleDateString('id-ID', options);
+}
+
+function getVisibleLemburRows() {
+  if (state.currentUser.role === 'admin') {
+    return state.lembur;
+  }
+  return state.lembur.filter((row) => row.nik === state.currentUser.nik);
+}
+
+function updateUserFieldsFromNIK() {
+  const nik = nikField.value.trim();
+  const user = state.users.find((u) => u.nik === nik);
+
+  if (!user) {
+    namaField.value = '';
+    divisiField.value = '';
+    return;
+  }
+
+  namaField.value = user.nama;
+  divisiField.value = user.divisi;
+}
+
+function populateNIKOptions() {
+  if (state.currentUser.role === 'admin') {
+    nikField.innerHTML = state.users.map((user) => `<option value="${user.nik}">${user.nik} - ${user.nama}</option>`).join('');
+  } else {
+    nikField.value = state.currentUser.nik;
+    nikField.disabled = true;
+  }
 }
 
 async function apiRequest(action, payload = {}) {
@@ -388,7 +427,15 @@ async function loadUsers() {
   }
 }
 
+function getVisibleLemburRows() {
+  if (!state.currentUser) return [];
+  if (state.currentUser.role === 'admin') return state.lembur;
+  return state.lembur.filter((row) => String(row.nik || '').trim() === String(state.currentUser.nik || '').trim());
+}
+
 async function loadLembur() {
+  if (!state.currentUser) return;
+
   const result = await apiRequest('getLembur', {
     nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik,
     role: state.currentUser.role,
@@ -398,6 +445,49 @@ async function loadLembur() {
   state.lembur = result.data || [];
   renderStatusTable();
   renderAdminTable();
+}
+
+function exportCurrentPdf() {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    showToast('Library PDF belum siap, silakan refresh halaman.', 'error');
+    return;
+  }
+
+  const rows = getVisibleLemburRows();
+  const doc = new window.jspdf.jsPDF();
+  const filename = state.currentUser && state.currentUser.role === 'admin' ? 'rekap-lembur-admin.pdf' : 'rekap-lembur-saya.pdf';
+
+  doc.setFontSize(16);
+  doc.text('Rekap Lembur', 14, 20);
+
+  if (!rows.length) {
+    doc.setFontSize(11);
+    doc.text('Belum ada data lembur.', 14, 32);
+    doc.save(filename);
+    return;
+  }
+
+  const body = rows.map((row) => [
+    formatDate(row.tanggal),
+    row.deskripsi || '-',
+    `${row.jamMulai || '-'} - ${row.jamSelesai || '-'}`,
+    row.totalJam || '-',
+    row.catatan || '-',
+    row.editedFlag === 'Ya' ? 'Ya' : 'Tidak',
+    row.updatedBy || '-'
+  ]);
+
+  doc.autoTable({
+    head: [['Tanggal', 'Deskripsi', 'Jam', 'Total', 'Catatan', 'Edited', 'Updated By']],
+    body,
+    startY: 30,
+    margin: { left: 14, right: 14 },
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [14, 30, 47] },
+    alternateRowStyles: { fillColor: [245, 247, 250] }
+  });
+
+  doc.save(filename);
 }
 
 async function handleLogin(event) {
@@ -564,8 +654,16 @@ function wireEvents() {
   logoutBtn.addEventListener('click', handleLogout);
 
   tabs.forEach((tab) => {
-    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    tab.addEventListener('click', async () => {
+      switchTab(tab.dataset.tab);
+      if (tab.dataset.tab === 'statusTab' || tab.dataset.tab === 'adminTab') {
+        await loadLembur();
+      }
+    });
   });
+
+  downloadStatusPdfBtn.addEventListener('click', exportCurrentPdf);
+  downloadAdminPdfBtn.addEventListener('click', exportCurrentPdf);
 
   nikField.addEventListener('change', updateUserFieldsFromNIK);
   jamMulaiField.addEventListener('input', () => {
