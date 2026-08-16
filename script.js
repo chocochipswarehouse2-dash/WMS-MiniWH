@@ -1,706 +1,326 @@
 const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbziFOC_LS6O4jc7-3RcMmkoD5ncs6-FrEIn30nuwJd-HMCkYN1lRpE_ON_yBUgk5QHq/exec";
 
-const state = {
-  currentUser: null,
-  users: [],
-  lembur: [],
-  editingLemburId: null,
-};
+const state = { currentUser: null, users: [], lembur: [], cuti: [] };
 
-const loginPage = document.getElementById('loginPage');
-const appPage = document.getElementById('appPage');
-const loginForm = document.getElementById('loginForm');
-const loginMessage = document.getElementById('loginMessage');
-const loggedUserLabel = document.getElementById('loggedUserLabel');
-const logoutBtn = document.getElementById('logoutBtn');
+// DOM Elements & Theme
+const htmlEl = document.documentElement;
+const themeToggleBtn = document.getElementById('themeToggleBtn');
 const toast = document.getElementById('toast');
 
-const overtimeForm = document.getElementById('overtimeForm');
-const nikField = document.getElementById('nikField');
-const namaField = document.getElementById('namaField');
-const divisiField = document.getElementById('divisiField');
-const tanggalField = document.getElementById('tanggalField');
-const deskripsiField = document.getElementById('deskripsiField');
-const jamMulaiField = document.getElementById('jamMulaiField');
-const jamSelesaiField = document.getElementById('jamSelesaiField');
-const totalJamField = document.getElementById('totalJamField');
-const catatanField = document.getElementById('catatanField');
-const cancelEditBtn = document.getElementById('cancelEditBtn');
-
-const statusTableWrap = document.getElementById('statusTableWrap');
-const adminTableWrap = document.getElementById('adminTableWrap');
-const userListWrap = document.getElementById('userListWrap');
-const userForm = document.getElementById('userForm');
-const userNIK = document.getElementById('userNIK');
-const userName = document.getElementById('userName');
-const userDivisi = document.getElementById('userDivisi');
-const userUsername = document.getElementById('userUsername');
-const userPassword = document.getElementById('userPassword');
-const userRole = document.getElementById('userRole');
-const resetUserFormBtn = document.getElementById('resetUserFormBtn');
-
+// Tabs
 const tabs = document.querySelectorAll('.tab-btn');
 const panels = document.querySelectorAll('.tab-panel');
-const adminTabButton = document.getElementById('adminTabButton');
-const settingTabButton = document.getElementById('settingTabButton');
-const downloadStatusPdfBtn = document.getElementById('downloadStatusPdfBtn');
-const downloadAdminPdfBtn = document.getElementById('downloadAdminPdfBtn');
 
-function calculateTotalHours(startTime, endTime) {
-  if (!startTime || !endTime) return '';
-
-  const start = new Date(`2024-01-01T${startTime}:00`);
-  const end = new Date(`2024-01-01T${endTime}:00`);
-
-  if (end <= start) {
-    return 'Jam selesai harus lebih besar dari jam mulai';
-  }
-
-  const diffHours = (end - start) / (1000 * 60 * 60);
-  return `${diffHours.toFixed(2)} jam`;
-}
-
-function showToast(message, type = 'success') {
-  toast.textContent = message;
-  toast.className = `toast ${type}`;
-  toast.classList.remove('hidden');
-
+// Helpers
+function showToast(msg, type = 'success') {
+  toast.textContent = msg; toast.className = `toast ${type}`; toast.classList.remove('hidden');
   clearTimeout(showToast.timeout);
-  showToast.timeout = setTimeout(() => {
-    toast.classList.add('hidden');
-  }, 2500);
+  showToast.timeout = setTimeout(() => toast.classList.add('hidden'), 3000);
 }
 
-function setLoginMessage(message, type = '') {
-  loginMessage.textContent = message;
-  loginMessage.className = 'message-box';
-  if (type) {
-    loginMessage.classList.add(type);
-  }
+function switchTab(tabId) {
+  tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+  panels.forEach(p => p.classList.toggle('active', p.id === tabId));
+  panels.forEach(p => p.classList.toggle('hidden', p.id !== tabId));
 }
 
-function clearFormData() {
-  overtimeForm.reset();
-  totalJamField.value = '';
-  state.editingLemburId = null;
-  cancelEditBtn.classList.add('hidden');
-}
-
-function switchTab(tabName) {
-  tabs.forEach((button) => {
-    button.classList.toggle('active', button.dataset.tab === tabName);
-  });
-
-  panels.forEach((panel) => {
-    panel.classList.toggle('active', panel.id === tabName);
-    panel.classList.toggle('hidden', panel.id !== tabName);
-  });
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
-  return date.toLocaleDateString('id-ID', options);
-}
-
-function getVisibleLemburRows() {
-  if (state.currentUser.role === 'admin') {
-    return state.lembur;
-  }
-  return state.lembur.filter((row) => row.nik === state.currentUser.nik);
-}
-
-function updateUserFieldsFromNIK() {
-  const nik = nikField.value.trim();
-  const user = state.users.find((u) => u.nik === nik);
-
-  if (!user) {
-    namaField.value = '';
-    divisiField.value = '';
-    return;
-  }
-
-  namaField.value = user.nama;
-  divisiField.value = user.divisi;
-}
-
-function populateNIKOptions() {
-  if (state.currentUser.role === 'admin') {
-    nikField.innerHTML = state.users.map((user) => `<option value="${user.nik}">${user.nik} - ${user.nama}</option>`).join('');
-  } else {
-    nikField.value = state.currentUser.nik;
-    nikField.disabled = true;
-  }
-}
-
+// API Communication menggunakan data stringify untuk mendukung Nested Array
 async function apiRequest(action, payload = {}) {
-  if (!GOOGLE_SHEET_WEB_APP_URL || GOOGLE_SHEET_WEB_APP_URL.includes('PASTE_')) {
-    showToast('URL Apps Script belum diisi.', 'error');
-    return null;
-  }
-
   try {
-    const body = new URLSearchParams({ action, ...payload }).toString();
-
-    const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+    const postData = JSON.stringify({ action, ...payload });
+    const body = new URLSearchParams({ data: postData }).toString();
+    
+    const res = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
       method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      },
-      body,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
     });
-
-    const text = await response.text();
-    let result;
-
-    try {
-      result = JSON.parse(text);
-    } catch (error) {
-      result = { success: true, message: text };
-    }
-
-    if (!response.ok || result.success === false) {
-      throw new Error(result.message || 'Request gagal');
-    }
-
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message);
     return result;
   } catch (error) {
-    showToast(error.message || 'Gagal menghubungi server.', 'error');
+    showToast(error.message || 'Gagal terhubung', 'error');
     return null;
   }
 }
 
-function formatDate(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString().slice(0, 10);
+// ================= THEME (DARK / LIGHT MODE) =================
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  htmlEl.setAttribute('data-theme', savedTheme);
+  themeToggleBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 }
+themeToggleBtn.addEventListener('click', () => {
+  const current = htmlEl.getAttribute('data-theme');
+  const nextTheme = current === 'dark' ? 'light' : 'dark';
+  htmlEl.setAttribute('data-theme', nextTheme);
+  themeToggleBtn.textContent = nextTheme === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('theme', nextTheme);
+});
 
-function populateNIKOptions() {
-  const allowedNIKs = state.currentUser.role === 'admin'
-    ? state.users.map((user) => user.nik)
-    : [state.currentUser.nik];
+// ================= DYNAMIC FORMS =================
+// 1. Lembur
+const lemburContainer = document.getElementById('lemburListContainer');
+function addLemburRow() {
+  const rowId = Date.now() + Math.floor(Math.random()*100);
+  const div = document.createElement('div');
+  div.className = 'dynamic-row grid two-columns';
+  div.id = `lemburRow_${rowId}`;
+  div.innerHTML = `
+    <button type="button" class="remove-row-btn" onclick="document.getElementById('${div.id}').remove()">X</button>
+    <label><span>Tanggal Lembur</span><input type="date" class="l_tanggal" required/></label>
+    <label><span>Deskripsi Pekerjaan</span><input type="text" class="l_deskripsi" placeholder="Detail pekerjaan..." required/></label>
+    <label><span>Jam Mulai</span><input type="time" class="l_jamMulai" required/></label>
+    <label><span>Jam Selesai</span><input type="time" class="l_jamSelesai" required/></label>
+  `;
+  lemburContainer.appendChild(div);
+}
+document.getElementById('addLemburRowBtn').addEventListener('click', addLemburRow);
 
-  nikField.innerHTML = '';
+// 2. Cuti / Ijin
+const cutiContainer = document.getElementById('cutiListContainer');
+function addCutiRow() {
+  const rowId = Date.now() + Math.floor(Math.random()*100);
+  const div = document.createElement('div');
+  div.className = 'dynamic-row grid two-columns';
+  div.id = `cutiRow_${rowId}`;
+  div.innerHTML = `
+    <button type="button" class="remove-row-btn" onclick="document.getElementById('${div.id}').remove()">X</button>
+    <label><span>Jenis Pengajuan</span>
+      <select class="c_jenis" required>
+        <option value="Cuti Tahunan">Cuti Tahunan</option>
+        <option value="Sakit">Sakit</option>
+        <option value="Ijin">Ijin Lainnya</option>
+      </select>
+    </label>
+    <label><span>Alasan / Keterangan</span><input type="text" class="c_alasan" placeholder="Cth: Acara keluarga" required/></label>
+    <label><span>Tanggal Mulai</span><input type="date" class="c_tglMulai" required/></label>
+    <label><span>Tanggal Selesai</span><input type="date" class="c_tglSelesai" required/></label>
+  `;
+  cutiContainer.appendChild(div);
+}
+document.getElementById('addCutiRowBtn').addEventListener('click', addCutiRow);
 
-  allowedNIKs.forEach((nik) => {
-    const option = document.createElement('option');
-    option.value = nik;
-    option.textContent = nik;
-    nikField.appendChild(option);
+// ================= SUBMIT HANDLING =================
+document.getElementById('lemburForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nik = document.getElementById('l_nik').value;
+  const rows = Array.from(lemburContainer.querySelectorAll('.dynamic-row'));
+  if (rows.length === 0) return showToast('Tambahkan minimal 1 baris lembur!', 'error');
+
+  const lemburList = rows.map(row => {
+    const mulai = row.querySelector('.l_jamMulai').value;
+    const selesai = row.querySelector('.l_jamSelesai').value;
+    // Perhitungan Jam Sederhana (bisa dikembangkan)
+    const tStart = new Date(`2000-01-01T${mulai}:00`);
+    const tEnd = new Date(`2000-01-01T${selesai}:00`);
+    let totalJam = ((tEnd - tStart) / (1000 * 60 * 60)).toFixed(2);
+    if(totalJam < 0) totalJam = 'Invalid';
+
+    return {
+      nik, nama: document.getElementById('l_nama').value, divisi: document.getElementById('l_divisi').value,
+      tanggal: row.querySelector('.l_tanggal').value,
+      deskripsi: row.querySelector('.l_deskripsi').value,
+      jamMulai: mulai, jamSelesai: selesai, totalJam: `${totalJam} jam`,
+      updatedBy: state.currentUser.username
+    };
   });
 
-  if (allowedNIKs.includes(state.currentUser.nik)) {
-    nikField.value = state.currentUser.nik;
+  const res = await apiRequest('saveLemburMultiple', { lemburList });
+  if (res) {
+    showToast('Lembur berhasil diajukan!');
+    lemburContainer.innerHTML = ''; addLemburRow();
+    loadLembur(); switchTab('statusLemburTab');
   }
+});
 
-  if (allowedNIKs.length > 0) {
-    updateUserFieldsFromNIK();
+document.getElementById('cutiForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nik = document.getElementById('c_nik').value;
+  const rows = Array.from(cutiContainer.querySelectorAll('.dynamic-row'));
+  if (rows.length === 0) return showToast('Tambahkan minimal 1 baris Ijin/Cuti!', 'error');
+
+  const perijinanList = rows.map(row => ({
+    nik, nama: document.getElementById('c_nama').value, divisi: document.getElementById('c_divisi').value,
+    jenis: row.querySelector('.c_jenis').value, alasan: row.querySelector('.c_alasan').value,
+    tanggalMulai: row.querySelector('.c_tglMulai').value, tanggalSelesai: row.querySelector('.c_tglSelesai').value,
+    updatedBy: state.currentUser.username
+  }));
+
+  const res = await apiRequest('savePerijinanMultiple', { perijinanList });
+  if (res) {
+    showToast('Ijin/Cuti berhasil diajukan!');
+    cutiContainer.innerHTML = ''; addCutiRow();
+    loadCuti(); switchTab('statusCutiTab');
   }
+});
+
+// ================= RENDER DATA TABLES =================
+function renderStatusBadge(status) {
+  const s = String(status || '').toLowerCase();
+  if(s === 'disetujui') return `<span class="status disetujui">Disetujui</span>`;
+  if(s === 'ditolak') return `<span class="status ditolak">Ditolak</span>`;
+  return `<span class="status diajukan">Diajukan</span>`;
 }
 
-function updateUserFieldsFromNIK() {
-  const selectedNIK = nikField.value;
-  const match = state.users.find((user) => user.nik === selectedNIK);
-
-  if (!match) {
-    namaField.value = state.currentUser?.nama || '';
-    divisiField.value = state.currentUser?.divisi || '';
-    return;
-  }
-
-  namaField.value = match.nama;
-  divisiField.value = match.divisi;
+function formatDate(val) {
+  if(!val) return '-';
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? val : d.toISOString().slice(0, 10);
 }
 
-function renderStatusTable() {
-  const rows = state.lembur.filter((row) => {
-    if (state.currentUser.role === 'admin') return true;
-    return row.nik === state.currentUser.nik;
-  });
+// Render Lembur
+function renderLemburTables() {
+  const saya = state.lembur.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
+  
+  const genRows = (data, isAdmin) => data.map(r => `
+    <tr>
+      ${isAdmin ? `<td>${r.nik}<br><small>${r.nama}</small></td>` : ''}
+      <td>${formatDate(r.tanggal)}</td>
+      <td><strong>${r.deskripsi || '-'}</strong></td>
+      <td>${r.jamMulai} - ${r.jamSelesai} (${r.totalJam})</td>
+      <td>${renderStatusBadge(r.status)}</td>
+      ${isAdmin ? `<td><button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button></td>` : ''}
+    </tr>
+  `).join('');
 
-  if (!rows.length) {
-    statusTableWrap.innerHTML = '<p>Belum ada data lembur.</p>';
-    return;
-  }
-
-  const table = `
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Deskripsi</th>
-          <th>Jam</th>
-          <th>Total</th>
-          <th>Catatan</th>
-          <th>Edited</th>
-          <th>Updated By</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map((row) => `
-          <tr>
-            <td>${formatDate(row.tanggal)}</td>
-            <td>${row.deskripsi || '-'}</td>
-            <td>${row.jamMulai || '-'} - ${row.jamSelesai || '-'}</td>
-            <td>${row.totalJam || '-'}</td>
-            <td>${row.catatan || '-'}</td>
-            <td>${row.editedFlag === 'Ya' ? 'Ya' : 'Tidak'}</td>
-            <td>${row.updatedBy || '-'}</td>
-            <td class="action-cell">
-              ${state.currentUser.role === 'admin' ? `<button class="action-btn edit" data-edit-id="${row.id}">Edit</button>` : ''}
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+  document.getElementById('statusLemburTableWrap').innerHTML = `
+    <table><thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Detail Jam</th><th>Status</th></tr></thead>
+    <tbody>${genRows(saya, false)}</tbody></table>
   `;
 
-  statusTableWrap.innerHTML = table;
-
-  statusTableWrap.querySelectorAll('[data-edit-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const row = state.lembur.find((item) => item.id === button.dataset.editId);
-      if (!row) return;
-      fillEditForm(row);
-      switchTab('formTab');
-    });
-  });
+  if(state.currentUser.role === 'admin') {
+    document.getElementById('adminLemburTableWrap').innerHTML = `
+      <table><thead><tr><th>User</th><th>Tanggal</th><th>Deskripsi</th><th>Detail Jam</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody>${genRows(state.lembur, true)}</tbody></table>
+    `;
+  }
 }
 
-function renderAdminTable() {
-  const rows = state.lembur;
+// Render Cuti
+function renderCutiTables() {
+  const saya = state.cuti.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
+  
+  const genRows = (data, isAdmin) => data.map(r => `
+    <tr>
+      ${isAdmin ? `<td>${r.nik}<br><small>${r.nama}</small></td>` : ''}
+      <td>${r.jenis}</td>
+      <td>${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</td>
+      <td>${r.alasan}</td>
+      <td>${renderStatusBadge(r.status)}</td>
+      ${isAdmin && r.status === 'Diajukan' ? `
+        <td class="action-cell">
+          <button class="action-btn approve" onclick="approveCuti('${r.id}')">Setuju</button>
+          <button class="action-btn reject" onclick="rejectCuti('${r.id}')">Tolak</button>
+        </td>
+      ` : (isAdmin ? `<td>-</td>` : '')}
+    </tr>
+  `).join('');
 
-  if (!rows.length) {
-    adminTableWrap.innerHTML = '<p>Belum ada data lembur dari semua user.</p>';
-    return;
-  }
-
-  const table = `
-    <table>
-      <thead>
-        <tr>
-          <th>NIK</th>
-          <th>Nama</th>
-          <th>Divisi</th>
-          <th>Tanggal</th>
-          <th>Deskripsi</th>
-          <th>Total</th>
-          <th>Edited</th>
-          <th>Updated By</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map((row) => `
-          <tr>
-            <td>${row.nik || '-'}</td>
-            <td>${row.nama || '-'}</td>
-            <td>${row.divisi || '-'}</td>
-            <td>${formatDate(row.tanggal)}</td>
-            <td>${row.deskripsi || '-'}</td>
-            <td>${row.totalJam || '-'}</td>
-            <td>${row.editedFlag === 'Ya' ? 'Ya' : 'Tidak'}</td>
-            <td>${row.updatedBy || '-'}</td>
-            <td class="action-cell">
-              <button class="action-btn edit" data-admin-edit-id="${row.id}">Edit</button>
-              <button class="action-btn delete" data-admin-delete-id="${row.id}">Hapus</button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+  document.getElementById('statusCutiTableWrap').innerHTML = `
+    <table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th></tr></thead>
+    <tbody>${genRows(saya, false)}</tbody></table>
   `;
 
-  adminTableWrap.innerHTML = table;
-
-  adminTableWrap.querySelectorAll('[data-admin-edit-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const row = state.lembur.find((item) => item.id === button.dataset.adminEditId);
-      if (!row) return;
-      fillEditForm(row);
-      switchTab('formTab');
-    });
-  });
-
-  adminTableWrap.querySelectorAll('[data-admin-delete-id]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const result = await apiRequest('deleteLembur', { id: button.dataset.adminDeleteId });
-      if (result) {
-        showToast('Data lembur berhasil dihapus', 'success');
-        await loadLembur();
-      }
-    });
-  });
-}
-
-function renderUserTable() {
-  const rows = state.users;
-
-  if (!rows.length) {
-    userListWrap.innerHTML = '<p>Belum ada data user.</p>';
-    return;
-  }
-
-  const table = `
-    <table>
-      <thead>
-        <tr>
-          <th>NIK</th>
-          <th>Nama</th>
-          <th>Divisi</th>
-          <th>Username</th>
-          <th>Role</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map((row) => `
-          <tr>
-            <td>${row.nik}</td>
-            <td>${row.nama}</td>
-            <td>${row.divisi}</td>
-            <td>${row.username}</td>
-            <td>${row.role}</td>
-            <td class="action-cell">
-              <button class="action-btn edit" data-user-edit-nik="${row.nik}">Edit</button>
-              <button class="action-btn delete" data-user-delete-nik="${row.nik}">Hapus</button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-  userListWrap.innerHTML = table;
-
-  userListWrap.querySelectorAll('[data-user-edit-nik]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const user = state.users.find((item) => item.nik === button.dataset.userEditNik);
-      if (!user) return;
-      userNIK.value = user.nik;
-      userName.value = user.nama;
-      userDivisi.value = user.divisi;
-      userUsername.value = user.username;
-      userPassword.value = user.password;
-      userRole.value = user.role;
-    });
-  });
-
-  userListWrap.querySelectorAll('[data-user-delete-nik]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const nikToDelete = button.dataset.userDeleteNik;
-      if (nikToDelete === state.currentUser.nik) {
-        showToast('Tidak bisa menghapus user yang sedang login.', 'error');
-        return;
-      }
-
-      const result = await apiRequest('deleteUser', { nik: nikToDelete });
-      if (result) {
-        showToast('User berhasil dihapus', 'success');
-        await loadUsers();
-      }
-    });
-  });
-}
-
-async function loadUsers() {
-  const result = await apiRequest('getUsers');
-  if (!result) return;
-
-  state.users = result.users || [];
-  if (state.currentUser) {
-    const current = state.users.find((user) => user.nik === state.currentUser.nik && user.username === state.currentUser.username);
-    if (current) {
-      state.currentUser = current;
-    }
-  }
-
-  renderUserTable();
-
-  if (state.currentUser) {
-    populateNIKOptions();
+  if(state.currentUser.role === 'admin') {
+    document.getElementById('adminCutiTableWrap').innerHTML = `
+      <table><thead><tr><th>User</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody>${genRows(state.cuti, true)}</tbody></table>
+    `;
   }
 }
 
-function getVisibleLemburRows() {
-  if (!state.currentUser) return [];
-  if (state.currentUser.role === 'admin') return state.lembur;
-  return state.lembur.filter((row) => String(row.nik || '').trim() === String(state.currentUser.nik || '').trim());
-}
+// Action Handlers
+window.deleteLembur = async (id) => {
+  if(confirm('Hapus lembur ini?')) {
+    await apiRequest('deleteLembur', { id }); loadLembur();
+  }
+};
+window.approveCuti = async (id) => {
+  await apiRequest('approvePerijinan', { id, adminUsername: state.currentUser.username }); loadCuti();
+};
+window.rejectCuti = async (id) => {
+  await apiRequest('rejectPerijinan', { id, adminUsername: state.currentUser.username }); loadCuti();
+};
 
+// ================= LIFECYCLE & DATA LOAD =================
 async function loadLembur() {
-  if (!state.currentUser) return;
-
-  const result = await apiRequest('getLembur', {
-    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik,
-    role: state.currentUser.role,
-  });
-
-  if (!result) return;
-  state.lembur = result.data || [];
-  renderStatusTable();
-  renderAdminTable();
+  const res = await apiRequest('getLembur', { nik: state.currentUser.role==='admin' ? '' : state.currentUser.nik, role: state.currentUser.role });
+  if(res) { state.lembur = res.data || []; renderLemburTables(); }
+}
+async function loadCuti() {
+  const res = await apiRequest('getPerijinan', { nik: state.currentUser.role==='admin' ? '' : state.currentUser.nik, role: state.currentUser.role });
+  if(res) { state.cuti = res.data || []; renderCutiTables(); }
 }
 
-function exportCurrentPdf() {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    showToast('Library PDF belum siap, silakan refresh halaman.', 'error');
-    return;
-  }
-
-  const rows = getVisibleLemburRows();
-  const doc = new window.jspdf.jsPDF();
-  const filename = state.currentUser && state.currentUser.role === 'admin' ? 'rekap-lembur-admin.pdf' : 'rekap-lembur-saya.pdf';
-
-  doc.setFontSize(16);
-  doc.text('Rekap Lembur', 14, 20);
-
-  if (!rows.length) {
-    doc.setFontSize(11);
-    doc.text('Belum ada data lembur.', 14, 32);
-    doc.save(filename);
-    return;
-  }
-
-  const body = rows.map((row) => [
-    formatDate(row.tanggal),
-    row.deskripsi || '-',
-    `${row.jamMulai || '-'} - ${row.jamSelesai || '-'}`,
-    row.totalJam || '-',
-    row.catatan || '-',
-    row.editedFlag === 'Ya' ? 'Ya' : 'Tidak',
-    row.updatedBy || '-'
-  ]);
-
-  doc.autoTable({
-    head: [['Tanggal', 'Deskripsi', 'Jam', 'Total', 'Catatan', 'Edited', 'Updated By']],
-    body,
-    startY: 30,
-    margin: { left: 14, right: 14 },
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [14, 30, 47] },
-    alternateRowStyles: { fillColor: [245, 247, 250] }
-  });
-
-  doc.save(filename);
-}
-
-async function handleLogin(event) {
-  event.preventDefault();
-
-  const username = document.getElementById('loginUsername').value.trim();
-  const password = document.getElementById('loginPassword').value.trim();
-
-  if (!username || !password) {
-    setLoginMessage('Username dan password wajib diisi.', 'error');
-    return;
-  }
-
-  const result = await apiRequest('login', {
-    username,
-    password,
-  });
-
-  if (!result || !result.user) {
-    setLoginMessage('Login gagal. Username/password salah.', 'error');
-    return;
-  }
-
-  state.currentUser = result.user;
-  localStorage.setItem('currentUser', JSON.stringify(result.user));
-
-  setLoginMessage('Login berhasil.', 'success');
-  loginForm.reset();
-  renderApp();
-  await loadUsers();
-  await loadLembur();
-}
-
-async function handleLogout() {
-  state.currentUser = null;
-  localStorage.removeItem('currentUser');
-  appPage.classList.add('hidden');
-  loginPage.classList.remove('hidden');
-  clearFormData();
-  setLoginMessage('', '');
-}
-
-function renderApp() {
-  if (!state.currentUser) {
-    loginPage.classList.remove('hidden');
-    appPage.classList.add('hidden');
-    return;
-  }
-
-  loginPage.classList.add('hidden');
-  appPage.classList.remove('hidden');
-
-  loggedUserLabel.textContent = `${state.currentUser.nama} (${state.currentUser.role})`;
-
-  if (state.currentUser.role === 'admin') {
-    adminTabButton.classList.remove('hidden');
-    settingTabButton.classList.remove('hidden');
+function syncUserFields(selectId, namaId, divId) {
+  const select = document.getElementById(selectId);
+  if(state.currentUser.role !== 'admin') {
+    select.innerHTML = `<option value="${state.currentUser.nik}">${state.currentUser.nik}</option>`;
+    select.disabled = true;
+    document.getElementById(namaId).value = state.currentUser.nama;
+    document.getElementById(divId).value = state.currentUser.divisi;
   } else {
-    adminTabButton.classList.add('hidden');
-    settingTabButton.classList.add('hidden');
-  }
-
-  switchTab('formTab');
-  populateNIKOptions();
-}
-
-function fillEditForm(row) {
-  state.editingLemburId = row.id;
-  nikField.value = row.nik || '';
-  namaField.value = row.nama || '';
-  divisiField.value = row.divisi || '';
-  tanggalField.value = row.tanggal || '';
-  deskripsiField.value = row.deskripsi || '';
-  jamMulaiField.value = row.jamMulai || '';
-  jamSelesaiField.value = row.jamSelesai || '';
-  totalJamField.value = row.totalJam || '';
-  catatanField.value = row.catatan || '';
-  cancelEditBtn.classList.remove('hidden');
-}
-
-function resetUserForm() {
-  userForm.reset();
-  userNIK.focus();
-}
-
-async function handleUserSave(event) {
-  event.preventDefault();
-
-  const payload = {
-    nik: userNIK.value.trim(),
-    nama: userName.value.trim(),
-    divisi: userDivisi.value.trim(),
-    username: userUsername.value.trim(),
-    password: userPassword.value.trim(),
-    role: userRole.value,
-  };
-
-  if (!payload.nik || !payload.nama || !payload.divisi || !payload.username || !payload.password) {
-    showToast('Semua data user wajib diisi.', 'error');
-    return;
-  }
-
-  const result = await apiRequest('saveUser', payload);
-  if (!result) return;
-
-  showToast('Data user berhasil disimpan', 'success');
-  resetUserForm();
-  await loadUsers();
-}
-
-function resetLemburForm() {
-  clearFormData();
-  if (state.currentUser && state.users.length) {
-    const defaultNik = state.currentUser.role === 'admin' ? state.users[0].nik : state.currentUser.nik;
-    nikField.value = defaultNik;
-    updateUserFieldsFromNIK();
-  }
-}
-
-async function handleLemburSubmit(event) {
-  event.preventDefault();
-
-  const payload = {
-    id: state.editingLemburId || String(Date.now()),
-    nik: nikField.value.trim(),
-    nama: namaField.value.trim(),
-    divisi: divisiField.value.trim(),
-    tanggal: tanggalField.value,
-    deskripsi: deskripsiField.value.trim(),
-    jamMulai: jamMulaiField.value,
-    jamSelesai: jamSelesaiField.value,
-    totalJam: totalJamField.value,
-    catatan: catatanField.value.trim(),
-    status: 'Diajukan',
-    editedFlag: state.editingLemburId ? 'Ya' : 'Tidak',
-    updatedAt: new Date().toISOString(),
-    updatedBy: state.currentUser.username,
-  };
-
-  if (!payload.nik || !payload.nama || !payload.divisi || !payload.tanggal || !payload.deskripsi || !payload.jamMulai || !payload.jamSelesai) {
-    showToast('Semua field wajib diisi.', 'error');
-    return;
-  }
-
-  const totalCheck = calculateTotalHours(payload.jamMulai, payload.jamSelesai);
-  if (typeof totalCheck === 'string' && totalCheck.includes('harus lebih besar')) {
-    showToast(totalCheck, 'error');
-    return;
-  }
-
-  payload.totalJam = totalCheck;
-
-  const result = await apiRequest('saveLembur', payload);
-  if (!result) return;
-
-  showToast(state.editingLemburId ? 'Data lembur berhasil diedit' : 'Data lembur berhasil disimpan', 'success');
-  clearFormData();
-  await loadLembur();
-  resetLemburForm();
-}
-
-function wireEvents() {
-  loginForm.addEventListener('submit', handleLogin);
-  logoutBtn.addEventListener('click', handleLogout);
-
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', async () => {
-      switchTab(tab.dataset.tab);
-      if (tab.dataset.tab === 'statusTab' || tab.dataset.tab === 'adminTab') {
-        await loadLembur();
-      }
+    // Admin bisa pilih NIK
+    select.disabled = false;
+    select.innerHTML = state.users.map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
+    select.addEventListener('change', () => {
+      const u = state.users.find(x => x.nik === select.value);
+      if(u) { document.getElementById(namaId).value = u.nama; document.getElementById(divId).value = u.divisi; }
     });
-  });
-
-  downloadStatusPdfBtn.addEventListener('click', exportCurrentPdf);
-  downloadAdminPdfBtn.addEventListener('click', exportCurrentPdf);
-
-  nikField.addEventListener('change', updateUserFieldsFromNIK);
-  jamMulaiField.addEventListener('input', () => {
-    totalJamField.value = calculateTotalHours(jamMulaiField.value, jamSelesaiField.value);
-  });
-  jamSelesaiField.addEventListener('input', () => {
-    totalJamField.value = calculateTotalHours(jamMulaiField.value, jamSelesaiField.value);
-  });
-
-  overtimeForm.addEventListener('submit', handleLemburSubmit);
-  cancelEditBtn.addEventListener('click', () => {
-    clearFormData();
-    resetLemburForm();
-  });
-
-  userForm.addEventListener('submit', handleUserSave);
-  resetUserFormBtn.addEventListener('click', resetUserForm);
-}
-
-async function bootstrap() {
-  wireEvents();
-
-  const savedUser = localStorage.getItem('currentUser');
-  if (savedUser) {
-    try {
-      state.currentUser = JSON.parse(savedUser);
-      renderApp();
-      await loadUsers();
-      await loadLembur();
-    } catch (error) {
-      localStorage.removeItem('currentUser');
-      state.currentUser = null;
-      renderApp();
-    }
-  } else {
-    renderApp();
+    // trigger default
+    if(state.users.length) select.dispatchEvent(new Event('change'));
   }
 }
 
-bootstrap();
+async function startApp() {
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('appPage').classList.remove('hidden');
+  document.getElementById('loggedUserLabel').textContent = `${state.currentUser.nama} (${state.currentUser.role})`;
+  
+  if (state.currentUser.role === 'admin') {
+    document.getElementById('adminLemburTabBtn').classList.remove('hidden');
+    document.getElementById('adminCutiTabBtn').classList.remove('hidden');
+    document.getElementById('settingTabBtn').classList.remove('hidden');
+  }
+
+  // Load dependency
+  const usrRes = await apiRequest('getUsers');
+  if(usrRes) state.users = usrRes.users || [];
+  
+  syncUserFields('l_nik', 'l_nama', 'l_divisi');
+  syncUserFields('c_nik', 'c_nama', 'c_divisi');
+  
+  if(lemburContainer.children.length === 0) addLemburRow();
+  if(cutiContainer.children.length === 0) addCutiRow();
+
+  loadLembur(); loadCuti();
+  switchTab('formLemburTab');
+}
+
+// LOGIN & LOGOUT
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const res = await apiRequest('login', { 
+    username: document.getElementById('loginUsername').value, 
+    password: document.getElementById('loginPassword').value 
+  });
+  if(res && res.user) {
+    state.currentUser = res.user;
+    localStorage.setItem('currentUser', JSON.stringify(res.user));
+    startApp();
+  } else {
+    document.getElementById('loginMessage').textContent = 'Kredensial salah!';
+    document.getElementById('loginMessage').style.color = 'red';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('currentUser'); location.reload();
+});
+
+// INIT
+tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+initTheme();
+const savedUser = localStorage.getItem('currentUser');
+if(savedUser) { state.currentUser = JSON.parse(savedUser); startApp(); }

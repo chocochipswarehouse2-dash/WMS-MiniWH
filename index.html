@@ -1,185 +1,166 @@
 <!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistem Lembur</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div id="loginPage" class="auth-wrap">
-      <div class="auth-card">
-        <h1>Login Lembur</h1>
-        <form id="loginForm">
-          <label>
-            <span>Username / NIK</span>
-            <input id="loginUsername" type="text" placeholder="admin atau NIK" required />
-          </label>
-          <label>
-            <span>Password</span>
-            <input id="loginPassword" type="password" placeholder="Masukkan password" required />
-          </label>
-          <button type="submit" class="primary-btn">Masuk</button>
-        </form>
-        <p class="default-login">Default admin:<br />Username: admin<br />Password: 12345</p>
-        <div id="loginMessage" class="message-box"></div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistem Lembur & Cuti</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Halaman Login -->
+  <div id="loginPage" class="auth-wrap">
+    <div class="auth-card">
+      <div class="brand-logo">🍊 S-Lembur</div>
+      <h1>Login</h1>
+      <form id="loginForm">
+        <label>
+          <span>Username / NIK</span>
+          <input id="loginUsername" type="text" placeholder="Masukkan NIK atau admin" required />
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="loginPassword" type="password" placeholder="Masukkan password" required />
+        </label>
+        <button type="submit" class="primary-btn">Masuk</button>
+      </form>
+      <div id="loginMessage" class="message-box"></div>
+    </div>
+  </div>
+
+  <!-- Halaman Aplikasi -->
+  <div id="appPage" class="hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h2>🍊 S-Lembur & Cuti</h2>
       </div>
-    </div>
+      <div class="topbar-actions">
+        <span id="loggedUserLabel" class="user-badge">User</span>
+        <button id="themeToggleBtn" class="icon-btn" title="Toggle Dark/Light Mode">🌙</button>
+        <button id="logoutBtn" class="secondary-btn small-btn">Logout</button>
+      </div>
+    </header>
 
-    <div id="appPage" class="hidden">
-      <header class="topbar">
-        <div>
-          <h2>Sistem Pengajuan Lembur</h2>
-        </div>
-        <div class="topbar-actions">
-          <span id="loggedUserLabel">User</span>
-          <button id="logoutBtn" class="secondary-btn small-btn">Logout</button>
-        </div>
-      </header>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="formLemburTab">Input Lembur</button>
+      <button class="tab-btn" data-tab="statusLemburTab">Status Lembur</button>
+      <button class="tab-btn" data-tab="formCutiTab">Input Ijin/Cuti</button>
+      <button class="tab-btn" data-tab="statusCutiTab">Status Ijin/Cuti</button>
+      <button id="adminLemburTabBtn" class="tab-btn hidden" data-tab="adminLemburTab">Admin Lembur</button>
+      <button id="adminCutiTabBtn" class="tab-btn hidden" data-tab="adminCutiTab">Admin Ijin/Cuti</button>
+      <button id="settingTabBtn" class="tab-btn hidden" data-tab="settingTab">Setting User</button>
+    </nav>
 
-      <nav class="tabs">
-        <button class="tab-btn active" data-tab="formTab">Input Lembur</button>
-        <button class="tab-btn" data-tab="statusTab">Status Saya</button>
-        <button id="adminTabButton" class="tab-btn hidden" data-tab="adminTab">Rekap Admin</button>
-        <button id="settingTabButton" class="tab-btn hidden" data-tab="settingTab">Setting</button>
-      </nav>
-
-      <main class="app-content">
-        <section id="formTab" class="tab-panel active">
-          <div class="panel">
-            <h3 id="formTitle">Form Pengajuan Lembur</h3>
-            <form id="overtimeForm">
-              <div class="grid two-columns">
-                <label>
-                  <span>NIK</span>
-                  <select id="nikField" name="nik" required></select>
-                </label>
-                <label>
-                  <span>Nama</span>
-                  <input id="namaField" name="nama" type="text" readonly required />
-                </label>
-              </div>
-
-              <div class="grid two-columns">
-                <label>
-                  <span>Divisi</span>
-                  <input id="divisiField" name="divisi" type="text" readonly required />
-                </label>
-                <label>
-                  <span>Tanggal</span>
-                  <input id="tanggalField" name="tanggal" type="date" required />
-                </label>
-              </div>
-
-              <label>
-                <span>Deskripsi pekerjaan</span>
-                <textarea id="deskripsiField" name="deskripsi" rows="4" placeholder="Jelaskan pekerjaan yang dikerjakan saat lembur" required></textarea>
-              </label>
-
-              <div class="grid three-columns">
-                <label>
-                  <span>Jam mulai</span>
-                  <input id="jamMulaiField" name="jamMulai" type="time" required />
-                </label>
-                <label>
-                  <span>Jam selesai</span>
-                  <input id="jamSelesaiField" name="jamSelesai" type="time" required />
-                </label>
-                <label>
-                  <span>Total jam</span>
-                  <input id="totalJamField" name="totalJam" type="text" readonly placeholder="0.0 jam" />
-                </label>
-              </div>
-
-              <label>
-                <span>Catatan</span>
-                <textarea id="catatanField" name="catatan" rows="3" placeholder="Opsional"></textarea>
-              </label>
-
-              <div class="submit-row">
-                <button type="submit" class="primary-btn">Simpan Lembur</button>
-                <button type="button" id="cancelEditBtn" class="secondary-btn hidden">Batal Edit</button>
-              </div>
-            </form>
-          </div>
-        </section>
-
-        <section id="statusTab" class="tab-panel">
-          <div class="panel">
-            <div class="panel-header-row">
-              <h3>Rekap Lembur Saya</h3>
-              <button type="button" id="downloadStatusPdfBtn" class="primary-btn small-btn">Download PDF</button>
+    <main class="app-content">
+      
+      <!-- TAB: INPUT LEMBUR -->
+      <section id="formLemburTab" class="tab-panel active">
+        <div class="panel">
+          <h3>Form Pengajuan Lembur</h3>
+          <form id="lemburForm">
+            <!-- Data Karyawan ReadOnly -->
+            <div class="user-info-box grid three-columns">
+              <label><span>NIK</span><select id="l_nik" required></select></label>
+              <label><span>Nama</span><input id="l_nama" readonly required/></label>
+              <label><span>Divisi</span><input id="l_divisi" readonly required/></label>
             </div>
-            <div id="statusTableWrap" class="table-wrap"></div>
-          </div>
-        </section>
-
-        <section id="adminTab" class="tab-panel hidden">
-          <div class="panel">
-            <div class="panel-header-row">
-              <h3>Rekap Semua Lembur</h3>
-              <button type="button" id="downloadAdminPdfBtn" class="primary-btn small-btn">Download PDF</button>
+            
+            <hr class="divider"/>
+            <div id="lemburListContainer">
+              <!-- Baris input lembur dinamis masuk kesini -->
             </div>
-            <div id="adminTableWrap" class="table-wrap"></div>
+            
+            <div class="submit-row action-bar">
+              <button type="button" id="addLemburRowBtn" class="secondary-btn">+ Tambah Baris Lembur</button>
+              <button type="submit" class="primary-btn">Simpan Pengajuan</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB: STATUS LEMBUR -->
+      <section id="statusLemburTab" class="tab-panel">
+        <div class="panel">
+          <div class="panel-header-row">
+            <h3>Rekap Lembur Saya</h3>
           </div>
-        </section>
+          <div id="statusLemburTableWrap" class="table-wrap"></div>
+        </div>
+      </section>
 
-        <section id="settingTab" class="tab-panel hidden">
-          <div class="panel">
-            <h3>Setting User</h3>
-            <form id="userForm" class="user-form">
-              <div class="grid two-columns">
-                <label>
-                  <span>NIK</span>
-                  <input id="userNIK" type="text" required />
-                </label>
-                <label>
-                  <span>Nama</span>
-                  <input id="userName" type="text" required />
-                </label>
-              </div>
+      <!-- TAB: INPUT IJIN/CUTI -->
+      <section id="formCutiTab" class="tab-panel">
+        <div class="panel">
+          <h3>Form Pengajuan Ijin / Cuti</h3>
+          <form id="cutiForm">
+            <div class="user-info-box grid three-columns">
+              <label><span>NIK</span><select id="c_nik" required></select></label>
+              <label><span>Nama</span><input id="c_nama" readonly required/></label>
+              <label><span>Divisi</span><input id="c_divisi" readonly required/></label>
+            </div>
+            
+            <hr class="divider"/>
+            <div id="cutiListContainer">
+              <!-- Baris input cuti dinamis -->
+            </div>
+            
+            <div class="submit-row action-bar">
+              <button type="button" id="addCutiRowBtn" class="secondary-btn">+ Tambah Baris Ijin</button>
+              <button type="submit" class="primary-btn">Simpan Pengajuan</button>
+            </div>
+          </form>
+        </div>
+      </section>
 
-              <div class="grid two-columns">
-                <label>
-                  <span>Divisi</span>
-                  <input id="userDivisi" type="text" required />
-                </label>
-                <label>
-                  <span>Username</span>
-                  <input id="userUsername" type="text" required />
-                </label>
-              </div>
+      <!-- TAB: STATUS IJIN/CUTI -->
+      <section id="statusCutiTab" class="tab-panel">
+        <div class="panel">
+          <h3>Status Ijin / Cuti Saya</h3>
+          <div id="statusCutiTableWrap" class="table-wrap"></div>
+        </div>
+      </section>
 
-              <div class="grid two-columns">
-                <label>
-                  <span>Password</span>
-                  <input id="userPassword" type="text" required />
-                </label>
-                <label>
-                  <span>Role</span>
-                  <select id="userRole">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </label>
-              </div>
+      <!-- TAB: ADMIN LEMBUR -->
+      <section id="adminLemburTab" class="tab-panel hidden">
+        <div class="panel">
+          <h3>Semua Data Lembur</h3>
+          <div id="adminLemburTableWrap" class="table-wrap"></div>
+        </div>
+      </section>
 
-              <div class="submit-row">
-                <button type="submit" class="primary-btn">Simpan User</button>
-                <button type="button" id="resetUserFormBtn" class="secondary-btn">Reset</button>
-              </div>
-            </form>
+      <!-- TAB: ADMIN IJIN/CUTI (APPROVAL) -->
+      <section id="adminCutiTab" class="tab-panel hidden">
+        <div class="panel">
+          <h3>Approval Ijin / Cuti Karyawan</h3>
+          <div id="adminCutiTableWrap" class="table-wrap"></div>
+        </div>
+      </section>
 
-            <div id="userListWrap" class="user-list-wrap"></div>
-          </div>
-        </section>
-      </main>
-    </div>
+      <!-- TAB: SETTING -->
+      <section id="settingTab" class="tab-panel hidden">
+        <div class="panel">
+          <h3>Kelola User</h3>
+          <!-- Form dan Tabel User (Diringkas agar layout html tetap clean) -->
+          <form id="userForm" class="user-form grid two-columns">
+            <label><span>NIK</span><input id="userNIK" required/></label>
+            <label><span>Nama</span><input id="userName" required/></label>
+            <label><span>Divisi</span><input id="userDivisi" required/></label>
+            <label><span>Username</span><input id="userUsername" required/></label>
+            <label><span>Password</span><input id="userPassword" required/></label>
+            <label><span>Role</span><select id="userRole"><option value="user">User</option><option value="admin">Admin</option></select></label>
+            <div class="submit-row" style="grid-column: 1 / -1;">
+              <button type="submit" class="primary-btn">Simpan User</button>
+              <button type="button" id="resetUserFormBtn" class="secondary-btn">Reset</button>
+            </div>
+          </form>
+          <hr class="divider"/>
+          <div id="userListWrap" class="table-wrap"></div>
+        </div>
+      </section>
 
-    <div id="toast" class="toast hidden"></div>
+    </main>
+  </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-    <script src="script.js"></script>
-  </body>
-</html>
+  <div id="toast" class="toast hidden"></div>
+  <script src="script.js"></script>
+</body>
+</html> 
