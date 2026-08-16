@@ -2,16 +2,13 @@ const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbziFOC
 
 const state = { currentUser: null, users: [], lembur: [], cuti: [] };
 
-// DOM Elements & Theme
 const htmlEl = document.documentElement;
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const toast = document.getElementById('toast');
 
-// Tabs
 const tabs = document.querySelectorAll('.tab-btn');
 const panels = document.querySelectorAll('.tab-panel');
 
-// Helpers
 function showToast(msg, type = 'success') {
   toast.textContent = msg; toast.className = `toast ${type}`; toast.classList.remove('hidden');
   clearTimeout(showToast.timeout);
@@ -24,7 +21,6 @@ function switchTab(tabId) {
   panels.forEach(p => p.classList.toggle('hidden', p.id !== tabId));
 }
 
-// API Communication menggunakan data stringify untuk mendukung Nested Array
 async function apiRequest(action, payload = {}) {
   try {
     const postData = JSON.stringify({ action, ...payload });
@@ -39,7 +35,7 @@ async function apiRequest(action, payload = {}) {
     if (!result.success) throw new Error(result.message);
     return result;
   } catch (error) {
-    showToast(error.message || 'Gagal terhubung', 'error');
+    showToast(error.message || 'Gagal terhubung ke server', 'error');
     return null;
   }
 }
@@ -59,15 +55,14 @@ themeToggleBtn.addEventListener('click', () => {
 });
 
 // ================= DYNAMIC FORMS =================
-// 1. Lembur
 const lemburContainer = document.getElementById('lemburListContainer');
 function addLemburRow() {
-  const rowId = Date.now() + Math.floor(Math.random()*100);
+  const rowId = 'lembur_' + Date.now() + Math.floor(Math.random()*1000);
   const div = document.createElement('div');
   div.className = 'dynamic-row grid two-columns';
-  div.id = `lemburRow_${rowId}`;
+  div.id = rowId;
   div.innerHTML = `
-    <button type="button" class="remove-row-btn" onclick="document.getElementById('${div.id}').remove()">X</button>
+    <button type="button" class="remove-row-btn" title="Hapus Baris" onclick="document.getElementById('${rowId}').remove()">✕</button>
     <label><span>Tanggal Lembur</span><input type="date" class="l_tanggal" required/></label>
     <label><span>Deskripsi Pekerjaan</span><input type="text" class="l_deskripsi" placeholder="Detail pekerjaan..." required/></label>
     <label><span>Jam Mulai</span><input type="time" class="l_jamMulai" required/></label>
@@ -77,15 +72,14 @@ function addLemburRow() {
 }
 document.getElementById('addLemburRowBtn').addEventListener('click', addLemburRow);
 
-// 2. Cuti / Ijin
 const cutiContainer = document.getElementById('cutiListContainer');
 function addCutiRow() {
-  const rowId = Date.now() + Math.floor(Math.random()*100);
+  const rowId = 'cuti_' + Date.now() + Math.floor(Math.random()*1000);
   const div = document.createElement('div');
   div.className = 'dynamic-row grid two-columns';
-  div.id = `cutiRow_${rowId}`;
+  div.id = rowId;
   div.innerHTML = `
-    <button type="button" class="remove-row-btn" onclick="document.getElementById('${div.id}').remove()">X</button>
+    <button type="button" class="remove-row-btn" title="Hapus Baris" onclick="document.getElementById('${rowId}').remove()">✕</button>
     <label><span>Jenis Pengajuan</span>
       <select class="c_jenis" required>
         <option value="Cuti Tahunan">Cuti Tahunan</option>
@@ -111,11 +105,10 @@ document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   const lemburList = rows.map(row => {
     const mulai = row.querySelector('.l_jamMulai').value;
     const selesai = row.querySelector('.l_jamSelesai').value;
-    // Perhitungan Jam Sederhana (bisa dikembangkan)
     const tStart = new Date(`2000-01-01T${mulai}:00`);
     const tEnd = new Date(`2000-01-01T${selesai}:00`);
     let totalJam = ((tEnd - tStart) / (1000 * 60 * 60)).toFixed(2);
-    if(totalJam < 0) totalJam = 'Invalid';
+    if(totalJam < 0) totalJam = '0.00';
 
     return {
       nik, nama: document.getElementById('l_nama').value, divisi: document.getElementById('l_divisi').value,
@@ -155,7 +148,7 @@ document.getElementById('cutiForm').addEventListener('submit', async (e) => {
   }
 });
 
-// ================= RENDER DATA TABLES =================
+// ================= RENDER TABLES =================
 function renderStatusBadge(status) {
   const s = String(status || '').toLowerCase();
   if(s === 'disetujui') return `<span class="status disetujui">Disetujui</span>`;
@@ -165,11 +158,9 @@ function renderStatusBadge(status) {
 
 function formatDate(val) {
   if(!val) return '-';
-  const d = new Date(val);
-  return isNaN(d.getTime()) ? val : d.toISOString().slice(0, 10);
+  return val;
 }
 
-// Render Lembur
 function renderLemburTables() {
   const saya = state.lembur.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
   
@@ -180,12 +171,12 @@ function renderLemburTables() {
       <td><strong>${r.deskripsi || '-'}</strong></td>
       <td>${r.jamMulai} - ${r.jamSelesai} (${r.totalJam})</td>
       <td>${renderStatusBadge(r.status)}</td>
-      ${isAdmin ? `<td><button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button></td>` : ''}
+      <td><button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button></td>
     </tr>
   `).join('');
 
   document.getElementById('statusLemburTableWrap').innerHTML = `
-    <table><thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Detail Jam</th><th>Status</th></tr></thead>
+    <table><thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Detail Jam</th><th>Status</th><th>Aksi</th></tr></thead>
     <tbody>${genRows(saya, false)}</tbody></table>
   `;
 
@@ -197,7 +188,6 @@ function renderLemburTables() {
   }
 }
 
-// Render Cuti
 function renderCutiTables() {
   const saya = state.cuti.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
   
@@ -208,17 +198,18 @@ function renderCutiTables() {
       <td>${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</td>
       <td>${r.alasan}</td>
       <td>${renderStatusBadge(r.status)}</td>
-      ${isAdmin && r.status === 'Diajukan' ? `
-        <td class="action-cell">
+      <td class="action-cell">
+        ${isAdmin && r.status === 'Diajukan' ? `
           <button class="action-btn approve" onclick="approveCuti('${r.id}')">Setuju</button>
           <button class="action-btn reject" onclick="rejectCuti('${r.id}')">Tolak</button>
-        </td>
-      ` : (isAdmin ? `<td>-</td>` : '')}
+        ` : ''}
+        <button class="action-btn delete" onclick="deleteCuti('${r.id}')">Hapus</button>
+      </td>
     </tr>
   `).join('');
 
   document.getElementById('statusCutiTableWrap').innerHTML = `
-    <table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th></tr></thead>
+    <table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi</th></tr></thead>
     <tbody>${genRows(saya, false)}</tbody></table>
   `;
 
@@ -230,10 +221,14 @@ function renderCutiTables() {
   }
 }
 
-// Action Handlers
 window.deleteLembur = async (id) => {
   if(confirm('Hapus lembur ini?')) {
     await apiRequest('deleteLembur', { id }); loadLembur();
+  }
+};
+window.deleteCuti = async (id) => {
+  if(confirm('Hapus perijinan ini?')) {
+    await apiRequest('deletePerijinan', { id }); loadCuti();
   }
 };
 window.approveCuti = async (id) => {
@@ -243,7 +238,6 @@ window.rejectCuti = async (id) => {
   await apiRequest('rejectPerijinan', { id, adminUsername: state.currentUser.username }); loadCuti();
 };
 
-// ================= LIFECYCLE & DATA LOAD =================
 async function loadLembur() {
   const res = await apiRequest('getLembur', { nik: state.currentUser.role==='admin' ? '' : state.currentUser.nik, role: state.currentUser.role });
   if(res) { state.lembur = res.data || []; renderLemburTables(); }
@@ -256,19 +250,17 @@ async function loadCuti() {
 function syncUserFields(selectId, namaId, divId) {
   const select = document.getElementById(selectId);
   if(state.currentUser.role !== 'admin') {
-    select.innerHTML = `<option value="${state.currentUser.nik}">${state.currentUser.nik}</option>`;
+    select.innerHTML = `<option value="${state.currentUser.nik}">${state.currentUser.nik} - ${state.currentUser.nama}</option>`;
     select.disabled = true;
     document.getElementById(namaId).value = state.currentUser.nama;
     document.getElementById(divId).value = state.currentUser.divisi;
   } else {
-    // Admin bisa pilih NIK
     select.disabled = false;
     select.innerHTML = state.users.map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
-    select.addEventListener('change', () => {
+    select.onchange = () => {
       const u = state.users.find(x => x.nik === select.value);
       if(u) { document.getElementById(namaId).value = u.nama; document.getElementById(divId).value = u.divisi; }
-    });
-    // trigger default
+    };
     if(state.users.length) select.dispatchEvent(new Event('change'));
   }
 }
@@ -284,7 +276,6 @@ async function startApp() {
     document.getElementById('settingTabBtn').classList.remove('hidden');
   }
 
-  // Load dependency
   const usrRes = await apiRequest('getUsers');
   if(usrRes) state.users = usrRes.users || [];
   
@@ -298,7 +289,6 @@ async function startApp() {
   switchTab('formLemburTab');
 }
 
-// LOGIN & LOGOUT
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const res = await apiRequest('login', { 
@@ -310,8 +300,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     localStorage.setItem('currentUser', JSON.stringify(res.user));
     startApp();
   } else {
-    document.getElementById('loginMessage').textContent = 'Kredensial salah!';
-    document.getElementById('loginMessage').style.color = 'red';
+    const msg = document.getElementById('loginMessage');
+    msg.textContent = 'Kredensial atau password salah!';
+    msg.style.color = 'red';
   }
 });
 
@@ -319,7 +310,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('currentUser'); location.reload();
 });
 
-// INIT
 tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 initTheme();
 const savedUser = localStorage.getItem('currentUser');

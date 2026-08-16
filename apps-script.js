@@ -8,7 +8,6 @@ function doPost(e) {
 
     let payload = {};
     if (e.parameter && e.parameter.data) {
-      // Menerima data JSON stringified untuk mendukung array/multi-input yang kompleks
       payload = JSON.parse(e.parameter.data);
     } else {
       return jsonResponse({ success: false, message: 'Data tidak ditemukan.' });
@@ -81,12 +80,23 @@ function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Perbaikan Regex untuk membaca header "Deskripsi" atau spasi dengan presisi
 function normalizeHeaderName(header) {
   return String(header)
     .trim()
     .toLowerCase()
     .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase());
+}
+
+// Fungsi pembantu agar Google Sheets Date/Time object tidak error menjadi 1899-12-30
+function formatCellVal(val) {
+  if (val instanceof Date) {
+    // Jika format waktu (tahun 1899)
+    if (val.getFullYear() === 1899) {
+      return Utilities.formatDate(val, Session.getScriptTimeZone(), 'HH:mm');
+    }
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(val || '').trim();
 }
 
 function getSheetRows(sheetName) {
@@ -104,7 +114,7 @@ function getSheetRows(sheetName) {
     const row = values[i];
     const obj = {};
     headers.forEach((header, index) => {
-      obj[normalizeHeaderName(header)] = row[index] || '';
+      obj[normalizeHeaderName(header)] = formatCellVal(row[index]);
     });
     rows.push(obj);
   }
@@ -114,7 +124,7 @@ function getSheetRows(sheetName) {
 
 // ------------- USERS -------------
 function loginUser(username, password) {
-  const users = getSheetRows('Data Karyawan');
+  const users = getUsers();
   const match = users.find(u => 
     (String(u.username) === String(username) || String(u.nik) === String(username)) 
     && String(u.password) === String(password)
@@ -127,7 +137,17 @@ function loginUser(username, password) {
 }
 
 function getUsers() {
-  return getSheetRows('Data Karyawan').filter(u => String(u.nik).trim() !== '');
+  const rows = getSheetRows('Data Karyawan');
+  return rows
+    .filter(u => String(u.nik || '').trim() !== '')
+    .map(u => ({
+      nik: String(u.nik || '').trim(),
+      nama: String(u.nama || '').trim(),
+      divisi: String(u.divisi || '').trim(),
+      username: String(u.username || '').trim(),
+      password: String(u.password || '').trim(),
+      role: String(u.role || 'user').trim()
+    }));
 }
 
 function saveUser(payload) {
@@ -219,15 +239,14 @@ function updateStatusPerijinan(id, newStatus, adminUsername) {
 
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][0]) === String(id)) {
-      sheet.getRange(i + 1, 10).setValue(newStatus); // Kolom Status
-      sheet.getRange(i + 1, 11).setValue(adminUsername); // Kolom UpdatedBy
+      sheet.getRange(i + 1, 10).setValue(newStatus);
+      sheet.getRange(i + 1, 11).setValue(adminUsername);
       return true;
     }
   }
   return false;
 }
 
-// ------------- UTILS -------------
 function deleteRowById(sheetName, id) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
   const values = sheet.getDataRange().getValues();
