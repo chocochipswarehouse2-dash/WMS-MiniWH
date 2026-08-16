@@ -1,4 +1,4 @@
-const GOOGLE_SHEET_WEB_APP_URL = 'PASTE_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbziFOC_LS6O4jc7-3RcMmkoD5ncs6-FrEIn30nuwJd-HMCkYN1lRpE_ON_yBUgk5QHq/exec";
 
 const state = {
   currentUser: null,
