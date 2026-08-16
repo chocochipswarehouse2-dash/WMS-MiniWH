@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pengajuan Lembur</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <div class="header">
+          <h1>Form Pengajuan Lembur</h1>
+          <p>Ajukan lembur dengan data yang lengkap agar cepat diproses.</p>
+        </div>
+
+        <form id="overtime-form">
+          <div class="grid two-columns">
+            <label>
+              <span>Nama</span>
+              <input type="text" id="nama" name="nama" placeholder="Nama lengkap" required />
+            </label>
+
+            <label>
+              <span>NIK / ID Karyawan</span>
+              <input type="text" id="nik" name="nik" placeholder="Contoh: 12345" />
+            </label>
+          </div>
+
+          <div class="grid two-columns">
+            <label>
+              <span>Divisi / Unit</span>
+              <input type="text" id="divisi" name="divisi" placeholder="Contoh: Warehouse" />
+            </label>
+
+            <label>
+              <span>Tanggal</span>
+              <input type="date" id="tanggal" name="tanggal" required />
+            </label>
+          </div>
+
+          <label>
+            <span>Deskripsi pekerjaan</span>
+            <textarea id="deskripsi" name="deskripsi" rows="4" placeholder="Jelaskan pekerjaan yang dikerjakan saat lembur" required></textarea>
+          </label>
+
+          <div class="grid three-columns">
+            <label>
+              <span>Jam mulai</span>
+              <input type="time" id="jamMulai" name="jamMulai" required />
+            </label>
+
+            <label>
+              <span>Jam selesai</span>
+              <input type="time" id="jamSelesai" name="jamSelesai" required />
+            </label>
+
+            <label>
+              <span>Total jam</span>
+              <input type="text" id="totalJam" name="totalJam" readonly placeholder="0.0 jam" />
+            </label>
+          </div>
+
+          <div class="grid two-columns">
+            <label>
+              <span>Atasan / Penanggung jawab</span>
+              <input type="text" id="atasan" name="atasan" placeholder="Nama atasan" />
+            </label>
+
+            <label>
+              <span>Status</span>
+              <select id="status" name="status">
+                <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+                <option value="Disetujui">Disetujui</option>
+                <option value="Ditolak">Ditolak</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            <span>Catatan tambahan</span>
+            <textarea id="catatan" name="catatan" rows="3" placeholder="Opsional"></textarea>
+          </label>
+
+          <div class="actions">
+            <button type="submit" class="primary-btn">Kirim Pengajuan</button>
+            <button type="reset" class="secondary-btn">Reset</button>
+          </div>
+        </form>
+
+        <div id="response-message" class="response-message" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
