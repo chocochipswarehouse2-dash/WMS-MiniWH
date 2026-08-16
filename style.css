@@ -9,7 +9,6 @@
   --success: #10b981;
   --error: #ef4444;
   --warning: #f59e0b;
-  --info: #3b82f6;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
@@ -39,8 +38,8 @@ body {
   border-radius: 16px; padding: 32px 24px;
   box-shadow: var(--shadow);
 }
-.brand-logo { font-size: 2rem; font-weight: 800; color: var(--primary); margin-bottom: 8px; text-align: center; }
-.auth-card h1 { text-align: center; font-size: 1.4rem; margin-top: 0; margin-bottom: 24px; }
+.brand-title { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-bottom: 8px; text-align: center; }
+.auth-card h1 { text-align: center; font-size: 1.2rem; margin-top: 0; margin-bottom: 24px; color: var(--muted); }
 
 form { display: grid; gap: 16px; }
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 500; font-size: 0.9rem; }
@@ -83,11 +82,11 @@ button { font: inherit; cursor: pointer; border: none; border-radius: 8px; font-
   border-radius: 12px; padding: 24px; box-shadow: var(--shadow);
 }
 .panel h3 { margin-top: 0; margin-bottom: 20px; font-size: 1.15rem; border-bottom: 2px solid var(--bg); padding-bottom: 12px; }
+.panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .grid { display: grid; gap: 16px; }
 .two-columns { grid-template-columns: repeat(2, 1fr); }
 .three-columns { grid-template-columns: repeat(3, 1fr); }
 
-/* Perbaikan Tampilan Dynamic Row & Tombol X */
 .dynamic-row {
   background: var(--bg); padding: 20px 16px 16px 16px; border-radius: 8px;
   position: relative; margin-bottom: 16px; border: 1px solid var(--border);
@@ -106,21 +105,31 @@ button { font: inherit; cursor: pointer; border: none; border-radius: 8px; font-
 table { width: 100%; border-collapse: collapse; min-width: 700px; font-size: 0.9rem; }
 th, td { border: 1px solid var(--border); padding: 12px 14px; text-align: left; vertical-align: middle; }
 th { background: var(--bg); font-weight: 600; color: var(--text); }
-.action-cell { display: flex; gap: 8px; }
+.action-cell { display: flex; gap: 8px; flex-wrap: wrap; }
 .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; color: white; }
+.action-btn.edit { background: var(--warning); }
+.action-btn.delete { background: var(--error); }
 .action-btn.approve { background: var(--success); }
-.action-btn.reject { background: var(--error); }
-.action-btn.delete { background: var(--muted); }
 
 .status { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
 .status.diajukan { background: var(--warning); color: #fff; }
 .status.disetujui { background: var(--success); color: #fff; }
 .status.ditolak { background: var(--error); color: #fff; }
 
+/* Modal */
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: grid; place-items: center; z-index: 100; padding: 20px;
+}
+.modal-content {
+  background: var(--card); width: 100%; max-width: 500px;
+  padding: 24px; border-radius: 12px; box-shadow: var(--shadow);
+}
+
 .toast {
   position: fixed; right: 24px; bottom: 24px; background: var(--card); color: var(--text);
   padding: 14px 20px; border-radius: 8px; border-left: 4px solid;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 50;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 150;
 }
 .toast.success { border-color: var(--success); }
 .toast.error { border-color: var(--error); }

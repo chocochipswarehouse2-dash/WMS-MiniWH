@@ -10,7 +10,7 @@
   <!-- Halaman Login -->
   <div id="loginPage" class="auth-wrap">
     <div class="auth-card">
-      <div class="brand-logo">🍊 S-Lembur</div>
+      <div class="brand-title">Sistem Lembur & Cuti</div>
       <h1>Login</h1>
       <form id="loginForm">
         <label>
@@ -31,7 +31,7 @@
   <div id="appPage" class="hidden">
     <header class="topbar">
       <div class="topbar-left">
-        <h2>🍊 S-Lembur & Cuti</h2>
+        <h2>Sistem Lembur & Cuti</h2>
       </div>
       <div class="topbar-actions">
         <span id="loggedUserLabel" class="user-badge">User</span>
@@ -64,9 +64,7 @@
             </div>
             
             <hr class="divider"/>
-            <div id="lemburListContainer">
-              <!-- Baris input lembur dinamis -->
-            </div>
+            <div id="lemburListContainer"></div>
             
             <div class="submit-row action-bar">
               <button type="button" id="addLemburRowBtn" class="secondary-btn">+ Tambah Baris Lembur</button>
@@ -80,8 +78,7 @@
       <section id="statusLemburTab" class="tab-panel">
         <div class="panel">
           <div class="panel-header-row">
-            <h3>Rekap Lembur Saya</h3>
-            <!-- Tombol Download PDF dikembalikan -->
+            <h3>Rekap Lembur</h3>
             <button type="button" id="downloadStatusPdfBtn" class="primary-btn small-btn">Download PDF</button>
           </div>
           <div id="statusLemburTableWrap" class="table-wrap"></div>
@@ -122,18 +119,17 @@
       <section id="adminLemburTab" class="tab-panel hidden">
         <div class="panel">
           <div class="panel-header-row">
-             <h3>Semua Data Lembur</h3>
-             <!-- Tombol Download PDF dikembalikan -->
+             <h3>Admin Rekap Semua Lembur</h3>
              <button type="button" id="downloadAdminPdfBtn" class="primary-btn small-btn">Download PDF</button>
           </div>
           <div id="adminLemburTableWrap" class="table-wrap"></div>
         </div>
       </section>
 
-      <!-- TAB: ADMIN IJIN/CUTI (APPROVAL) -->
+      <!-- TAB: ADMIN IJIN/CUTI -->
       <section id="adminCutiTab" class="tab-panel hidden">
         <div class="panel">
-          <h3>Approval Ijin / Cuti Karyawan</h3>
+          <h3>Approval & Kelola Ijin / Cuti Karyawan</h3>
           <div id="adminCutiTableWrap" class="table-wrap"></div>
         </div>
       </section>
@@ -143,6 +139,7 @@
         <div class="panel">
           <h3>Kelola User</h3>
           <form id="userForm" class="user-form grid two-columns">
+            <input type="hidden" id="userEditMode" value="false">
             <label><span>NIK</span><input id="userNIK" required/></label>
             <label><span>Nama</span><input id="userName" required/></label>
             <label><span>Divisi</span><input id="userDivisi" required/></label>
@@ -155,6 +152,7 @@
             </div>
           </form>
           <hr class="divider"/>
+          <h3>Daftar User Terdaftar</h3>
           <div id="userListWrap" class="table-wrap"></div>
         </div>
       </section>
@@ -162,9 +160,63 @@
     </main>
   </div>
 
+  <!-- MODAL EDIT LEMBUR -->
+  <div id="editLemburModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Edit Data Lembur</h3>
+      <form id="editLemburForm">
+        <input type="hidden" id="editL_id">
+        <label><span>Tanggal</span><input type="date" id="editL_tanggal" required></label>
+        <label><span>Deskripsi Pekerjaan</span><input type="text" id="editL_deskripsi" required></label>
+        <div class="grid two-columns">
+          <label><span>Jam Mulai</span><input type="time" id="editL_jamMulai" required></label>
+          <label><span>Jam Selesai</span><input type="time" id="editL_jamSelesai" required></label>
+        </div>
+        <label><span>Catatan</span><input type="text" id="editL_catatan"></label>
+        <div class="submit-row" style="margin-top: 16px;">
+          <button type="submit" class="primary-btn">Simpan Perubahan</button>
+          <button type="button" class="secondary-btn" onclick="closeModal('editLemburModal')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL EDIT CUTI -->
+  <div id="editCutiModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Edit & Konfirmasi Ijin / Cuti</h3>
+      <form id="editCutiForm">
+        <input type="hidden" id="editC_id">
+        <label><span>Jenis</span>
+          <select id="editC_jenis" required>
+            <option value="Cuti Tahunan">Cuti Tahunan</option>
+            <option value="Sakit">Sakit</option>
+            <option value="Ijin">Ijin Lainnya</option>
+          </select>
+        </label>
+        <div class="grid two-columns">
+          <label><span>Tanggal Mulai</span><input type="date" id="editC_tglMulai" required></label>
+          <label><span>Tanggal Selesai</span><input type="date" id="editC_tglSelesai" required></label>
+        </div>
+        <label><span>Alasan</span><input type="text" id="editC_alasan" required></label>
+        <label><span>Status Pengajuan</span>
+          <select id="editC_status" required>
+            <option value="Diajukan">Diajukan</option>
+            <option value="Disetujui">Disetujui</option>
+            <option value="Ditolak">Ditolak</option>
+          </select>
+        </label>
+        <div class="submit-row" style="margin-top: 16px;">
+          <button type="submit" class="primary-btn">Simpan Perubahan</button>
+          <button type="button" class="secondary-btn" onclick="closeModal('editCutiModal')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
-  <!-- Library PDF dikembalikan seperti aslimu agar tidak error jika dipakai -->
+  <!-- jsPDF & AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   
