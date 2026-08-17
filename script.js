@@ -295,7 +295,8 @@ async function supabaseApiRequest(action, payload) {
     }
 
     case 'deleteShift': {
-      await supabaseFetch(`master_shift?id=eq.${encodeURIComponent(payload.id)}`, { method: 'DELETE' });
+      const q = (payload.id && isNaN(payload.id)) ? `nama_shift=eq.${encodeURIComponent(payload.id)}` : `id=eq.${encodeURIComponent(payload.id)}`;
+      await supabaseFetch(`master_shift?${q}`, { method: 'DELETE' });
       return { success: true, message: 'Shift berhasil dihapus' };
     }
 
@@ -967,12 +968,14 @@ function renderShiftDropdowns() {
   const userSelect = document.getElementById('userActiveShiftSelect');
   const manualSelect = document.getElementById('m_abs_shift');
   
-  const optionsHtml = [
-    { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', tol: 15 },
-    { namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', tol: 15 },
-    { namaShift: 'Shift 3', jamMasuk: '12:00', jamPulang: '21:00', tol: 15 }
-  ].map(s => `
-    <option value="${s.namaShift}" data-masuk="${s.jamMasuk}" data-pulang="${s.jamPulang}" data-tol="${s.tol}">
+  const shiftList = (state.shifts && state.shifts.length) ? state.shifts : [
+    { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', toleransi: 15 },
+    { namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', toleransi: 15 },
+    { namaShift: 'Shift 3', jamMasuk: '12:00', jamPulang: '21:00', toleransi: 15 }
+  ];
+
+  const optionsHtml = shiftList.map(s => `
+    <option value="${s.namaShift}" data-masuk="${s.jamMasuk}" data-pulang="${s.jamPulang}" data-tol="${s.toleransi || s.toleransiMenit || 15}">
       ${s.namaShift} (${s.jamMasuk} - ${s.jamPulang})
     </option>
   `).join('');
@@ -1136,27 +1139,60 @@ function renderShiftTable() {
   const wrap = document.getElementById('adminShiftTableWrap');
   if (!wrap) return;
 
-  const defaultShifts = [
-    { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', toleransiMenit: 15, status: 'Aktif' },
-    { namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', toleransiMenit: 15, status: 'Aktif' },
-    { namaShift: 'Shift 3', jamMasuk: '12:00 (Sabtu 11:00)', jamPulang: '21:00 (Sabtu 20:00)', toleransiMenit: 15, status: 'Aktif' }
+  const shiftList = (state.shifts && state.shifts.length) ? state.shifts : [
+    { id: '1', namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', toleransi: 15, status: 'Aktif' },
+    { id: '2', namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', toleransi: 15, status: 'Aktif' },
+    { id: '3', namaShift: 'Shift 3', jamMasuk: '12:00', jamPulang: '21:00', toleransi: 15, status: 'Aktif' }
   ];
 
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Nama Shift</th><th>Jam Kerja</th><th>Toleransi</th><th>Status</th></tr></thead>
+      <thead><tr><th>Nama Shift</th><th>Jam Kerja</th><th>Toleransi</th><th>Status</th><th>Aksi</th></tr></thead>
       <tbody>
-        ${defaultShifts.map(s => `
-          <tr>
-            <td><strong>${s.namaShift}</strong></td>
-            <td><span class="mono-text">${s.jamMasuk} - ${s.jamPulang}</span></td>
-            <td><span class="mono-text">${s.toleransiMenit} menit</span></td>
-            <td><span class="status disetujui">${s.status}</span></td>
-          </tr>
-        `).join('')}
+        ${shiftList.map(s => {
+          const shiftKey = s.id || s.namaShift;
+          return `
+            <tr>
+              <td><strong>${s.namaShift}</strong></td>
+              <td><span class="mono-text">${s.jamMasuk} - ${s.jamPulang}</span></td>
+              <td><span class="mono-text">${s.toleransi || s.toleransiMenit || 15} menit</span></td>
+              <td><span class="status ${s.status === 'Aktif' ? 'disetujui' : 'ditolak'}">${s.status || 'Aktif'}</span></td>
+              <td class="action-cell">
+                <div class="action-cell-group">
+                  <button class="action-btn edit" onclick="openEditShift('${shiftKey}')">Edit</button>
+                  <button class="action-btn delete" onclick="deleteShift('${shiftKey}')">Hapus</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('')}
       </tbody>
     </table>
   `;
+}
+
+function openEditShift(idOrName) {
+  const s = state.shifts.find(x => String(x.id) === String(idOrName) || x.namaShift === idOrName);
+  if (!s) return;
+  document.getElementById('shift_id').value = s.id || '';
+  document.getElementById('shift_nama').value = s.namaShift || '';
+  document.getElementById('shift_jamMasuk').value = s.jamMasuk || '';
+  document.getElementById('shift_jamPulang').value = s.jamPulang || '';
+  document.getElementById('shift_toleransi').value = s.toleransi || s.toleransiMenit || 15;
+  document.getElementById('shift_status').value = s.status || 'Aktif';
+  document.getElementById('addShiftModal').classList.remove('hidden');
+}
+
+async function deleteShift(idOrName) {
+  const s = state.shifts.find(x => String(x.id) === String(idOrName) || x.namaShift === idOrName);
+  const name = s ? s.namaShift : idOrName;
+  if (!confirm(`Apakah Anda yakin ingin menghapus "${name}" dari Master Shift?`)) return;
+
+  const res = await apiRequest('deleteShift', { id: s ? (s.id || s.namaShift) : idOrName });
+  if (res) {
+    showToast(`Shift ${name} berhasil dihapus!`);
+    loadShifts();
+  }
 }
 
 document.getElementById('btnOpenAddShiftModal').addEventListener('click', () => {
