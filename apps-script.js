@@ -118,8 +118,23 @@ function getSheetRows(sheetName) {
     const row = values[i];
     const obj = {};
     headers.forEach((header, index) => {
-      obj[normalizeHeaderName(header)] = formatCellVal(row[index]);
+      const key = normalizeHeaderName(header);
+      const val = formatCellVal(row[index]);
+      obj[key] = val;
     });
+
+    // Auto-normalize alias keys for Lembur
+    if (obj.deskripsiPekerjaan && !obj.deskripsi) obj.deskripsi = obj.deskripsiPekerjaan;
+    if (obj.pekerjaan && !obj.deskripsi) obj.deskripsi = obj.pekerjaan;
+    if (obj.keterangan && !obj.deskripsi) obj.deskripsi = obj.keterangan;
+    if (obj.uraian && !obj.deskripsi) obj.deskripsi = obj.uraian;
+    if (obj.deskripsi && !obj.deskripsiPekerjaan) obj.deskripsiPekerjaan = obj.deskripsi;
+
+    // Auto-normalize alias keys for Cuti/Perijinan
+    if (obj.tglMulai && !obj.tanggalMulai) obj.tanggalMulai = obj.tglMulai;
+    if (obj.tglSelesai && !obj.tanggalSelesai) obj.tanggalSelesai = obj.tglSelesai;
+    if (obj.keterangan && !obj.alasan) obj.alasan = obj.keterangan;
+
     rows.push(obj);
   }
 
@@ -196,9 +211,10 @@ function saveLemburMultiple(lemburList) {
 
   lemburList.forEach(payload => {
     const id = payload.id || String(Date.now() + Math.floor(Math.random() * 1000));
+    const desc = payload.deskripsi || payload.deskripsiPekerjaan || payload.keterangan || payload.pekerjaan || '';
     const row = [
-      id, payload.nik, payload.nama, payload.divisi, payload.tanggal, payload.deskripsi,
-      payload.jamMulai, payload.jamSelesai, payload.totalJam, payload.catatan || '',
+      id, payload.nik, payload.nama, payload.divisi, payload.tanggal, desc,
+      payload.jamMulai, payload.jamSelesai, payload.totalJam, payload.catatan || payload.notes || '',
       payload.tanggalInput || new Date().toISOString(), 'Diajukan', payload.updatedBy || ''
     ];
 

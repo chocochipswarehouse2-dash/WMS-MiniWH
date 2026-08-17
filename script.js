@@ -178,7 +178,7 @@ function renderLemburTables() {
     <tr>
       ${isAdmin ? `<td>${r.nik}<br><small>${r.nama}</small></td>` : ''}
       <td>${formatDate(r.tanggal)}</td>
-      <td><strong>${r.deskripsi || '-'}</strong></td>
+      <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
       <td>${r.jamMulai || '-'}</td>
       <td>${r.jamSelesai || '-'}</td>
       <td>${r.totalJam || '-'}</td>
@@ -277,7 +277,7 @@ window.openEditLembur = (id) => {
   if(!item) return;
   document.getElementById('editL_id').value = item.id;
   document.getElementById('editL_tanggal').value = item.tanggal || '';
-  document.getElementById('editL_deskripsi').value = item.deskripsi || '';
+  document.getElementById('editL_deskripsi').value = item.deskripsi || item.deskripsiPekerjaan || item.keterangan || item.pekerjaan || '';
   document.getElementById('editL_jamMulai').value = item.jamMulai || '';
   document.getElementById('editL_jamSelesai').value = item.jamSelesai || '';
   document.getElementById('editL_catatan').value = item.catatan || '';
@@ -423,7 +423,7 @@ function exportPdf(isAdmin) {
   const body = rows.map(r => [
     isAdmin ? `${r.nik} - ${r.nama}` : '',
     formatDate(r.tanggal),
-    r.deskripsi || '-',
+    r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-',
     r.jamMulai || '-',
     r.jamSelesai || '-',
     r.totalJam || '-',
