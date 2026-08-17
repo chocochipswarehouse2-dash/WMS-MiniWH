@@ -843,6 +843,21 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+  <!-- Error trap: tampilkan error script.js di layar -->
+  <script>
+  window.onerror = function(msg, src, line, col, err) {
+    var div = document.getElementById('loginMessage');
+    if (div) {
+      div.style.color = 'red';
+      div.style.fontFamily = 'monospace';
+      div.style.fontSize = '11px';
+      div.innerHTML = '<b>JS ERROR (baris ' + line + '):</b><br>' + msg + '<br><small>' + src + '</small>';
+    }
+    console.error('SCRIPT ERROR:', msg, 'at line', line, col, err);
+    return false;
+  };
+  </script>
+
   <script src="script.js"></script>
 </body>
 </html>
