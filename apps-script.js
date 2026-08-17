@@ -1,4 +1,5 @@
 function doGet() {
+  ensureSheets();
   return ContentService.createTextOutput('Warehouse Management System API - Online.');
 }
 
@@ -109,14 +110,14 @@ function doPost(e) {
 function ensureSheets() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. DATA KARYAWAN
+  // 1. DATA KARYAWAN (Auto-normalize & Realignment)
   let karyawanSheet = spreadsheet.getSheetByName('Data Karyawan');
   if (!karyawanSheet) {
     karyawanSheet = spreadsheet.insertSheet('Data Karyawan');
     karyawanSheet.appendRow(['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt']);
     karyawanSheet.appendRow(['WH0001', 'Admin Warehouse', 'Warehouse', 'admin', '12345', 'admin', '', '', 4500000, 500000, 25000, 0, 'Aktif', new Date().toISOString()]);
   } else {
-    ensureHeaders(karyawanSheet, ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt']);
+    normalizeAndFixKaryawanSheet(karyawanSheet);
   }
 
   // 2. DATA SHIFT MASTER
@@ -169,6 +170,80 @@ function ensureSheets() {
   if (!payrollSheet) {
     payrollSheet = spreadsheet.insertSheet('Data Payroll');
     payrollSheet.appendRow(['ID', 'Periode', 'NIK', 'Nama', 'Divisi', 'GajiPokok', 'Tunjangan', 'TotalJamLembur', 'RateLembur', 'TotalUangLembur', 'PotonganKasbon', 'PotonganAbsensi', 'PotonganLain', 'GajiBersih', 'Status', 'Catatan', 'UpdatedBy', 'CreatedAt']);
+  }
+}
+
+/**
+ * Otomatis memperbaiki pergeseran kolom (misaligned columns) pada Data Karyawan
+ */
+function normalizeAndFixKaryawanSheet(sheet) {
+  const standardHeaders = ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt'];
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 1) return;
+
+  const currentHeaders = values[0].map(h => String(h).trim().toLowerCase());
+  
+  // Deteksi apakah ada pergeseran kolom (misal kolom G berisi 'status aktif' atau email berisi angka gaji)
+  const isShifted = currentHeaders.includes('status aktif') || 
+                    currentHeaders.indexOf('email') > 6 || 
+                    (values.length > 1 && String(values[1][currentHeaders.indexOf('email')]).match(/^[0-9]{5,}$/));
+
+  if (isShifted) {
+    const cleanedRows = [standardHeaders];
+
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const nik = String(row[0] || '').trim();
+      if (!nik) continue;
+
+      let nama = String(row[1] || '').trim();
+      let divisi = String(row[2] || 'Warehouse').trim();
+      let username = String(row[3] || nik).trim();
+      let password = String(row[4] || '12345').trim();
+      let role = String(row[5] || 'user').trim();
+
+      // Periksa apakah data lama bergeser 2 kolom ke kanan (karena adanya kolom 'status aktif' dan blank)
+      let email = '';
+      let noHp = '';
+      let gajiPokok = 0;
+      let tunjangan = 0;
+      let rateLembur = 25000;
+      let saldoKasbon = 0;
+      let status = 'Aktif';
+      let createdAt = new Date().toISOString();
+
+      if (row.length > 8 && !isNaN(Number(row[8])) && Number(row[8]) > 100000) {
+        email = (String(row[6] || '').includes('@')) ? String(row[6]).trim() : '';
+        noHp = (String(row[7] || '').startsWith('0') || String(row[7] || '').startsWith('62') || String(row[7] || '').startsWith('8')) ? String(row[7]).trim() : '';
+        gajiPokok = Number(row[8] || 0);
+        tunjangan = Number(row[9] || 0);
+        rateLembur = Number(row[10] || 25000);
+        saldoKasbon = Number(row[11] || 0);
+        status = String(row[12] || 'Aktif').trim();
+        createdAt = formatCellVal(row[13]) || new Date().toISOString();
+      } else {
+        email = String(row[6] || '').trim();
+        noHp = String(row[7] || '').trim();
+        gajiPokok = Number(row[8] || 0);
+        tunjangan = Number(row[9] || 0);
+        rateLembur = Number(row[10] || 25000);
+        saldoKasbon = Number(row[11] || 0);
+        status = String(row[12] || 'Aktif').trim();
+        createdAt = formatCellVal(row[13]) || new Date().toISOString();
+      }
+
+      cleanedRows.push([
+        nik, nama, divisi, username, password, role,
+        email, noHp, gajiPokok, tunjangan, rateLembur, saldoKasbon, status, createdAt
+      ]);
+    }
+
+    // Bersihkan sheet dan timpa dengan susunan kolom standar yang rapi
+    sheet.clear();
+    sheet.getRange(1, 1, cleanedRows.length, standardHeaders.length).setValues(cleanedRows);
+  } else {
+    // Pastikan header lengkap
+    ensureHeaders(sheet, standardHeaders);
   }
 }
 
@@ -299,14 +374,14 @@ function saveUser(payload) {
     targetNIK, 
     payload.nama || '', 
     payload.divisi || 'Warehouse', 
-    payload.username || '', 
-    payload.password || '', 
+    payload.username || targetNIK, 
+    payload.password || '12345', 
     payload.role || 'user', 
     payload.email || '', 
     payload.noHp || payload.nohp || '',
     Number(payload.gajiPokok || 0),
     Number(payload.tunjangan || 0),
-    Number(payload.rateLembur || 0),
+    Number(payload.rateLembur || 25000),
     Number(payload.saldoKasbon || 0),
     'Aktif', 
     new Date().toISOString()
