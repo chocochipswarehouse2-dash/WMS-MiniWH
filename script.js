@@ -317,13 +317,14 @@ async function supabaseApiRequest(action, payload) {
       };
     }
 
+    case 'saveRosterBulk':
     case 'importRosterShifts': {
       const rows = (payload.rosterList || payload.data || []).map(r => ({
         nik: r.nik,
         tanggal: r.tanggal,
         shift: r.shift,
-        jam_masuk: r.jamMasuk,
-        jam_pulang: r.jamPulang,
+        jam_masuk: r.jamMasuk || '',
+        jam_pulang: r.jamPulang || '',
         keterangan: r.keterangan || ''
       }));
       await supabaseFetch('roster_shift?on_conflict=nik,tanggal', {
@@ -413,41 +414,70 @@ async function supabaseApiRequest(action, payload) {
       const data = await supabaseFetch(`lembur?order=tanggal.desc${filter}`);
       return {
         success: true,
-        data: data.map(l => ({
-          id: l.id,
+        data: data.map(l => {
+          const jamM = (l.jam_mulai || '').slice(0, 5);
+          const jamS = (l.jam_selesai || '').slice(0, 5);
+          let dur = Number(l.durasi_jam || 0);
+          if ((!dur || dur === 0) && jamM && jamS) {
+            const [h1, m1] = jamM.split(':').map(Number);
+            const [h2, m2] = jamS.split(':').map(Number);
+            if (!isNaN(h1) && !isNaN(h2)) {
+              let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+              if (mins < 0) mins += 24 * 60;
+              dur = mins / 60;
+            }
+          }
+          return {
+            id: l.id,
+            nik: l.nik,
+            nama: l.nama,
+            divisi: l.divisi,
+            tanggal: l.tanggal,
+            deskripsi: l.deskripsi,
+            jamMulai: jamM,
+            jamSelesai: jamS,
+            durasiJam: dur,
+            totalJam: dur > 0 ? `${dur % 1 === 0 ? dur.toFixed(0) : dur.toFixed(2)} Jam` : '-',
+            rateLembur: Number(l.rate_lembur || 0),
+            totalLembur: Number(l.total_lembur || 0),
+            status: l.status,
+            approvedBy: l.approved_by || '',
+            catatan: l.catatan || ''
+          };
+        })
+      };
+    }
+
+    case 'saveLembur': {
+      const list = (payload.lemburList || [payload.lembur || payload]).map(l => {
+        const jamM = l.jamMulai || '';
+        const jamS = l.jamSelesai || '';
+        let dur = Number(l.durasiJam || 0);
+        if ((!dur || dur === 0) && jamM && jamS) {
+          const [h1, m1] = jamM.split(':').map(Number);
+          const [h2, m2] = jamS.split(':').map(Number);
+          if (!isNaN(h1) && !isNaN(h2)) {
+            let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+            if (mins < 0) mins += 24 * 60;
+            dur = mins / 60;
+          }
+        }
+        return {
+          id: l.id || 'LMB-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
           nik: l.nik,
           nama: l.nama,
           divisi: l.divisi,
           tanggal: l.tanggal,
           deskripsi: l.deskripsi,
-          jamMulai: (l.jam_mulai || '').slice(0, 5),
-          jamSelesai: (l.jam_selesai || '').slice(0, 5),
-          durasiJam: Number(l.durasi_jam || 0),
-          rateLembur: Number(l.rate_lembur || 0),
-          totalLembur: Number(l.total_lembur || 0),
-          status: l.status,
-          approvedBy: l.approved_by || '',
+          jam_mulai: jamM.length === 5 ? jamM + ':00' : jamM,
+          jam_selesai: jamS.length === 5 ? jamS + ':00' : jamS,
+          durasi_jam: dur,
+          rate_lembur: Number(l.rateLembur || 0),
+          total_lembur: Number(l.totalLembur || (dur * Number(l.rateLembur || 0))),
+          status: 'Diajukan',
           catatan: l.catatan || ''
-        }))
-      };
-    }
-
-    case 'saveLembur': {
-      const list = (payload.lemburList || [payload.lembur || payload]).map(l => ({
-        id: l.id || 'LMB-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        nik: l.nik,
-        nama: l.nama,
-        divisi: l.divisi,
-        tanggal: l.tanggal,
-        deskripsi: l.deskripsi,
-        jam_mulai: l.jamMulai.length === 5 ? l.jamMulai + ':00' : l.jamMulai,
-        jam_selesai: l.jamSelesai.length === 5 ? l.jamSelesai + ':00' : l.jamSelesai,
-        durasi_jam: Number(l.durasiJam || 0),
-        rate_lembur: Number(l.rateLembur || 0),
-        total_lembur: Number(l.totalLembur || 0),
-        status: 'Diajukan',
-        catatan: l.catatan || ''
-      }));
+        };
+      });
       await supabaseFetch('lembur?on_conflict=id', {
         method: 'POST',
         headers: { 'Prefer': 'resolution=merge-duplicates' },
@@ -478,16 +508,28 @@ async function supabaseApiRequest(action, payload) {
 
     case 'editLembur': {
       const l = payload.lembur || payload;
+      const jamM = l.jamMulai || '';
+      const jamS = l.jamSelesai || '';
+      let dur = Number(l.durasiJam || 0);
+      if ((!dur || dur === 0) && jamM && jamS) {
+        const [h1, m1] = jamM.split(':').map(Number);
+        const [h2, m2] = jamS.split(':').map(Number);
+        if (!isNaN(h1) && !isNaN(h2)) {
+          let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+          if (mins < 0) mins += 24 * 60;
+          dur = mins / 60;
+        }
+      }
       await supabaseFetch(`lembur?id=eq.${encodeURIComponent(l.id)}`, {
         method: 'PATCH',
         body: {
           tanggal: l.tanggal,
           deskripsi: l.deskripsi,
-          jam_mulai: l.jamMulai.length === 5 ? l.jamMulai + ':00' : l.jamMulai,
-          jam_selesai: l.jamSelesai.length === 5 ? l.jamSelesai + ':00' : l.jamSelesai,
-          durasi_jam: Number(l.durasiJam || 0),
+          jam_mulai: jamM.length === 5 ? jamM + ':00' : jamM,
+          jam_selesai: jamS.length === 5 ? jamS + ':00' : jamS,
+          durasi_jam: dur,
           rate_lembur: Number(l.rateLembur || 0),
-          total_lembur: Number(l.totalLembur || 0),
+          total_lembur: Number(l.totalLembur || (dur * Number(l.rateLembur || 0))),
           catatan: l.catatan || ''
         }
       });
@@ -510,7 +552,9 @@ async function supabaseApiRequest(action, payload) {
           divisi: c.divisi,
           jenis: c.jenis,
           tglMulai: c.tgl_mulai,
-          tglSelesai: c.tgl_selesai,
+          tglSelesai: c.tgl_selesai || c.tgl_mulai,
+          tanggalMulai: c.tgl_mulai,
+          tanggalSelesai: c.tgl_selesai || c.tgl_mulai,
           jumlahHari: c.jumlah_hari,
           alasan: c.alasan,
           status: c.status,
@@ -1156,21 +1200,62 @@ function downloadCsv(filename, text) {
 }
 
 document.getElementById('btnDownloadShiftTemplate').addEventListener('click', () => {
-  const header = 'NIK,Nama,Tanggal,Shift,JamMasuk,JamPulang,Keterangan\n';
-  const rows = [
-    'WH0002,Sasi Novita,2026-08-26,Shift 1,08:00,17:00,',
-    'WH0002,Sasi Novita,2026-08-27,Shift 1,08:00,17:00,',
-    'WH0002,Sasi Novita,2026-08-28,Shift 2,09:00,18:00,',
-    'WH0002,Sasi Novita,2026-08-30,Shift 1,08:00,17:00,',
-    'WH0002,Sasi Novita,2026-08-31,Libur,,,Minggu',
-    'WH0003,Irma,2026-08-26,Shift 2,09:00,18:00,',
-    'WH0003,Irma,2026-08-27,Shift 3,12:00,21:00,',
-    'WH0003,Irma,2026-08-28,Shift 3,12:00,21:00,',
-    'WH0003,Irma,2026-08-30,Shift 2,09:00,18:00,',
-    'WH0003,Irma,2026-08-31,Libur,,,Minggu',
-  ].join('\n');
-  downloadCsv('template_jadwal_shift_warehouse.csv', header + rows);
+  const today = new Date();
+  const startStr = today.toISOString().slice(0, 10);
+  const end = new Date(today);
+  end.setDate(end.getDate() + 6); // default 7 hari
+  const endStr = end.toISOString().slice(0, 10);
+
+  const startInput = document.getElementById('tpl_shift_start_date');
+  const endInput = document.getElementById('tpl_shift_end_date');
+  if (startInput) startInput.value = startStr;
+  if (endInput) endInput.value = endStr;
+
+  document.getElementById('downloadShiftTemplateModal').classList.remove('hidden');
 });
+
+function executeDownloadShiftTemplate() {
+  const startVal = document.getElementById('tpl_shift_start_date').value;
+  const endVal = document.getElementById('tpl_shift_end_date').value;
+  if (!startVal || !endVal) return showToast('Pilih tanggal mulai dan tanggal selesai!', 'error');
+
+  const startDate = new Date(startVal);
+  const endDate = new Date(endVal);
+  if (endDate < startDate) return showToast('Tanggal selesai tidak boleh sebelum tanggal mulai!', 'error');
+
+  const dates = [];
+  const curr = new Date(startDate);
+  while (curr <= endDate) {
+    dates.push(curr.toISOString().slice(0, 10));
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  if (dates.length > 62) {
+    return showToast('Maksimal rentang tanggal adalah 62 hari (2 bulan)!', 'error');
+  }
+
+  // Format Header: Nama,ID,2026-08-01,2026-08-02,...
+  const header = `Nama,ID,${dates.join(',')}\n`;
+  
+  // Data Seluruh Karyawan
+  const users = state.users && state.users.length ? state.users : [
+    { nama: 'Effendy', nik: 'WH0001' },
+    { nama: 'Sasi Novita', nik: 'WH0002' },
+    { nama: 'Irma', nik: 'WH0003' }
+  ];
+
+  const rows = users.map(u => {
+    const shiftCols = dates.map(d => {
+      const day = new Date(d).getDay();
+      return day === 0 ? '"Libur"' : '"Shift 1"';
+    }).join(',');
+    return `"${u.nama || ''}","${u.nik || ''}",${shiftCols}`;
+  }).join('\n');
+
+  downloadCsv(`template_roster_shift_${startVal}_sd_${endVal}.csv`, header + rows);
+  closeModal('downloadShiftTemplateModal');
+  showToast(`Template CSV berhasil diunduh (${dates.length} tanggal, ${users.length} karyawan)`);
+}
 
 document.getElementById('btnExportShiftCsv').addEventListener('click', () => {
   if (!state.roster.length) return showToast('Belum ada data roster untuk diexport!', 'error');
@@ -1194,38 +1279,121 @@ document.getElementById('shiftCsvFileInput').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (evt) => {
     const text = evt.target.result;
-    const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+    const lines = text.split(/\r\n|\n/).map(l => l.trim()).filter(l => l !== '');
     if (lines.length < 2) return showToast('File CSV kosong atau tidak valid', 'error');
 
-    const headers = lines[0].split(',').map(h => h.replace(/["']/g, '').trim().toLowerCase());
+    // Helper untuk mencari jam masuk & pulang dari master_shift
+    function resolveShiftHours(shiftName) {
+      const sName = String(shiftName || '').trim();
+      const sLower = sName.toLowerCase();
+      if (!sName || sLower === '-' || sLower === 'libur' || sLower === 'off' || sLower === 'cuti') {
+        return { shift: sName || 'Libur', jamMasuk: '', jamPulang: '' };
+      }
+      const matched = state.shifts.find(s => s.namaShift.toLowerCase().trim() === sLower);
+      if (matched) {
+        return { shift: matched.namaShift, jamMasuk: matched.jamMasuk, jamPulang: matched.jamPulang };
+      }
+      // Partial match (e.g. "shift 1", "shift1", "1")
+      const partial = state.shifts.find(s => s.namaShift.toLowerCase().replace(/\s+/g, '') === sLower.replace(/\s+/g, ''));
+      if (partial) {
+        return { shift: partial.namaShift, jamMasuk: partial.jamMasuk, jamPulang: partial.jamPulang };
+      }
+      return { shift: sName, jamMasuk: '08:00', jamPulang: '17:00' };
+    }
+
+    const rawHeaders = lines[0].split(',').map(h => h.replace(/^["']|["']$/g, '').trim());
+    const lowerHeaders = rawHeaders.map(h => h.toLowerCase());
     const parsed = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-      if (cols.length >= 4) {
-        parsed.push({
-          nik: cols[0],
-          nama: cols[1] || '',
-          tanggal: cols[2],
-          shift: cols[3] || 'Shift 1',
-          jamMasuk: cols[4] || '08:00',
-          jamPulang: cols[5] || '17:00',
-          keterangan: cols[6] || ''
+    // Deteksi apakah format Matrix (ada kolom tanggal YYYY-MM-DD di header)
+    const dateColIndexes = [];
+    rawHeaders.forEach((h, idx) => {
+      if (/\d{4}-\d{2}-\d{2}/.test(h) || /\d{2}-\d{2}-\d{4}/.test(h) || /tgl_\d{4}-\d{2}-\d{2}/i.test(h)) {
+        let dateStr = h.replace(/^tgl_/i, '').trim();
+        if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+          const [d, m, y] = dateStr.split('-');
+          dateStr = `${y}-${m}-${d}`;
+        }
+        dateColIndexes.push({ idx, date: dateStr });
+      }
+    });
+
+    if (dateColIndexes.length > 0) {
+      // 1. FORMAT MATRIX: Nama, ID, Tgl1, Tgl2, ...
+      let nikCol = lowerHeaders.findIndex(h => h === 'id' || h === 'nik' || h === 'id karyawan' || h === 'nik karyawan');
+      let namaCol = lowerHeaders.findIndex(h => h === 'nama' || h === 'nama karyawan' || h === 'name');
+      if (nikCol === -1) nikCol = 1;
+      if (namaCol === -1) namaCol = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
+        const nik = cols[nikCol] || '';
+        const nama = cols[namaCol] || '';
+        if (!nik) continue;
+
+        dateColIndexes.forEach(({ idx, date }) => {
+          const shiftVal = cols[idx];
+          if (shiftVal && shiftVal !== '' && shiftVal !== '-') {
+            const shiftInfo = resolveShiftHours(shiftVal);
+            parsed.push({
+              nik,
+              nama,
+              tanggal: date,
+              shift: shiftInfo.shift,
+              jamMasuk: shiftInfo.jamMasuk,
+              jamPulang: shiftInfo.jamPulang,
+              keterangan: shiftInfo.shift.toLowerCase().includes('libur') ? 'Libur' : ''
+            });
+          }
         });
       }
+    } else {
+      // 2. FORMAT FLAT LIST: NIK, Nama, Tanggal, Shift, [JamMasuk, JamPulang, Keterangan]
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
+        if (cols.length >= 3) {
+          const nik = cols[0];
+          const nama = cols[1] || '';
+          const tanggal = cols[2];
+          const shiftName = cols[3] || 'Shift 1';
+          const shiftInfo = resolveShiftHours(shiftName);
+
+          parsed.push({
+            nik,
+            nama,
+            tanggal,
+            shift: shiftInfo.shift,
+            jamMasuk: cols[4] || shiftInfo.jamMasuk,
+            jamPulang: cols[5] || shiftInfo.jamPulang,
+            keterangan: cols[6] || ''
+          });
+        }
+      }
     }
+
+    if (!parsed.length) return showToast('Tidak ada data roster valid yang ditemukan dalam CSV', 'error');
 
     state.pendingShiftImport = parsed;
     const previewWrap = document.getElementById('shiftImportPreviewWrap');
     previewWrap.style.display = 'block';
     previewWrap.innerHTML = `
       <table>
-        <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Shift</th><th>Masuk - Pulang</th></tr></thead>
+        <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Shift</th><th>Jam Masuk - Pulang</th></tr></thead>
         <tbody>
-          ${parsed.slice(0, 5).map(p => `<tr><td>${p.nik}</td><td>${p.nama}</td><td>${p.tanggal}</td><td>${p.shift}</td><td>${p.jamMasuk} - ${p.jamPulang}</td></tr>`).join('')}
+          ${parsed.slice(0, 8).map(p => `
+            <tr>
+              <td><span class="mono-text">${p.nik}</span></td>
+              <td><strong>${p.nama}</strong></td>
+              <td><span class="mono-text">${formatDate(p.tanggal)}</span></td>
+              <td><span class="status disetujui">${p.shift}</span></td>
+              <td><span class="mono-text">${p.jamMasuk && p.jamPulang ? (p.jamMasuk + ' - ' + p.jamPulang) : (p.shift || '-')}</span></td>
+            </tr>
+          `).join('')}
         </tbody>
       </table>
-      <small style="display:block; padding: 6px 12px; color: var(--text-muted);">Total ${parsed.length} baris siap di-import.</small>
+      <small style="display:block; padding: 8px 12px; color: var(--text-muted);">
+        Total <strong>${parsed.length}</strong> jadwal roster karyawan siap di-import ke database.
+      </small>
     `;
 
     document.getElementById('btnExecuteImportShift').disabled = false;
@@ -1238,7 +1406,7 @@ document.getElementById('btnExecuteImportShift').addEventListener('click', async
   const btn = document.getElementById('btnExecuteImportShift');
   setButtonLoading(btn, true, 'Mengimport...');
 
-  const res = await apiRequest('saveRosterBulk', { rosterList: state.pendingShiftImport });
+  const res = await apiRequest('importRosterShifts', { rosterList: state.pendingShiftImport });
   setButtonLoading(btn, false);
   if (res) {
     showToast(`Berhasil mengimport ${res.count || state.pendingShiftImport.length} jadwal roster!`);
@@ -1948,24 +2116,38 @@ function renderLemburTables() {
   const myMonthLembur = saya.filter(r => String(r.tanggal || '').startsWith(currentMonth));
   let totalHours = 0;
   myMonthLembur.forEach(r => {
-    const num = Number(String(r.totalJam || '').replace(/[^0-9.]/g, ''));
+    const num = Number(r.durasiJam || String(r.totalJam || '').replace(/[^0-9.]/g, ''));
     totalHours += num || 0;
   });
   const monthLemburEl = document.getElementById('userMonthOvertimeHours');
   if (monthLemburEl) monthLemburEl.textContent = `${totalHours.toFixed(2)} Jam`;
 
   // Status Lembur Saya (User View: NO Edit/Delete)
-  const userRows = saya.length ? saya.map(r => `
-    <tr>
-      <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
-      <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
-      <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
-      <td><span class="mono-text">${r.jamSelesai || '-'}</span></td>
-      <td><span class="mono-text">${r.totalJam || '-'}</span></td>
-      <td>${r.catatan || '-'}</td>
-      <td>${renderStatusBadge(r.status)}</td>
-    </tr>
-  `).join('') : `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur yang tercatat.</td></tr>`;
+  const userRows = saya.length ? saya.map(r => {
+    let dur = Number(r.durasiJam || 0);
+    if (!dur && r.jamMulai && r.jamSelesai) {
+      const [h1, m1] = r.jamMulai.split(':').map(Number);
+      const [h2, m2] = r.jamSelesai.split(':').map(Number);
+      if (!isNaN(h1) && !isNaN(h2)) {
+        let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+        if (mins < 0) mins += 24 * 60;
+        dur = mins / 60;
+      }
+    }
+    const durStr = dur > 0 ? `${dur % 1 === 0 ? dur.toFixed(0) : dur.toFixed(2)} Jam` : (r.totalJam || '-');
+
+    return `
+      <tr>
+        <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
+        <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
+        <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
+        <td><span class="mono-text">${r.jamSelesai || '-'}</span></td>
+        <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${durStr}</span></td>
+        <td>${r.catatan || '-'}</td>
+        <td>${renderStatusBadge(r.status)}</td>
+      </tr>
+    `;
+  }).join('') : `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur yang tercatat.</td></tr>`;
 
   document.getElementById('statusLemburTableWrap').innerHTML = `
     <table>
@@ -1976,25 +2158,41 @@ function renderLemburTables() {
 
   // Admin Rekap Lembur (Admin View: with Edit & Delete)
   if (state.currentUser.role === 'admin') {
-    const adminRows = state.lembur.length ? state.lembur.map(r => `
-      <tr>
-        <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
-        <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
-        <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
-        <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
-        <td><span class="mono-text">${r.jamSelesai || '-'}</span></td>
-        <td><span class="mono-text">${r.totalJam || '-'}</span></td>
-        <td>${r.catatan || '-'}</td>
-        <td class="action-cell">
-          <button class="action-btn edit" onclick="openEditLembur('${r.id}')">Edit</button>
-          <button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button>
-        </td>
-      </tr>
-    `).join('') : `<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur.</td></tr>`;
+    const adminRows = state.lembur.length ? state.lembur.map(r => {
+      let dur = Number(r.durasiJam || 0);
+      if (!dur && r.jamMulai && r.jamSelesai) {
+        const [h1, m1] = r.jamMulai.split(':').map(Number);
+        const [h2, m2] = r.jamSelesai.split(':').map(Number);
+        if (!isNaN(h1) && !isNaN(h2)) {
+          let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+          if (mins < 0) mins += 24 * 60;
+          dur = mins / 60;
+        }
+      }
+      const durStr = dur > 0 ? `${dur % 1 === 0 ? dur.toFixed(0) : dur.toFixed(2)} Jam` : (r.totalJam || '-');
+
+      return `
+        <tr>
+          <td><strong>${r.nama || '-'}</strong><br><small class="mono-text">${r.nik}</small></td>
+          <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
+          <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
+          <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
+          <td><span class="mono-text">${r.jamSelesai || '-'}</span></td>
+          <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${durStr}</span></td>
+          <td>${r.catatan || '-'}</td>
+          <td class="action-cell">
+            <div class="action-cell-group">
+              <button class="action-btn edit" onclick="openEditLembur('${r.id}')">Edit</button>
+              <button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('') : `<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur.</td></tr>`;
 
     document.getElementById('adminLemburTableWrap').innerHTML = `
       <table>
-        <thead><tr><th>User</th><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
         <tbody>${adminRows}</tbody>
       </table>
     `;
@@ -2009,24 +2207,43 @@ function renderCutiTables() {
   const allLeaves = state.cuti;
 
   const userRows = allLeaves.length ? allLeaves.map(r => {
-    const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis} untuk periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}. Alasan: ${r.alasan}. Mohon konfirmasi. Terima kasih.`);
+    const tglMulai = r.tglMulai || r.tanggalMulai || '';
+    const tglSelesai = r.tglSelesai || r.tanggalSelesai || tglMulai;
+    const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis || 'Cuti'} untuk periode ${tglMulai} s/d ${tglSelesai}. Alasan: ${r.alasan || '-'}. Mohon konfirmasi. Terima kasih.`);
     const waAdminBtn = (adminPhone && r.nik === state.currentUser.nik) ? `<a class="action-btn wa" href="https://wa.me/${adminPhone}?text=${userWaMsg}" target="_blank">📲 WA Admin</a>` : '';
 
     return `
       <tr>
-        <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
-        <td><strong>${r.jenis}</strong></td>
-        <td><span class="mono-text">${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</span></td>
-        <td>${r.alasan}</td>
+        <td><strong>${r.nama || '-'}</strong></td>
+        <td><span class="mono-text">${r.nik || '-'}</span></td>
+        <td><strong>${r.jenis || 'Cuti'}</strong></td>
+        <td><span class="mono-text">${formatDate(tglMulai)}</span></td>
+        <td><span class="mono-text">${formatDate(tglSelesai)}</span></td>
+        <td>${r.alasan || '-'}</td>
         <td>${renderStatusBadge(r.status)}</td>
-        <td class="action-cell">${waAdminBtn || '-'}</td>
+        <td class="action-cell">
+          <div class="action-cell-group">
+            ${waAdminBtn || '-'}
+          </div>
+        </td>
       </tr>
     `;
-  }).join('') : `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada jadwal cuti/ijin tim warehouse.</td></tr>`;
+  }).join('') : `<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada jadwal cuti/ijin tim warehouse.</td></tr>`;
 
   document.getElementById('statusCutiTableWrap').innerHTML = `
     <table>
-      <thead><tr><th>Karyawan</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Hubungi</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Nama Karyawan</th>
+          <th>ID</th>
+          <th>Jenis</th>
+          <th>Tanggal Mulai</th>
+          <th>Tanggal Selesai</th>
+          <th>Alasan</th>
+          <th>Status</th>
+          <th>Hubungi</th>
+        </tr>
+      </thead>
       <tbody>${userRows}</tbody>
     </table>
   `;
@@ -2034,30 +2251,47 @@ function renderCutiTables() {
   // Admin Approval & Management View
   if (state.currentUser.role === 'admin') {
     const adminRows = allLeaves.length ? allLeaves.map(r => {
+      const tglMulai = r.tglMulai || r.tanggalMulai || '';
+      const tglSelesai = r.tglSelesai || r.tanggalSelesai || tglMulai;
       const empUser = state.users.find(u => String(u.nik) === String(r.nik));
       const empPhone = empUser ? formatWaNumber(empUser.noHp || empUser.nohp) : '';
-      const adminWaMsg = encodeURIComponent(`Halo ${r.nama}, terkait pengajuan ${r.jenis} periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}, status pengajuan saat ini: [${r.status || 'Diajukan'}]. Terima kasih.`);
+      const adminWaMsg = encodeURIComponent(`Halo ${r.nama}, terkait pengajuan ${r.jenis || 'Cuti'} periode ${tglMulai} s/d ${tglSelesai}, status pengajuan saat ini: [${r.status || 'Diajukan'}]. Terima kasih.`);
       const waEmpBtn = empPhone ? `<a class="action-btn wa" href="https://wa.me/${empPhone}?text=${adminWaMsg}" target="_blank">📲 WA</a>` : '';
 
       return `
         <tr>
-          <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
-          <td><strong>${r.jenis}</strong></td>
-          <td><span class="mono-text">${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</span></td>
-          <td>${r.alasan}</td>
+          <td><strong>${r.nama || '-'}</strong></td>
+          <td><span class="mono-text">${r.nik || '-'}</span></td>
+          <td><strong>${r.jenis || 'Cuti'}</strong></td>
+          <td><span class="mono-text">${formatDate(tglMulai)}</span></td>
+          <td><span class="mono-text">${formatDate(tglSelesai)}</span></td>
+          <td>${r.alasan || '-'}</td>
           <td>${renderStatusBadge(r.status)}</td>
           <td class="action-cell">
-            <button class="action-btn edit" onclick="openEditCuti('${r.id}')">Edit & Status</button>
-            ${waEmpBtn}
-            <button class="action-btn delete" onclick="deleteCuti('${r.id}')">Hapus</button>
+            <div class="action-cell-group">
+              <button class="action-btn edit" onclick="openEditCuti('${r.id}')">Edit & Status</button>
+              ${waEmpBtn}
+              <button class="action-btn delete" onclick="deleteCuti('${r.id}')">Hapus</button>
+            </div>
           </td>
         </tr>
       `;
-    }).join('') : `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada pengajuan cuti.</td></tr>`;
+    }).join('') : `<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada pengajuan cuti.</td></tr>`;
 
     document.getElementById('adminCutiTableWrap').innerHTML = `
       <table>
-        <thead><tr><th>User</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi / Notif</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Nama Karyawan</th>
+            <th>ID</th>
+            <th>Jenis</th>
+            <th>Tanggal Mulai</th>
+            <th>Tanggal Selesai</th>
+            <th>Alasan</th>
+            <th>Status</th>
+            <th>Aksi / Notif</th>
+          </tr>
+        </thead>
         <tbody>${adminRows}</tbody>
       </table>
     `;
@@ -2407,15 +2641,15 @@ async function startApp() {
       if (sidebarName) sidebarName.textContent = state.currentUser.nama || 'Pengguna';
       if (sidebarRole) sidebarRole.textContent = `${state.currentUser.divisi || 'Warehouse'} • ${state.currentUser.role || 'user'}`;
       
-      // Admin Navigation Group
+      // Role-Based Navigation Groups (Admin Only Modules)
       const adminGroup = document.getElementById('adminNavGroup');
-      if (adminGroup) {
-        if (state.currentUser.role === 'admin') {
-          adminGroup.classList.remove('hidden');
-        } else {
-          adminGroup.classList.add('hidden');
-        }
-      }
+      const invGroup = document.getElementById('inventoryNavGroup');
+      const taskGroup = document.getElementById('taskNavGroup');
+      const isAdmin = state.currentUser.role === 'admin';
+
+      if (adminGroup) adminGroup.classList.toggle('hidden', !isAdmin);
+      if (invGroup) invGroup.classList.toggle('hidden', !isAdmin);
+      if (taskGroup) taskGroup.classList.toggle('hidden', !isAdmin);
     }
 
     startLiveClock();

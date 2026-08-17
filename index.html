@@ -93,30 +93,34 @@
           </nav>
         </div>
 
-        <!-- 2. MANAGEMENT INVENTORY -->
-        <div class="sidebar-section-title">Management Inventory</div>
-        <nav class="sidebar-nav">
-          <button class="nav-item" data-tab="inventoryTab">
-            <span class="nav-label">Stok & Katalog Gudang</span>
-          </button>
-          <button class="nav-item" data-tab="inboundTab">
-            <span class="nav-label">Inbound & Staging</span>
-          </button>
-          <button class="nav-item" data-tab="outboundTab">
-            <span class="nav-label">Outbound & Dispatch</span>
-          </button>
-        </nav>
+        <!-- 2. MANAGEMENT INVENTORY (ADMIN ONLY) -->
+        <div id="inventoryNavGroup" class="hidden">
+          <div class="sidebar-section-title">Management Inventory</div>
+          <nav class="sidebar-nav">
+            <button class="nav-item" data-tab="inventoryTab">
+              <span class="nav-label">Stok & Katalog Gudang</span>
+            </button>
+            <button class="nav-item" data-tab="inboundTab">
+              <span class="nav-label">Inbound & Staging</span>
+            </button>
+            <button class="nav-item" data-tab="outboundTab">
+              <span class="nav-label">Outbound & Dispatch</span>
+            </button>
+          </nav>
+        </div>
 
-        <!-- 3. MANAGEMENT TASK & REPORT -->
-        <div class="sidebar-section-title">Task & Report Performa</div>
-        <nav class="sidebar-nav">
-          <button class="nav-item" data-tab="taskTab">
-            <span class="nav-label">Task Picking & Packing</span>
-          </button>
-          <button class="nav-item" data-tab="reportTab">
-            <span class="nav-label">KPI & Report Performa</span>
-          </button>
-        </nav>
+        <!-- 3. MANAGEMENT TASK & REPORT (ADMIN ONLY) -->
+        <div id="taskNavGroup" class="hidden">
+          <div class="sidebar-section-title">Task & Report Performa</div>
+          <nav class="sidebar-nav">
+            <button class="nav-item" data-tab="taskTab">
+              <span class="nav-label">Task Picking & Packing</span>
+            </button>
+            <button class="nav-item" data-tab="reportTab">
+              <span class="nav-label">KPI & Report Performa</span>
+            </button>
+          </nav>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -637,15 +641,46 @@
     </div>
   </div>
 
+  <!-- MODAL DOWNLOAD TEMPLATE SHIFT ROSTER (WITH DATE RANGE) -->
+  <div id="downloadShiftTemplateModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 500px;">
+      <h3>📥 Download Template CSV Shift Roster</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+        Pilih rentang tanggal roster yang ingin dibuat. File CSV akan otomatis memuat nama & NIK seluruh karyawan serta kolom tanggal yang dipilih.
+      </p>
+      <form id="downloadShiftTemplateForm" onsubmit="event.preventDefault(); executeDownloadShiftTemplate();">
+        <div class="grid two-columns">
+          <label>
+            <span>Dari Tanggal</span>
+            <input type="date" id="tpl_shift_start_date" required />
+          </label>
+          <label>
+            <span>Sampai Tanggal</span>
+            <input type="date" id="tpl_shift_end_date" required />
+          </label>
+        </div>
+        <div class="user-info-box" style="margin-top: 14px; font-size: 0.8rem; color: var(--text-secondary);">
+          💡 <strong>Format Baru (Matrix):</strong> Anda cukup mengisi nama shift (misal: <em>Shift 1, Shift 2, Shift 3, Libur</em>). Jam masuk & pulang otomatis mengikuti Master Shift standar!
+        </div>
+        <div class="submit-row" style="margin-top: 16px;">
+          <button type="submit" class="primary-btn">
+            <span class="btn-text">📥 Unduh CSV Template</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('downloadShiftTemplateModal')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL IMPORT CSV SHIFT ROSTER -->
   <div id="importShiftModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content" style="max-width: 650px;">
       <h3>📥 Import Jadwal Roster Shift Karyawan (CSV)</h3>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-        Format kolom CSV: <code>NIK, Nama, Tanggal (YYYY-MM-DD), Shift, JamMasuk (HH:mm), JamPulang (HH:mm), Keterangan</code>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
+        Mendukung format Matrix (<code>Nama, NIK, Tgl1, Tgl2, ...</code>) maupun format baris standar (<code>NIK, Nama, Tanggal, Shift</code>). Jam otomatis diambil dari Master Shift!
       </p>
       <input type="file" id="shiftCsvFileInput" accept=".csv" style="margin-bottom: 14px;" />
-      <div id="shiftImportPreviewWrap" class="table-wrap" style="max-height: 220px; margin-bottom: 16px; display: none;"></div>
+      <div id="shiftImportPreviewWrap" class="table-wrap" style="max-height: 240px; margin-bottom: 16px; display: none;"></div>
       <div class="submit-row">
         <button type="button" id="btnExecuteImportShift" class="primary-btn" disabled>
           <span class="btn-text">Proses Import Jadwal</span>
