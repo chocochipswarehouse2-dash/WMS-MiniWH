@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>WMS Mini - Warehouse Operations & HR</title>
+  <title>Warehouse Management - Operations & HR</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -13,8 +13,8 @@
   <!-- Halaman Login -->
   <div id="loginPage" class="auth-wrap">
     <div class="auth-card">
-      <div class="brand-title">WMS Mini</div>
-      <p class="auth-subtitle">Portal Karyawan & Operasional Warehouse</p>
+      <div class="brand-title">Warehouse Management</div>
+      <p class="auth-subtitle">Portal Operasional & Manajemen Karyawan Warehouse</p>
       <form id="loginForm">
         <label>
           <span>Username / NIK</span>
@@ -24,7 +24,9 @@
           <span>Password</span>
           <input id="loginPassword" type="password" placeholder="Masukkan password" required />
         </label>
-        <button type="submit" class="primary-btn">Masuk ke Sistem</button>
+        <button type="submit" id="loginSubmitBtn" class="primary-btn">
+          <span class="btn-text">Masuk ke Sistem</span>
+        </button>
       </form>
       <div id="loginMessage" class="message-box"></div>
     </div>
@@ -37,19 +39,19 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-brand">
-          <span class="brand-icon">⚡</span>
-          <span class="brand-text">WMS Mini</span>
+          <span class="brand-icon">📦</span>
+          <span class="brand-text">Warehouse Management</span>
         </div>
         <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu">✕</button>
       </div>
 
       <div class="sidebar-content">
-        <!-- KARYAWAN MENU -->
-        <div class="sidebar-section-title">Menu Karyawan</div>
+        <!-- 1. MANAGEMENT KARYAWAN -->
+        <div class="sidebar-section-title">Management Karyawan</div>
         <nav class="sidebar-nav">
           <button class="nav-item active" data-tab="presensiTab">
             <span class="nav-icon">🕒</span>
-            <span class="nav-label">Presensi & Shift</span>
+            <span class="nav-label">Presensi & Dashboard Shift</span>
           </button>
           <button class="nav-item" data-tab="formLemburTab">
             <span class="nav-icon">📝</span>
@@ -57,15 +59,15 @@
           </button>
           <button class="nav-item" data-tab="statusLemburTab">
             <span class="nav-icon">📊</span>
-            <span class="nav-label">Status Lembur</span>
+            <span class="nav-label">Status Lembur Saya</span>
           </button>
           <button class="nav-item" data-tab="formCutiTab">
             <span class="nav-icon">🏖️</span>
-            <span class="nav-label">Input Ijin/Cuti</span>
+            <span class="nav-label">Input Ijin / Cuti</span>
           </button>
           <button class="nav-item" data-tab="statusCutiTab">
             <span class="nav-icon">📋</span>
-            <span class="nav-label">Status Ijin/Cuti</span>
+            <span class="nav-label">Info Cuti Warehouse</span>
           </button>
           <button class="nav-item" data-tab="slipGajiTab">
             <span class="nav-icon">💵</span>
@@ -75,7 +77,7 @@
 
         <!-- ADMIN MENU -->
         <div id="adminNavGroup" class="hidden">
-          <div class="sidebar-section-title">Menu Admin Warehouse</div>
+          <div class="sidebar-section-title">Admin HR & Payroll</div>
           <nav class="sidebar-nav">
             <button id="adminPayrollTabBtn" class="nav-item" data-tab="adminPayrollTab">
               <span class="nav-icon">💰</span>
@@ -87,7 +89,7 @@
             </button>
             <button id="adminShiftAbsensiTabBtn" class="nav-item" data-tab="adminShiftAbsensiTab">
               <span class="nav-icon">⏱️</span>
-              <span class="nav-label">Master Shift & Absensi</span>
+              <span class="nav-label">Master Shift & Roster</span>
             </button>
             <button id="adminLemburTabBtn" class="nav-item" data-tab="adminLemburTab">
               <span class="nav-icon">📑</span>
@@ -95,14 +97,44 @@
             </button>
             <button id="adminCutiTabBtn" class="nav-item" data-tab="adminCutiTab">
               <span class="nav-icon">✅</span>
-              <span class="nav-label">Approval Ijin/Cuti</span>
+              <span class="nav-label">Approval Ijin / Cuti</span>
             </button>
             <button id="settingTabBtn" class="nav-item" data-tab="settingTab">
               <span class="nav-icon">👥</span>
-              <span class="nav-label">Kelola Karyawan & Gaji</span>
+              <span class="nav-label">Kelola Data Karyawan</span>
             </button>
           </nav>
         </div>
+
+        <!-- 2. MANAGEMENT INVENTORY -->
+        <div class="sidebar-section-title">Management Inventory</div>
+        <nav class="sidebar-nav">
+          <button class="nav-item" data-tab="inventoryTab">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Stok & Katalog Gudang</span>
+          </button>
+          <button class="nav-item" data-tab="inboundTab">
+            <span class="nav-icon">📥</span>
+            <span class="nav-label">Inbound & Staging</span>
+          </button>
+          <button class="nav-item" data-tab="outboundTab">
+            <span class="nav-icon">📤</span>
+            <span class="nav-label">Outbound & Dispatch</span>
+          </button>
+        </nav>
+
+        <!-- 3. MANAGEMENT TASK & REPORT -->
+        <div class="sidebar-section-title">Task & Report Performa</div>
+        <nav class="sidebar-nav">
+          <button class="nav-item" data-tab="taskTab">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Task Picking & Packing</span>
+          </button>
+          <button class="nav-item" data-tab="reportTab">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">KPI & Report Performa</span>
+          </button>
+        </nav>
       </div>
 
       <div class="sidebar-footer">
@@ -124,7 +156,7 @@
       <header class="topbar">
         <div class="topbar-left">
           <button id="toggleSidebarBtn" class="icon-btn sidebar-toggle-btn" title="Toggle Sidebar">☰</button>
-          <h2 id="topbarPageTitle">Presensi & Shift</h2>
+          <h2 id="topbarPageTitle">Presensi & Dashboard Shift</h2>
         </div>
         <div class="topbar-actions">
           <span id="loggedUserLabel" class="user-badge">User</span>
@@ -135,8 +167,47 @@
 
       <main class="app-content">
         
-        <!-- TAB: PRESENSI & SHIFT (KARYAWAN) -->
+        <!-- TAB: PRESENSI & DASHBOARD SHIFT -->
         <section id="presensiTab" class="tab-panel active">
+          <!-- DASHBOARD JADWAL SHIFT KARYAWAN -->
+          <div class="panel highlight-panel" style="margin-bottom: 24px;">
+            <div class="panel-header-row">
+              <div>
+                <h3 style="color: var(--accent-primary);">📅 Dashboard Jadwal Shift Saya</h3>
+                <small style="color: var(--text-muted);">Pantau jam masuk & jam pulang kerja Anda sesuai roster warehouse.</small>
+              </div>
+              <span id="userShiftBadge" class="status disetujui" style="font-size: 0.85rem; padding: 6px 12px;">Shift 1 (08:00 - 17:00)</span>
+            </div>
+            
+            <div class="grid three-columns" style="margin-top: 12px;">
+              <div class="stat-box" style="border-left: 4px solid var(--accent-primary);">
+                <span class="stat-label">Jadwal Shift Hari Ini</span>
+                <span id="todayShiftScheduleText" class="stat-value" style="font-size: 1.15rem;">08:00 - 17:00</span>
+                <small id="todayShiftNote" style="color: var(--text-muted);">Toleransi keterlambatan: 15 menit</small>
+              </div>
+              <div class="stat-box" style="border-left: 4px solid var(--success);">
+                <span class="stat-label">Total Lembur Bulan Ini</span>
+                <span id="userMonthOvertimeHours" class="stat-value">0.00 Jam</span>
+                <small style="color: var(--text-muted);">Akumulasi lembur disetujui</small>
+              </div>
+              <div class="stat-box" style="border-left: 4px solid var(--warning);">
+                <span class="stat-label">Sisa Saldo Kasbon</span>
+                <span id="userActiveKasbonAmount" class="stat-value" style="color: var(--warning);">Rp 0</span>
+                <small style="color: var(--text-muted);">Dipoptong cicilan payroll</small>
+              </div>
+            </div>
+
+            <!-- ROSTER MINGGUAN -->
+            <div style="margin-top: 16px;">
+              <div class="panel-header-row" style="margin-bottom: 8px;">
+                <span style="font-size: 0.82rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Jadwal Roster Kerja 7 Hari ke Depan:</span>
+              </div>
+              <div id="weeklyRosterTimeline" class="roster-timeline-grid">
+                <!-- Dynamically rendered -->
+              </div>
+            </div>
+          </div>
+
           <div class="grid two-columns" style="margin-bottom: 24px;">
             <!-- PRESENSI WIDGET -->
             <div class="panel attendance-card">
@@ -148,34 +219,42 @@
               
               <div class="attendance-controls">
                 <label style="margin-bottom: 12px;">
-                  <span>Pilih Jadwal Shift Hari Ini:</span>
+                  <span>Pilih Shift Kerja Hari Ini:</span>
                   <select id="userActiveShiftSelect"></select>
                 </label>
                 <div class="grid two-columns" style="gap: 12px;">
-                  <button type="button" id="btnCheckIn" class="primary-btn" style="background: var(--success); color:#fff; padding: 14px;">🟢 Presensi Masuk</button>
-                  <button type="button" id="btnCheckOut" class="secondary-btn" style="padding: 14px;">🔴 Presensi Pulang</button>
+                  <button type="button" id="btnCheckIn" class="primary-btn" style="background: var(--success); color:#fff; padding: 14px;">
+                    <span class="btn-text">🟢 Presensi Masuk</span>
+                  </button>
+                  <button type="button" id="btnCheckOut" class="secondary-btn" style="padding: 14px;">
+                    <span class="btn-text">🔴 Presensi Pulang</span>
+                  </button>
                 </div>
               </div>
               <div id="todayAttendanceStatusBox" class="attendance-status-badge">Memuat status presensi...</div>
             </div>
 
-            <!-- INFO SHIFT & SUMMARY CARD -->
+            <!-- KETENTUAN SHIFT WAREHOUSE -->
             <div class="panel">
               <div class="panel-header-row">
-                <h3>Informasi Jadwal Shift & Akumulasi</h3>
+                <h3>Ketentuan Jam Kerja Shift Warehouse</h3>
               </div>
-              <div id="userShiftInfoBox" class="user-info-box" style="margin-bottom: 16px;">
-                <p><strong>Shift Aktif:</strong> <span id="infoShiftName">-</span></p>
-                <p><strong>Jam Kerja:</strong> <span id="infoShiftHours" class="mono-text">-</span> (Toleransi: <span id="infoShiftTol" class="mono-text">15 menit</span>)</p>
-              </div>
-              <div class="quick-stats-grid">
-                <div class="stat-box">
-                  <span class="stat-label">Total Lembur Bulan Ini</span>
-                  <span id="userMonthOvertimeHours" class="stat-value">0.00 Jam</span>
+              <div class="shift-rules-list">
+                <div class="rule-item">
+                  <strong>Shift 1:</strong> <span class="mono-text">08:00 - 17:00</span>
+                  <p><small>Shift pagi operasional gudang normal.</small></p>
                 </div>
-                <div class="stat-box">
-                  <span class="stat-label">Sisa Kasbon Aktif</span>
-                  <span id="userActiveKasbonAmount" class="stat-value" style="color: var(--warning);">Rp 0</span>
+                <div class="rule-item">
+                  <strong>Shift 2:</strong> <span class="mono-text">09:00 - 18:00</span>
+                  <p><small>Shift reguler inbound & outbound.</small></p>
+                </div>
+                <div class="rule-item">
+                  <strong>Shift 3:</strong> <span class="mono-text">12:00 - 21:00</span>
+                  <p><small>Khusus hari <strong>Sabtu</strong>: <span class="mono-text">11:00 - 20:00</span>.</small></p>
+                </div>
+                <div class="rule-item" style="border-left: 3px solid var(--error);">
+                  <strong style="color: var(--error);">Hari Minggu:</strong> <span class="status ditolak">LIBUR</span>
+                  <p><small>Hari libur operasional reguler warehouse.</small></p>
                 </div>
               </div>
             </div>
@@ -208,17 +287,22 @@
               
               <div class="submit-row action-bar">
                 <button type="button" id="addLemburRowBtn" class="secondary-btn">+ Tambah Baris Lembur</button>
-                <button type="submit" class="primary-btn">Simpan Pengajuan</button>
+                <button type="submit" id="submitLemburBtn" class="primary-btn">
+                  <span class="btn-text">Simpan Pengajuan Lembur</span>
+                </button>
               </div>
             </form>
           </div>
         </section>
 
-        <!-- TAB: STATUS LEMBUR -->
+        <!-- TAB: STATUS LEMBUR SAYA -->
         <section id="statusLemburTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
-              <h3>Rekap Lembur Saya</h3>
+              <div>
+                <h3>Rekap Lembur Saya</h3>
+                <small style="color: var(--text-muted);">Data lembur bersifat privat dan hanya dapat diakses oleh Anda dan Admin.</small>
+              </div>
               <button type="button" id="downloadStatusPdfBtn" class="primary-btn small-btn">Download PDF</button>
             </div>
             <div id="statusLemburTableWrap" class="table-wrap"></div>
@@ -229,8 +313,10 @@
         <section id="formCutiTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
-              <h3>Form Pengajuan Ijin / Cuti</h3>
-              <small class="header-hint">📧 Notifikasi otomatis akan dikirim ke Email Admin</small>
+              <div>
+                <h3>Form Pengajuan Ijin / Cuti</h3>
+                <small class="header-hint">📧 Notifikasi otomatis akan dikirim ke Email Admin Warehouse</small>
+              </div>
             </div>
             <form id="cutiForm">
               <div class="user-info-box grid three-columns">
@@ -244,17 +330,22 @@
               
               <div class="submit-row action-bar">
                 <button type="button" id="addCutiRowBtn" class="secondary-btn">+ Tambah Baris Ijin</button>
-                <button type="submit" class="primary-btn">Simpan & Kirim Notifikasi</button>
+                <button type="submit" id="submitCutiBtn" class="primary-btn">
+                  <span class="btn-text">Simpan & Kirim Notifikasi</span>
+                </button>
               </div>
             </form>
           </div>
         </section>
 
-        <!-- TAB: STATUS IJIN/CUTI -->
+        <!-- TAB: STATUS IJIN/CUTI WAREHOUSE (TRANSPARAN) -->
         <section id="statusCutiTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
-              <h3>Status Ijin / Cuti Saya</h3>
+              <div>
+                <h3>Info Ijin & Cuti Tim Warehouse</h3>
+                <small style="color: var(--text-muted);">Transparansi jadwal cuti seluruh rekan warehouse agar mempermudah koordinasi operasional.</small>
+              </div>
             </div>
             <div id="statusCutiTableWrap" class="table-wrap"></div>
           </div>
@@ -279,8 +370,12 @@
               <h3>Kalkulasi & Audit Payroll Bulanan Warehouse</h3>
               <div class="submit-row" style="align-items: center; gap: 8px;">
                 <input type="month" id="payrollMonthPicker" style="width: auto; padding: 7px 12px;" />
-                <button type="button" id="btnGeneratePayroll" class="primary-btn small-btn">⚡ Generate Payroll</button>
-                <button type="button" id="btnApprovePayrollFinance" class="secondary-btn small-btn" style="color: var(--success); border-color: var(--success);">✅ Setujui & Ajukan ke Finance</button>
+                <button type="button" id="btnGeneratePayroll" class="primary-btn small-btn">
+                  <span class="btn-text">⚡ Generate Payroll</span>
+                </button>
+                <button type="button" id="btnApprovePayrollFinance" class="secondary-btn small-btn" style="color: var(--success); border-color: var(--success);">
+                  <span class="btn-text">✅ Setujui & Ajukan ke Finance</span>
+                </button>
                 <button type="button" id="btnDownloadFinanceSummaryPdf" class="secondary-btn small-btn">📑 Download PDF Finance</button>
               </div>
             </div>
@@ -324,50 +419,68 @@
           </div>
         </section>
 
-        <!-- TAB: ADMIN MASTER SHIFT & ABSENSI -->
+        <!-- TAB: ADMIN MASTER SHIFT & ROSTER -->
         <section id="adminShiftAbsensiTab" class="tab-panel hidden">
-          <div class="grid two-columns" style="margin-bottom: 24px;">
-            <!-- MASTER SHIFT -->
-            <div class="panel">
-              <div class="panel-header-row">
-                <h3>Master Shift Kerja Warehouse</h3>
-                <button type="button" id="btnOpenAddShiftModal" class="primary-btn small-btn">+ Tambah Shift</button>
+          <div class="panel" style="margin-bottom: 24px;">
+            <div class="panel-header-row">
+              <div>
+                <h3>Master Shift & Jadwal Roster Karyawan</h3>
+                <small style="color: var(--text-muted);">Kelola jam shift standar dan upload jadwal roster shift harian karyawan warehouse.</small>
               </div>
-              <div id="adminShiftTableWrap" class="table-wrap"></div>
+              <div class="submit-row" style="gap: 8px;">
+                <button type="button" id="btnDownloadShiftTemplate" class="secondary-btn small-btn">📥 Template CSV Shift</button>
+                <button type="button" id="btnExportShiftCsv" class="secondary-btn small-btn">📤 Export CSV Roster</button>
+                <button type="button" id="btnOpenImportShiftModal" class="primary-btn small-btn">📥 Import CSV Roster</button>
+                <button type="button" id="btnOpenAddShiftModal" class="secondary-btn small-btn">+ Tambah Shift</button>
+              </div>
             </div>
+            <div class="grid two-columns">
+              <!-- MASTER SHIFT TABLE -->
+              <div>
+                <h4 style="margin-bottom: 10px;">Master Shift Standar</h4>
+                <div id="adminShiftTableWrap" class="table-wrap"></div>
+              </div>
+              <!-- MANUAL ABSENSI -->
+              <div>
+                <h4 style="margin-bottom: 10px;">Input Manual Presensi Karyawan</h4>
+                <form id="manualAbsensiForm" class="grid two-columns user-info-box">
+                  <label><span>NIK</span><select id="m_abs_nik" required></select></label>
+                  <label><span>Tanggal</span><input type="date" id="m_abs_tanggal" required/></label>
+                  <label><span>Shift</span><select id="m_abs_shift"></select></label>
+                  <label><span>Status</span>
+                    <select id="m_abs_status">
+                      <option value="Hadir">Hadir</option>
+                      <option value="Terlambat">Terlambat</option>
+                      <option value="Ijin">Ijin</option>
+                      <option value="Sakit">Sakit</option>
+                      <option value="Alpha">Alpha</option>
+                    </select>
+                  </label>
+                  <label><span>Jam Masuk</span><input type="time" id="m_abs_jamMasuk"/></label>
+                  <label><span>Jam Pulang</span><input type="time" id="m_abs_jamPulang"/></label>
+                  <label style="grid-column: 1 / -1;"><span>Catatan</span><input type="text" id="m_abs_catatan" placeholder="Catatan..."/></label>
+                  <div class="submit-row" style="grid-column: 1 / -1;">
+                    <button type="submit" id="btnSaveManualAbsensi" class="primary-btn small-btn">
+                      <span class="btn-text">Simpan Presensi</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
 
-            <!-- MANUAL ABSENSI -->
-            <div class="panel">
-              <div class="panel-header-row">
-                <h3>Input Manual Presensi Karyawan</h3>
-              </div>
-              <form id="manualAbsensiForm" class="grid two-columns">
-                <label><span>NIK</span><select id="m_abs_nik" required></select></label>
-                <label><span>Tanggal</span><input type="date" id="m_abs_tanggal" required/></label>
-                <label><span>Shift</span><select id="m_abs_shift"></select></label>
-                <label><span>Status</span>
-                  <select id="m_abs_status">
-                    <option value="Hadir">Hadir</option>
-                    <option value="Terlambat">Terlambat</option>
-                    <option value="Ijin">Ijin</option>
-                    <option value="Sakit">Sakit</option>
-                    <option value="Alpha">Alpha</option>
-                  </select>
-                </label>
-                <label><span>Jam Masuk</span><input type="time" id="m_abs_jamMasuk"/></label>
-                <label><span>Jam Pulang</span><input type="time" id="m_abs_jamPulang"/></label>
-                <label style="grid-column: 1 / -1;"><span>Catatan</span><input type="text" id="m_abs_catatan" placeholder="Catatan..."/></label>
-                <div class="submit-row" style="grid-column: 1 / -1;">
-                  <button type="submit" class="primary-btn small-btn">Simpan Presensi</button>
-                </div>
-              </form>
+          <!-- JADWAL ROSTER KARYAWAN TABLE -->
+          <div class="panel" style="margin-bottom: 24px;">
+            <div class="panel-header-row">
+              <h3>Jadwal Roster Shift Karyawan Warehouse</h3>
             </div>
+            <div id="adminRosterTableWrap" class="table-wrap"></div>
           </div>
 
           <!-- REKAP SEMUA ABSENSI -->
           <div class="panel">
             <div class="panel-header-row">
-              <h3>Rekap Seluruh Presensi Karyawan Warehouse</h3>
+              <h3>Rekap Seluruh Log Presensi Karyawan Warehouse</h3>
             </div>
             <div id="adminAllAbsensiTableWrap" class="table-wrap"></div>
           </div>
@@ -388,8 +501,10 @@
         <section id="adminCutiTab" class="tab-panel hidden">
           <div class="panel">
             <div class="panel-header-row">
-              <h3>Approval & Kelola Ijin / Cuti Karyawan</h3>
-              <small class="header-hint">📧 Update status otomatis mengirim email notifikasi ke karyawan</small>
+              <div>
+                <h3>Approval & Kelola Ijin / Cuti Karyawan</h3>
+                <small class="header-hint">📧 Update status otomatis mengirim email notifikasi ke karyawan</small>
+              </div>
             </div>
             <div id="adminCutiTableWrap" class="table-wrap"></div>
           </div>
@@ -400,6 +515,11 @@
           <div class="panel">
             <div class="panel-header-row">
               <h3 id="userFormTitle">Tambah / Edit Data Karyawan & Gaji</h3>
+              <div class="submit-row" style="gap: 8px;">
+                <button type="button" id="btnDownloadUserTemplate" class="secondary-btn small-btn">📥 Template CSV Karyawan</button>
+                <button type="button" id="btnExportUserCsv" class="secondary-btn small-btn">📤 Export CSV Karyawan</button>
+                <button type="button" id="btnOpenImportUserModal" class="primary-btn small-btn">📥 Import CSV Karyawan</button>
+              </div>
             </div>
             <form id="userForm" class="user-form grid two-columns">
               <input type="hidden" id="userEditMode" value="false">
@@ -426,7 +546,9 @@
               <label><span>No. HP / WhatsApp</span><input id="userNoHp" type="tel" placeholder="Contoh: 081234567890"/></label>
               
               <div class="submit-row" style="grid-column: 1 / -1; margin-top: 8px;">
-                <button type="submit" class="primary-btn">Simpan Karyawan</button>
+                <button type="submit" id="btnSaveUser" class="primary-btn">
+                  <span class="btn-text">Simpan Karyawan</span>
+                </button>
                 <button type="button" id="resetUserFormBtn" class="secondary-btn">Batal / Reset</button>
               </div>
             </form>
@@ -438,7 +560,135 @@
           </div>
         </section>
 
+        <!-- ================= MANAGEMENT INVENTORY TABS ================= -->
+        <section id="inventoryTab" class="tab-panel hidden">
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3>📦 Stok & Katalog Gudang Warehouse</h3>
+                <small style="color: var(--text-muted);">Pencatatan SKU, kategori, lokasi rak/bin, dan jumlah stok barang.</small>
+              </div>
+            </div>
+            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
+              <span style="font-size: 2.5rem;">📦</span>
+              <h4 style="margin: 12px 0 6px;">Modul Management Inventory Siap Diintegrasikan</h4>
+              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
+                Struktur katalog barang, bin rack location, dan real-time inventory tracking warehouse.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="inboundTab" class="tab-panel hidden">
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3>📥 Inbound & Staging Area</h3>
+                <small style="color: var(--text-muted);">Penerimaan barang masuk dari supplier / vendor dan proses QC inspeksi.</small>
+              </div>
+            </div>
+            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
+              <span style="font-size: 2.5rem;">📥</span>
+              <h4 style="margin: 12px 0 6px;">Modul Inbound & Receiving</h4>
+              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
+                Pencatatan Surat Jalan (PO Receiving), Staging Quality Control, dan Put-away barang ke rak.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="outboundTab" class="tab-panel hidden">
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3>📤 Outbound & Dispatch Area</h3>
+                <small style="color: var(--text-muted);">Pengeluaran barang, verifikasi resi pengiriman, dan serah terima kurir ekspedisi.</small>
+              </div>
+            </div>
+            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
+              <span style="font-size: 2.5rem;">📤</span>
+              <h4 style="margin: 12px 0 6px;">Modul Outbound & Dispatching</h4>
+              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
+                Manifest pengiriman barang keluar, DO/Surat Jalan, dan serah terima kurir logistik.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= MANAGEMENT TASK & REPORT TABS ================= -->
+        <section id="taskTab" class="tab-panel hidden">
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3>📋 Task Picking & Packing Gudang</h3>
+                <small style="color: var(--text-muted);">Daftar penugasan harian staf warehouse untuk proses picking order dan packing barang.</small>
+              </div>
+            </div>
+            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
+              <span style="font-size: 2.5rem;">📋</span>
+              <h4 style="margin: 12px 0 6px;">Modul Task Picking & Packing</h4>
+              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
+                Antrian pesanan yang harus di-pick dari rak dan di-packing oleh staf warehouse.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="reportTab" class="tab-panel hidden">
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3>📈 KPI & Report Performa Warehouse</h3>
+                <small style="color: var(--text-muted);">Laporan produktivitas tim, akurasi order fulfillment, dan metrik operasional.</small>
+              </div>
+            </div>
+            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
+              <span style="font-size: 2.5rem;">📈</span>
+              <h4 style="margin: 12px 0 6px;">Modul KPI & Performa Tim</h4>
+              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
+                Analisis produktivitas kerja harian, SLA packing, dan efisiensi penanganan order.
+              </p>
+            </div>
+          </div>
+        </section>
+
       </main>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORT CSV SHIFT ROSTER -->
+  <div id="importShiftModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <h3>📥 Import Jadwal Roster Shift Karyawan (CSV)</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+        Format kolom CSV: <code>NIK, Nama, Tanggal (YYYY-MM-DD), Shift, JamMasuk (HH:mm), JamPulang (HH:mm), Keterangan</code>
+      </p>
+      <input type="file" id="shiftCsvFileInput" accept=".csv" style="margin-bottom: 14px;" />
+      <div id="shiftImportPreviewWrap" class="table-wrap" style="max-height: 220px; margin-bottom: 16px; display: none;"></div>
+      <div class="submit-row">
+        <button type="button" id="btnExecuteImportShift" class="primary-btn" disabled>
+          <span class="btn-text">Proses Import Jadwal</span>
+        </button>
+        <button type="button" class="secondary-btn" onclick="closeModal('importShiftModal')">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORT CSV KARYAWAN -->
+  <div id="importUserModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <h3>📥 Import Data Karyawan (CSV)</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+        Format kolom CSV: <code>NIK, Nama, Divisi, Username, Password, Role, Email, NoHP, GajiPokok, Tunjangan, RateLembur</code>
+      </p>
+      <input type="file" id="userCsvFileInput" accept=".csv" style="margin-bottom: 14px;" />
+      <div id="userImportPreviewWrap" class="table-wrap" style="max-height: 220px; margin-bottom: 16px; display: none;"></div>
+      <div class="submit-row">
+        <button type="button" id="btnExecuteImportUser" class="primary-btn" disabled>
+          <span class="btn-text">Proses Import Karyawan</span>
+        </button>
+        <button type="button" class="secondary-btn" onclick="closeModal('importUserModal')">Batal</button>
+      </div>
     </div>
   </div>
 
@@ -463,7 +713,9 @@
           <label><span>Catatan Koreksi</span><input type="text" id="adj_catatan" placeholder="Alasan koreksi..."></label>
         </div>
         <div class="submit-row" style="margin-top: 20px;">
-          <button type="submit" class="primary-btn">Simpan Penyesuaian</button>
+          <button type="submit" id="btnSavePayrollAdjustment" class="primary-btn">
+            <span class="btn-text">Simpan Penyesuaian</span>
+          </button>
           <button type="button" class="secondary-btn" onclick="closeModal('editPayrollModal')">Batal</button>
         </div>
       </form>
@@ -478,7 +730,7 @@
           <span style="font-size: 1.3rem;">⚡</span>
           <div>
             <h3 style="margin: 0; font-size: 1.1rem;">SLIP GAJI KARYAWAN</h3>
-            <small style="color: var(--text-muted);">WMS MINI WAREHOUSE OPERATIONS</small>
+            <small style="color: var(--text-muted);">WAREHOUSE MANAGEMENT SYSTEM</small>
           </div>
         </div>
         <button type="button" id="btnPrintSlipPdf" class="primary-btn small-btn">📄 Download PDF</button>
@@ -505,7 +757,9 @@
         <label><span>Cicilan Potong Gaji per Bulan (Rp)</span><input type="number" id="kasbon_cicilan" placeholder="Contoh: 250000" required></label>
         <label><span>Catatan / Keperluan</span><input type="text" id="kasbon_catatan" placeholder="Keperluan mendesak..."></label>
         <div class="submit-row" style="margin-top: 16px;">
-          <button type="submit" class="primary-btn">Simpan Kasbon</button>
+          <button type="submit" id="btnSaveKasbon" class="primary-btn">
+            <span class="btn-text">Simpan Kasbon</span>
+          </button>
           <button type="button" class="secondary-btn" onclick="closeModal('addKasbonModal')">Batal</button>
         </div>
       </form>
@@ -518,7 +772,7 @@
       <h3>Tambah / Edit Shift Warehouse</h3>
       <form id="addShiftForm">
         <input type="hidden" id="shift_id">
-        <label><span>Nama Shift</span><input type="text" id="shift_nama" placeholder="Contoh: Shift Pagi, Shift Malam" required></label>
+        <label><span>Nama Shift</span><input type="text" id="shift_nama" placeholder="Contoh: Shift 1, Shift 2, Shift 3" required></label>
         <div class="grid two-columns">
           <label><span>Jam Masuk</span><input type="time" id="shift_jamMasuk" required></label>
           <label><span>Jam Pulang</span><input type="time" id="shift_jamPulang" required></label>
@@ -531,17 +785,19 @@
           </select>
         </label>
         <div class="submit-row" style="margin-top: 16px;">
-          <button type="submit" class="primary-btn">Simpan Shift</button>
+          <button type="submit" id="btnSaveShift" class="primary-btn">
+            <span class="btn-text">Simpan Shift</span>
+          </button>
           <button type="button" class="secondary-btn" onclick="closeModal('addShiftModal')">Batal</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL EDIT LEMBUR -->
+  <!-- MODAL EDIT LEMBUR (ADMIN ONLY) -->
   <div id="editLemburModal" class="modal hidden">
     <div class="modal-content">
-      <h3>Edit Data Lembur</h3>
+      <h3>Edit Data Lembur Karyawan (Admin)</h3>
       <form id="editLemburForm">
         <input type="hidden" id="editL_id">
         <label><span>Tanggal</span><input type="date" id="editL_tanggal" required></label>
@@ -552,17 +808,19 @@
         </div>
         <label><span>Catatan</span><input type="text" id="editL_catatan"></label>
         <div class="submit-row" style="margin-top: 16px;">
-          <button type="submit" class="primary-btn">Simpan Perubahan</button>
+          <button type="submit" id="btnSaveEditLembur" class="primary-btn">
+            <span class="btn-text">Simpan Perubahan</span>
+          </button>
           <button type="button" class="secondary-btn" onclick="closeModal('editLemburModal')">Batal</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL EDIT CUTI -->
+  <!-- MODAL EDIT CUTI (ADMIN ONLY) -->
   <div id="editCutiModal" class="modal hidden">
     <div class="modal-content">
-      <h3>Edit & Konfirmasi Ijin / Cuti</h3>
+      <h3>Edit & Konfirmasi Status Ijin / Cuti (Admin)</h3>
       <form id="editCutiForm">
         <input type="hidden" id="editC_id">
         <input type="hidden" id="editC_nik">
@@ -586,7 +844,9 @@
           </select>
         </label>
         <div class="submit-row" style="margin-top: 16px;">
-          <button type="submit" class="primary-btn">Simpan & Beritahu Karyawan</button>
+          <button type="submit" id="btnSaveEditCuti" class="primary-btn">
+            <span class="btn-text">Simpan & Beritahu Karyawan</span>
+          </button>
           <button type="button" class="secondary-btn" onclick="closeModal('editCutiModal')">Batal</button>
         </div>
       </form>

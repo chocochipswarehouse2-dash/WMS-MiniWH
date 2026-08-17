@@ -1,5 +1,5 @@
 /* ==========================================================================
-   WMS MINI - WAREHOUSE OPERATIONS & HR/PAYROLL DESIGN SYSTEM
+   WAREHOUSE MANAGEMENT SYSTEM (WMS) - DESIGN SYSTEM
    Typography: Inter (UI) + JetBrains Mono (Data/Code/Financial)
    ========================================================================== */
 
@@ -154,7 +154,7 @@ body {
 
 .auth-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   background: var(--bg-panel);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -180,11 +180,6 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-
-.brand-title::before {
-  content: "⚡";
-  font-size: 1.3rem;
 }
 
 .auth-subtitle {
@@ -239,14 +234,15 @@ body {
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 700;
   color: var(--accent-primary);
   letter-spacing: -0.3px;
+  white-space: nowrap;
 }
 
 .brand-icon {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
 }
 
 .sidebar-content {
@@ -278,12 +274,12 @@ body {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 12px;
+  padding: 8.5px 12px;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid transparent;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -460,6 +456,11 @@ body {
   width: 100%;
 }
 
+.highlight-panel {
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.05), transparent 50%), var(--bg-panel);
+}
+
 .panel h3 {
   font-size: 1.05rem;
   font-weight: 600;
@@ -482,6 +483,85 @@ body {
   padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
+}
+
+/* ================= Roster Timeline Grid ================= */
+.roster-timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.roster-day-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.roster-day-card.today {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-glow);
+}
+
+.roster-day-card:hover {
+  border-color: var(--accent-indigo);
+  transform: translateY(-2px);
+}
+
+.roster-day-date {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.roster-day-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.roster-shift-pill {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.roster-shift-pill.off {
+  color: var(--error);
+  background: var(--error-bg);
+  border-color: var(--error-border);
+}
+
+/* ================= Shift Rules List ================= */
+.shift-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rule-item {
+  background: var(--bg-card);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-primary);
+  border: 1px solid var(--border-color);
+  border-left-width: 3px;
+}
+
+.rule-item p {
+  margin-top: 4px;
+  color: var(--text-secondary);
 }
 
 /* ================= Attendance / Presensi Card ================= */
@@ -653,7 +733,7 @@ input[readonly] {
   color: #ffffff;
 }
 
-/* ================= Buttons ================= */
+/* ================= Buttons & Loading Spinners ================= */
 button {
   font-family: var(--font-sans);
   cursor: pointer;
@@ -667,6 +747,34 @@ button {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  position: relative;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed !important;
+  filter: grayscale(0.2);
+}
+
+/* Spinner Animation for Submission */
+.spinner-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 0.6s linear infinite;
+  margin-right: 6px;
+}
+
+[data-theme="light"] .spinner-icon {
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: #0969da;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .primary-btn {
@@ -681,7 +789,7 @@ button {
   color: #ffffff;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   background: var(--accent-primary-hover);
   box-shadow: 0 0 12px var(--accent-primary-glow);
 }
@@ -692,7 +800,7 @@ button {
   border: 1px solid var(--border-color);
 }
 
-.secondary-btn:hover {
+.secondary-btn:hover:not(:disabled) {
   background: var(--bg-panel-hover);
   border-color: var(--text-muted);
 }
@@ -711,7 +819,7 @@ button {
   border-radius: var(--radius-sm);
 }
 
-.icon-btn:hover {
+.icon-btn:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-panel-hover);
 }
@@ -797,6 +905,7 @@ td small {
   font-weight: 600;
   border: 1px solid transparent;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .action-btn.edit {

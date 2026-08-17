@@ -1,15 +1,18 @@
-const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzSj8Aj-WBCjhOtM-LUFSz16bqsnZ_CnVv0n_beUYn81f9vr3MMdqa1aIgcFp_DCSsK/exec";
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcUiijIiNs6JvZEqpYzXB0SWyqYIWcW1Zb3i5g8943DYc_2guqcdvciUa-FjFYo8oz/exec";
 
 const state = { 
   currentUser: null, 
   users: [], 
   shifts: [], 
+  roster: [],
   absensi: [], 
   lembur: [], 
   cuti: [], 
   kasbon: [], 
   payroll: [],
-  selectedSlip: null
+  selectedSlip: null,
+  pendingShiftImport: [],
+  pendingUserImport: []
 };
 
 const htmlEl = document.documentElement;
@@ -25,26 +28,45 @@ const panels = document.querySelectorAll('.tab-panel');
 const topbarPageTitle = document.getElementById('topbarPageTitle');
 
 const tabTitles = {
-  presensiTab: 'Presensi & Shift Warehouse',
+  presensiTab: 'Presensi & Dashboard Shift',
   formLemburTab: 'Input Pengajuan Lembur',
   statusLemburTab: 'Status Lembur Saya',
   formCutiTab: 'Input Ijin / Cuti',
-  statusCutiTab: 'Status Ijin / Cuti',
+  statusCutiTab: 'Info Cuti Tim Warehouse',
   slipGajiTab: 'Slip Gaji Bulanan Saya',
   adminPayrollTab: 'Payroll & Rekap Gaji Finance',
   adminKasbonTab: 'Manajemen Kasbon Karyawan',
-  adminShiftAbsensiTab: 'Master Shift & Rekap Presensi',
+  adminShiftAbsensiTab: 'Master Shift & Roster Karyawan',
   adminLemburTab: 'Admin Rekap Semua Lembur',
   adminCutiTab: 'Approval & Kelola Ijin / Cuti',
-  settingTab: 'Kelola Data Karyawan & Gaji'
+  settingTab: 'Kelola Data Karyawan & Gaji',
+  inventoryTab: 'Stok & Katalog Gudang Warehouse',
+  inboundTab: 'Inbound & Staging Area',
+  outboundTab: 'Outbound & Dispatch Area',
+  taskTab: 'Task Picking & Packing Gudang',
+  reportTab: 'KPI & Report Performa Warehouse'
 };
 
+// ================= UI HELPERS & LOADING STATE =================
 function showToast(msg, type = 'success') {
   toast.textContent = msg; 
   toast.className = `toast ${type}`; 
   toast.classList.remove('hidden');
   clearTimeout(showToast.timeout);
   showToast.timeout = setTimeout(() => toast.classList.add('hidden'), 3500);
+}
+
+function setButtonLoading(btn, isLoading, loadingText = 'Memproses...') {
+  if (!btn) return;
+  btn.disabled = isLoading;
+  if (isLoading) {
+    if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner-icon"></span><span>${loadingText}</span>`;
+  } else {
+    if (btn.dataset.originalHtml) {
+      btn.innerHTML = btn.dataset.originalHtml;
+    }
+  }
 }
 
 function switchTab(tabId) {
@@ -166,6 +188,133 @@ function startLiveClock() {
   setInterval(update, 1000);
 }
 
+// ================= SHIFT RULES & ROSTER DASHBOARD =================
+function getShiftScheduleForDate(shiftName, dateObj) {
+  const day = dateObj.getDay(); // 0 = Minggu, 6 = Sabtu
+  if (day === 0) {
+    return { shift: 'Libur', masuk: '-', pulang: '-', isOff: true };
+  }
+
+  const sNorm = String(shiftName || 'Shift 1').trim();
+  if (sNorm.includes('3')) {
+    if (day === 6) { // Sabtu
+      return { shift: 'Shift 3 (Sabtu)', masuk: '11:00', pulang: '20:00', isOff: false };
+    }
+    return { shift: 'Shift 3', masuk: '12:00', pulang: '21:00', isOff: false };
+  }
+  if (sNorm.includes('2')) {
+    return { shift: 'Shift 2', masuk: '09:00', pulang: '18:00', isOff: false };
+  }
+  return { shift: 'Shift 1', masuk: '08:00', pulang: '17:00', isOff: false };
+}
+
+async function loadRosterShifts() {
+  const res = await apiRequest('getRosterShifts', {
+    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik,
+    role: state.currentUser.role
+  });
+  if (res) {
+    state.roster = res.data || [];
+    renderEmployeeShiftDashboard();
+    if (state.currentUser.role === 'admin') renderAdminRosterTable();
+  }
+}
+
+function renderEmployeeShiftDashboard() {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const myRosterToday = state.roster.find(r => String(r.nik).trim() === String(state.currentUser.nik).trim() && r.tanggal === todayStr);
+
+  const defaultShift = myRosterToday ? myRosterToday.shift : 'Shift 1';
+  const schedule = myRosterToday 
+    ? { shift: myRosterToday.shift, masuk: myRosterToday.jamMasuk, pulang: myRosterToday.jamPulang, isOff: myRosterToday.shift.toLowerCase().includes('libur') }
+    : getShiftScheduleForDate(defaultShift, today);
+
+  // Update Badge & Box
+  const badgeEl = document.getElementById('userShiftBadge');
+  const textEl = document.getElementById('todayShiftScheduleText');
+  const noteEl = document.getElementById('todayShiftNote');
+
+  if (badgeEl) {
+    badgeEl.textContent = `${schedule.shift} (${schedule.masuk} - ${schedule.pulang})`;
+    badgeEl.className = `status ${schedule.isOff ? 'ditolak' : 'disetujui'}`;
+  }
+  if (textEl) {
+    textEl.textContent = schedule.isOff ? 'HARI INI LIBUR' : `${schedule.masuk} - ${schedule.pulang}`;
+    textEl.style.color = schedule.isOff ? 'var(--error)' : 'var(--accent-primary)';
+  }
+  if (noteEl) {
+    noteEl.textContent = schedule.isOff ? 'Selamat beristirahat!' : `Toleransi keterlambatan: 15 menit`;
+  }
+
+  // Render 7-day Upcoming Roster Timeline
+  const timelineEl = document.getElementById('weeklyRosterTimeline');
+  if (timelineEl) {
+    const days = [];
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() + i);
+      const dStr = d.toISOString().split('T')[0];
+      const rosterItem = state.roster.find(r => String(r.nik).trim() === String(state.currentUser.nik).trim() && r.tanggal === dStr);
+      
+      const sc = rosterItem 
+        ? { shift: rosterItem.shift, masuk: rosterItem.jamMasuk, pulang: rosterItem.jamPulang, isOff: rosterItem.shift.toLowerCase().includes('libur') }
+        : getShiftScheduleForDate(defaultShift, d);
+
+      days.push(`
+        <div class="roster-day-card ${i === 0 ? 'today' : ''}">
+          <span class="roster-day-date">${dStr.slice(5)}</span>
+          <span class="roster-day-name">${dayNames[d.getDay()]}</span>
+          <span class="roster-shift-pill ${sc.isOff ? 'off' : ''}">
+            ${sc.isOff ? 'LIBUR' : `${sc.shift.replace('Shift ', 'S')}<br>${sc.masuk}-${sc.pulang}`}
+          </span>
+        </div>
+      `);
+    }
+    timelineEl.innerHTML = days.join('');
+  }
+}
+
+function renderAdminRosterTable() {
+  const wrap = document.getElementById('adminRosterTableWrap');
+  if (!wrap) return;
+
+  if (!state.roster.length) {
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada jadwal roster karyawan. Gunakan tombol <strong>Import CSV Roster</strong> di atas.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+      <tbody>
+        ${state.roster.map(r => `
+          <tr>
+            <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
+            <td><span class="mono-text">${r.tanggal}</span></td>
+            <td><strong>${r.shift}</strong></td>
+            <td><span class="mono-text">${r.jamMasuk}</span></td>
+            <td><span class="mono-text">${r.jamPulang}</span></td>
+            <td>${r.keterangan || '-'}</td>
+            <td class="action-cell">
+              <button class="action-btn delete" onclick="deleteRosterShiftRecord('${r.id}')">Hapus</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+window.deleteRosterShiftRecord = async (id) => {
+  if (confirm('Hapus entri roster ini?')) {
+    await apiRequest('deleteRosterShift', { id });
+    loadRosterShifts();
+  }
+};
+
 // ================= PRESENSI & ABSENSI =================
 async function loadAbsensi() {
   const res = await apiRequest('getAbsensi', { 
@@ -192,33 +341,22 @@ function renderShiftDropdowns() {
   const userSelect = document.getElementById('userActiveShiftSelect');
   const manualSelect = document.getElementById('m_abs_shift');
   
-  const optionsHtml = state.shifts.map(s => `
-    <option value="${s.namaShift}" data-masuk="${s.jamMasuk}" data-pulang="${s.jamPulang}" data-tol="${s.toleransiMenit}">
+  const optionsHtml = [
+    { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', tol: 15 },
+    { namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', tol: 15 },
+    { namaShift: 'Shift 3', jamMasuk: '12:00', jamPulang: '21:00', tol: 15 }
+  ].map(s => `
+    <option value="${s.namaShift}" data-masuk="${s.jamMasuk}" data-pulang="${s.jamPulang}" data-tol="${s.tol}">
       ${s.namaShift} (${s.jamMasuk} - ${s.jamPulang})
     </option>
   `).join('');
 
   if (userSelect) {
-    userSelect.innerHTML = optionsHtml || '<option value="Shift Normal">Shift Normal (08:00 - 17:00)</option>';
-    userSelect.onchange = updateUserShiftDisplay;
-    updateUserShiftDisplay();
+    userSelect.innerHTML = optionsHtml;
   }
   if (manualSelect) {
-    manualSelect.innerHTML = optionsHtml || '<option value="Shift Normal">Shift Normal</option>';
+    manualSelect.innerHTML = optionsHtml;
   }
-}
-
-function updateUserShiftDisplay() {
-  const userSelect = document.getElementById('userActiveShiftSelect');
-  const opt = userSelect ? userSelect.selectedOptions[0] : null;
-  if (!opt) return;
-
-  const sName = document.getElementById('infoShiftName');
-  const sHours = document.getElementById('infoShiftHours');
-  const sTol = document.getElementById('infoShiftTol');
-  if (sName) sName.textContent = opt.value;
-  if (sHours) sHours.textContent = `${opt.dataset.masuk || '08:00'} s/d ${opt.dataset.pulang || '17:00'}`;
-  if (sTol) sTol.textContent = `${opt.dataset.tol || '15'} menit`;
 }
 
 function renderUserAbsensi() {
@@ -296,20 +434,24 @@ function renderAdminAbsensi() {
   `;
 }
 
-// Check-in & Check-out events
+// Check-in & Check-out events with button loading state
 document.getElementById('btnCheckIn').addEventListener('click', async () => {
+  const btn = document.getElementById('btnCheckIn');
+  setButtonLoading(btn, true, 'Memproses Masuk...');
+
   const select = document.getElementById('userActiveShiftSelect');
   const opt = select ? select.selectedOptions[0] : null;
 
   const payload = {
     nik: state.currentUser.nik,
     nama: state.currentUser.nama,
-    shift: opt ? opt.value : 'Shift Pagi',
+    shift: opt ? opt.value : 'Shift 1',
     shiftJamMasuk: opt ? opt.dataset.masuk : '08:00',
     toleransi: opt ? opt.dataset.tol : '15'
   };
 
   const res = await apiRequest('checkInAbsensi', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Presensi Masuk Berhasil!');
     loadAbsensi();
@@ -317,7 +459,11 @@ document.getElementById('btnCheckIn').addEventListener('click', async () => {
 });
 
 document.getElementById('btnCheckOut').addEventListener('click', async () => {
+  const btn = document.getElementById('btnCheckOut');
+  setButtonLoading(btn, true, 'Memproses Pulang...');
+
   const res = await apiRequest('checkOutAbsensi', { nik: state.currentUser.nik });
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Presensi Pulang Berhasil!');
     loadAbsensi();
@@ -326,6 +472,9 @@ document.getElementById('btnCheckOut').addEventListener('click', async () => {
 
 document.getElementById('manualAbsensiForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSaveManualAbsensi');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const nik = document.getElementById('m_abs_nik').value;
   const user = state.users.find(u => u.nik === nik);
 
@@ -341,6 +490,7 @@ document.getElementById('manualAbsensiForm').addEventListener('submit', async (e
   };
 
   const res = await apiRequest('saveAbsensiManual', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Presensi manual berhasil disimpan!');
     document.getElementById('manualAbsensiForm').reset();
@@ -360,25 +510,22 @@ function renderShiftTable() {
   const wrap = document.getElementById('adminShiftTableWrap');
   if (!wrap) return;
 
-  if (!state.shifts.length) {
-    wrap.innerHTML = `<p style="padding: 16px; color: var(--text-muted);">Belum ada shift terdaftar.</p>`;
-    return;
-  }
+  const defaultShifts = [
+    { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', toleransiMenit: 15, status: 'Aktif' },
+    { namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', toleransiMenit: 15, status: 'Aktif' },
+    { namaShift: 'Shift 3', jamMasuk: '12:00 (Sabtu 11:00)', jamPulang: '21:00 (Sabtu 20:00)', toleransiMenit: 15, status: 'Aktif' }
+  ];
 
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Nama Shift</th><th>Jam Kerja</th><th>Toleransi</th><th>Status</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Nama Shift</th><th>Jam Kerja</th><th>Toleransi</th><th>Status</th></tr></thead>
       <tbody>
-        ${state.shifts.map(s => `
+        ${defaultShifts.map(s => `
           <tr>
             <td><strong>${s.namaShift}</strong></td>
             <td><span class="mono-text">${s.jamMasuk} - ${s.jamPulang}</span></td>
             <td><span class="mono-text">${s.toleransiMenit} menit</span></td>
-            <td><span class="status ${s.status === 'Aktif' ? 'disetujui' : 'ditolak'}">${s.status}</span></td>
-            <td class="action-cell">
-              <button class="action-btn edit" onclick="editShiftRecord('${s.id}')">Edit</button>
-              <button class="action-btn delete" onclick="deleteShiftRecord('${s.id}')">Hapus</button>
-            </td>
+            <td><span class="status disetujui">${s.status}</span></td>
           </tr>
         `).join('')}
       </tbody>
@@ -392,20 +539,11 @@ document.getElementById('btnOpenAddShiftModal').addEventListener('click', () => 
   document.getElementById('addShiftModal').classList.remove('hidden');
 });
 
-window.editShiftRecord = (id) => {
-  const s = state.shifts.find(x => x.id === id);
-  if (!s) return;
-  document.getElementById('shift_id').value = s.id;
-  document.getElementById('shift_nama').value = s.namaShift;
-  document.getElementById('shift_jamMasuk').value = s.jamMasuk;
-  document.getElementById('shift_jamPulang').value = s.jamPulang;
-  document.getElementById('shift_toleransi').value = s.toleransiMenit || 15;
-  document.getElementById('shift_status').value = s.status || 'Aktif';
-  document.getElementById('addShiftModal').classList.remove('hidden');
-};
-
 document.getElementById('addShiftForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSaveShift');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const payload = {
     id: document.getElementById('shift_id').value,
     namaShift: document.getElementById('shift_nama').value,
@@ -416,6 +554,7 @@ document.getElementById('addShiftForm').addEventListener('submit', async (e) => 
   };
 
   const res = await apiRequest('saveShift', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Shift berhasil disimpan!');
     closeModal('addShiftModal');
@@ -423,12 +562,184 @@ document.getElementById('addShiftForm').addEventListener('submit', async (e) => 
   }
 });
 
-window.deleteShiftRecord = async (id) => {
-  if (confirm('Hapus shift ini?')) {
-    await apiRequest('deleteShift', { id });
-    loadShifts();
+// ================= CSV IMPORT / EXPORT SHIFT ROSTER =================
+function downloadCsv(filename, text) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+document.getElementById('btnDownloadShiftTemplate').addEventListener('click', () => {
+  const header = 'NIK,Nama,Tanggal,Shift,JamMasuk,JamPulang,Keterangan\n';
+  const sample1 = 'WH0001,Admin Warehouse,2026-08-18,Shift 1,08:00,17:00,Reguler\n';
+  const sample2 = 'WH0002,Budi Santoso,2026-08-18,Shift 2,09:00,18:00,Inbound\n';
+  const sample3 = 'WH0003,Siti Rahma,2026-08-18,Shift 3,12:00,21:00,Outbound\n';
+  downloadCsv('template_jadwal_shift_warehouse.csv', header + sample1 + sample2 + sample3);
+});
+
+document.getElementById('btnExportShiftCsv').addEventListener('click', () => {
+  if (!state.roster.length) return showToast('Belum ada data roster untuk diexport!', 'error');
+  const header = 'NIK,Nama,Tanggal,Shift,JamMasuk,JamPulang,Keterangan\n';
+  const rows = state.roster.map(r => `"${r.nik}","${r.nama}","${r.tanggal}","${r.shift}","${r.jamMasuk}","${r.jamPulang}","${r.keterangan || ''}"`).join('\n');
+  downloadCsv('export_roster_shift_warehouse.csv', header + rows);
+});
+
+document.getElementById('btnOpenImportShiftModal').addEventListener('click', () => {
+  document.getElementById('shiftCsvFileInput').value = '';
+  document.getElementById('shiftImportPreviewWrap').style.display = 'none';
+  document.getElementById('btnExecuteImportShift').disabled = true;
+  state.pendingShiftImport = [];
+  document.getElementById('importShiftModal').classList.remove('hidden');
+});
+
+document.getElementById('shiftCsvFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const text = evt.target.result;
+    const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+    if (lines.length < 2) return showToast('File CSV kosong atau tidak valid', 'error');
+
+    const headers = lines[0].split(',').map(h => h.replace(/["']/g, '').trim().toLowerCase());
+    const parsed = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+      if (cols.length >= 4) {
+        parsed.push({
+          nik: cols[0],
+          nama: cols[1] || '',
+          tanggal: cols[2],
+          shift: cols[3] || 'Shift 1',
+          jamMasuk: cols[4] || '08:00',
+          jamPulang: cols[5] || '17:00',
+          keterangan: cols[6] || ''
+        });
+      }
+    }
+
+    state.pendingShiftImport = parsed;
+    const previewWrap = document.getElementById('shiftImportPreviewWrap');
+    previewWrap.style.display = 'block';
+    previewWrap.innerHTML = `
+      <table>
+        <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Shift</th><th>Masuk - Pulang</th></tr></thead>
+        <tbody>
+          ${parsed.slice(0, 5).map(p => `<tr><td>${p.nik}</td><td>${p.nama}</td><td>${p.tanggal}</td><td>${p.shift}</td><td>${p.jamMasuk} - ${p.jamPulang}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <small style="display:block; padding: 6px 12px; color: var(--text-muted);">Total ${parsed.length} baris siap di-import.</small>
+    `;
+
+    document.getElementById('btnExecuteImportShift').disabled = false;
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('btnExecuteImportShift').addEventListener('click', async () => {
+  if (!state.pendingShiftImport.length) return;
+  const btn = document.getElementById('btnExecuteImportShift');
+  setButtonLoading(btn, true, 'Mengimport...');
+
+  const res = await apiRequest('saveRosterBulk', { rosterList: state.pendingShiftImport });
+  setButtonLoading(btn, false);
+  if (res) {
+    showToast(`Berhasil mengimport ${res.count || state.pendingShiftImport.length} jadwal roster!`);
+    closeModal('importShiftModal');
+    loadRosterShifts();
   }
-};
+});
+
+// ================= CSV IMPORT / EXPORT KARYAWAN =================
+document.getElementById('btnDownloadUserTemplate').addEventListener('click', () => {
+  const header = 'NIK,Nama,Divisi,Username,Password,Role,Email,NoHP,GajiPokok,Tunjangan,RateLembur\n';
+  const sample1 = 'WH0001,Admin Warehouse,Warehouse,admin,12345,admin,admin@warehouse.com,081234567890,4500000,500000,25000\n';
+  const sample2 = 'WH0002,Budi Santoso,Inbound,budi,12345,user,budi@warehouse.com,081298765432,4200000,300000,25000\n';
+  downloadCsv('template_data_karyawan_warehouse.csv', header + sample1 + sample2);
+});
+
+document.getElementById('btnExportUserCsv').addEventListener('click', () => {
+  if (!state.users.length) return showToast('Belum ada data karyawan untuk diexport!', 'error');
+  const header = 'NIK,Nama,Divisi,Username,Password,Role,Email,NoHP,GajiPokok,Tunjangan,RateLembur\n';
+  const rows = state.users.map(u => `"${u.nik}","${u.nama}","${u.divisi}","${u.username}","${u.password || ''}","${u.role}","${u.email || ''}","${u.noHp || ''}",${u.gajiPokok || 0},${u.tunjangan || 0},${u.rateLembur || 25000}`).join('\n');
+  downloadCsv('export_data_karyawan_warehouse.csv', header + rows);
+});
+
+document.getElementById('btnOpenImportUserModal').addEventListener('click', () => {
+  document.getElementById('userCsvFileInput').value = '';
+  document.getElementById('userImportPreviewWrap').style.display = 'none';
+  document.getElementById('btnExecuteImportUser').disabled = true;
+  state.pendingUserImport = [];
+  document.getElementById('importUserModal').classList.remove('hidden');
+});
+
+document.getElementById('userCsvFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const text = evt.target.result;
+    const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+    if (lines.length < 2) return showToast('File CSV kosong atau tidak valid', 'error');
+
+    const parsed = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+      if (cols.length >= 4) {
+        parsed.push({
+          nik: cols[0],
+          nama: cols[1] || '',
+          divisi: cols[2] || 'Warehouse',
+          username: cols[3] || cols[0],
+          password: cols[4] || '12345',
+          role: cols[5] || 'user',
+          email: cols[6] || '',
+          noHp: cols[7] || '',
+          gajiPokok: Number(cols[8] || 4000000),
+          tunjangan: Number(cols[9] || 0),
+          rateLembur: Number(cols[10] || 25000)
+        });
+      }
+    }
+
+    state.pendingUserImport = parsed;
+    const previewWrap = document.getElementById('userImportPreviewWrap');
+    previewWrap.style.display = 'block';
+    previewWrap.innerHTML = `
+      <table>
+        <thead><tr><th>NIK</th><th>Nama</th><th>Divisi</th><th>Role</th><th>Gaji Pokok</th></tr></thead>
+        <tbody>
+          ${parsed.slice(0, 5).map(p => `<tr><td>${p.nik}</td><td>${p.nama}</td><td>${p.divisi}</td><td>${p.role}</td><td>${formatRupiah(p.gajiPokok)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <small style="display:block; padding: 6px 12px; color: var(--text-muted);">Total ${parsed.length} karyawan siap di-import.</small>
+    `;
+
+    document.getElementById('btnExecuteImportUser').disabled = false;
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('btnExecuteImportUser').addEventListener('click', async () => {
+  if (!state.pendingUserImport.length) return;
+  const btn = document.getElementById('btnExecuteImportUser');
+  setButtonLoading(btn, true, 'Mengimport...');
+
+  const res = await apiRequest('importUsersBulk', { userList: state.pendingUserImport });
+  setButtonLoading(btn, false);
+  if (res) {
+    showToast(`Berhasil mengimport ${res.count || state.pendingUserImport.length} karyawan!`);
+    closeModal('importUserModal');
+    loadUsersData();
+  }
+});
 
 // ================= KASBON KARYAWAN =================
 async function loadKasbon() {
@@ -494,6 +805,9 @@ document.getElementById('btnOpenAddKasbonModal').addEventListener('click', () =>
 
 document.getElementById('addKasbonForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSaveKasbon');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const nik = document.getElementById('kasbon_nik').value;
   const user = state.users.find(u => u.nik === nik);
 
@@ -508,6 +822,7 @@ document.getElementById('addKasbonForm').addEventListener('submit', async (e) =>
   };
 
   const res = await apiRequest('saveKasbon', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Data kasbon berhasil disimpan!');
     closeModal('addKasbonModal');
@@ -544,7 +859,7 @@ function renderPayrollTables() {
   if (!wrap) return;
 
   if (!state.payroll.length) {
-    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada data payroll untuk periode ini. Klik <strong>Generate Payroll</strong> di atas.</p>`;
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada data payroll untuk periode ini. Klik <strong>⚡ Generate Payroll</strong> di atas.</p>`;
     updatePayrollMetrics(0, 0, 0, 'Belum Ada');
     return;
   }
@@ -622,10 +937,14 @@ document.getElementById('btnGeneratePayroll').addEventListener('click', async ()
   const period = document.getElementById('payrollMonthPicker').value;
   if (!period) return showToast('Pilih bulan payroll terlebih dahulu!', 'error');
 
+  const btn = document.getElementById('btnGeneratePayroll');
+  setButtonLoading(btn, true, 'Menghitung...');
+
   const res = await apiRequest('generateMonthlyPayroll', { 
     periode: period, 
     adminUsername: state.currentUser.username 
   });
+  setButtonLoading(btn, false);
   if (res) {
     showToast(`Payroll periode ${period} berhasil di-generate!`);
     loadPayroll();
@@ -636,10 +955,14 @@ document.getElementById('btnApprovePayrollFinance').addEventListener('click', as
   const period = document.getElementById('payrollMonthPicker').value;
   if (!confirm(`Setujui seluruh payroll periode ${period} untuk diajukan ke Finance?`)) return;
 
+  const btn = document.getElementById('btnApprovePayrollFinance');
+  setButtonLoading(btn, true, 'Menyetujui...');
+
   const res = await apiRequest('approvePayroll', { 
     periode: period, 
     adminUsername: state.currentUser.username 
   });
+  setButtonLoading(btn, false);
   if (res) {
     showToast(`Payroll periode ${period} telah disetujui & siap dibayarkan!`);
     loadPayroll();
@@ -669,6 +992,9 @@ window.openEditPayrollModal = (id) => {
 
 document.getElementById('editPayrollForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSavePayrollAdjustment');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const payload = {
     id: document.getElementById('adj_id').value,
     gajiPokok: document.getElementById('adj_gajiPokok').value,
@@ -683,6 +1009,7 @@ document.getElementById('editPayrollForm').addEventListener('submit', async (e) 
   };
 
   const res = await apiRequest('savePayrollAdjustment', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Koreksi payroll berhasil disimpan!');
     closeModal('editPayrollModal');
@@ -798,7 +1125,7 @@ function exportSingleSlipPdf(p) {
   doc.text('SLIP GAJI KARYAWAN', 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
-  doc.text('WMS MINI - WAREHOUSE OPERATIONS', 14, 26);
+  doc.text('WAREHOUSE MANAGEMENT SYSTEM', 14, 26);
   doc.line(14, 30, 196, 30);
 
   doc.setFontSize(10);
@@ -938,9 +1265,12 @@ document.getElementById('addCutiRowBtn').addEventListener('click', addCutiRow);
 
 document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const nik = document.getElementById('l_nik').value;
+  const btn = document.getElementById('submitLemburBtn');
   const rows = Array.from(lemburContainer.querySelectorAll('.dynamic-row'));
   if (rows.length === 0) return showToast('Tambahkan minimal 1 baris lembur!', 'error');
+
+  setButtonLoading(btn, true, 'Menyimpan Lembur...');
+  const nik = document.getElementById('l_nik').value;
 
   const lemburList = rows.map(row => {
     const mulai = row.querySelector('.l_jamMulai').value;
@@ -962,6 +1292,7 @@ document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   });
 
   const res = await apiRequest('saveLemburMultiple', { lemburList });
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Lembur berhasil disimpan!');
     lemburContainer.innerHTML = ''; 
@@ -973,9 +1304,12 @@ document.getElementById('lemburForm').addEventListener('submit', async (e) => {
 
 document.getElementById('cutiForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const nik = document.getElementById('c_nik').value;
+  const btn = document.getElementById('submitCutiBtn');
   const rows = Array.from(cutiContainer.querySelectorAll('.dynamic-row'));
   if (rows.length === 0) return showToast('Tambahkan minimal 1 baris Ijin/Cuti!', 'error');
+
+  setButtonLoading(btn, true, 'Mengajukan...');
+  const nik = document.getElementById('c_nik').value;
 
   const perijinanList = rows.map(row => ({
     nik, 
@@ -989,6 +1323,7 @@ document.getElementById('cutiForm').addEventListener('submit', async (e) => {
   }));
 
   const res = await apiRequest('savePerijinanMultiple', { perijinanList });
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Ijin/Cuti diajukan & notifikasi dikirim!');
     cutiContainer.innerHTML = ''; 
@@ -1007,7 +1342,7 @@ function renderStatusBadge(status) {
 }
 
 function renderLemburTables() {
-  const saya = state.lembur.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
+  const saya = state.lembur.filter(r => r.nik === state.currentUser.nik);
   
   // Calculate current month's overtime hours for user
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -1020,13 +1355,31 @@ function renderLemburTables() {
   const monthLemburEl = document.getElementById('userMonthOvertimeHours');
   if (monthLemburEl) monthLemburEl.textContent = `${totalHours.toFixed(2)} Jam`;
 
-  const genRows = (data, isAdmin) => {
-    if (!data.length) {
-      return `<tr><td colspan="${isAdmin ? 8 : 7}" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur yang tercatat.</td></tr>`;
-    }
-    return data.map(r => `
+  // Status Lembur Saya (User View: NO Edit/Delete)
+  const userRows = saya.length ? saya.map(r => `
+    <tr>
+      <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
+      <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
+      <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
+      <td><span class="mono-text">${r.jamSelesai || '-'}</span></td>
+      <td><span class="mono-text">${r.totalJam || '-'}</span></td>
+      <td>${r.catatan || '-'}</td>
+      <td>${renderStatusBadge(r.status)}</td>
+    </tr>
+  `).join('') : `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur yang tercatat.</td></tr>`;
+
+  document.getElementById('statusLemburTableWrap').innerHTML = `
+    <table>
+      <thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Status</th></tr></thead>
+      <tbody>${userRows}</tbody>
+    </table>
+  `;
+
+  // Admin Rekap Lembur (Admin View: with Edit & Delete)
+  if (state.currentUser.role === 'admin') {
+    const adminRows = state.lembur.length ? state.lembur.map(r => `
       <tr>
-        ${isAdmin ? `<td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>` : ''}
+        <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
         <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
         <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
         <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
@@ -1038,74 +1391,75 @@ function renderLemburTables() {
           <button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button>
         </td>
       </tr>
-    `).join('');
-  };
+    `).join('') : `<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur.</td></tr>`;
 
-  document.getElementById('statusLemburTableWrap').innerHTML = `
-    <table>
-      <thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
-      <tbody>${genRows(saya, false)}</tbody>
-    </table>
-  `;
-
-  if (state.currentUser.role === 'admin') {
     document.getElementById('adminLemburTableWrap').innerHTML = `
       <table>
         <thead><tr><th>User</th><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
-        <tbody>${genRows(state.lembur, true)}</tbody>
+        <tbody>${adminRows}</tbody>
       </table>
     `;
   }
 }
 
 function renderCutiTables() {
-  const saya = state.cuti.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
   const adminUser = state.users.find(u => u.role === 'admin' && (u.noHp || u.nohp));
   const adminPhone = adminUser ? formatWaNumber(adminUser.noHp || adminUser.nohp) : '';
 
-  const genRows = (data, isAdmin) => {
-    if (!data.length) {
-      return `<tr><td colspan="${isAdmin ? 6 : 5}" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data pengajuan ijin/cuti.</td></tr>`;
-    }
-    return data.map(r => {
+  // Transparan: Seluruh karyawan dapat melihat jadwal cuti rekan warehouse
+  const allLeaves = state.cuti;
+
+  const userRows = allLeaves.length ? allLeaves.map(r => {
+    const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis} untuk periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}. Alasan: ${r.alasan}. Mohon konfirmasi. Terima kasih.`);
+    const waAdminBtn = (adminPhone && r.nik === state.currentUser.nik) ? `<a class="action-btn wa" href="https://wa.me/${adminPhone}?text=${userWaMsg}" target="_blank">📲 WA Admin</a>` : '';
+
+    return `
+      <tr>
+        <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
+        <td><strong>${r.jenis}</strong></td>
+        <td><span class="mono-text">${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</span></td>
+        <td>${r.alasan}</td>
+        <td>${renderStatusBadge(r.status)}</td>
+        <td class="action-cell">${waAdminBtn || '-'}</td>
+      </tr>
+    `;
+  }).join('') : `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada jadwal cuti/ijin tim warehouse.</td></tr>`;
+
+  document.getElementById('statusCutiTableWrap').innerHTML = `
+    <table>
+      <thead><tr><th>Karyawan</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Hubungi</th></tr></thead>
+      <tbody>${userRows}</tbody>
+    </table>
+  `;
+
+  // Admin Approval & Management View
+  if (state.currentUser.role === 'admin') {
+    const adminRows = allLeaves.length ? allLeaves.map(r => {
       const empUser = state.users.find(u => String(u.nik) === String(r.nik));
       const empPhone = empUser ? formatWaNumber(empUser.noHp || empUser.nohp) : '';
-
-      const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis} untuk periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}. Alasan: ${r.alasan}. Mohon konfirmasi. Terima kasih.`);
-      const waAdminBtn = adminPhone ? `<a class="action-btn wa" href="https://wa.me/${adminPhone}?text=${userWaMsg}" target="_blank">📲 WA Admin</a>` : '';
-
       const adminWaMsg = encodeURIComponent(`Halo ${r.nama}, terkait pengajuan ${r.jenis} periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}, status pengajuan saat ini: [${r.status || 'Diajukan'}]. Terima kasih.`);
       const waEmpBtn = empPhone ? `<a class="action-btn wa" href="https://wa.me/${empPhone}?text=${adminWaMsg}" target="_blank">📲 WA</a>` : '';
 
       return `
         <tr>
-          ${isAdmin ? `<td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>` : ''}
+          <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
           <td><strong>${r.jenis}</strong></td>
           <td><span class="mono-text">${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</span></td>
           <td>${r.alasan}</td>
           <td>${renderStatusBadge(r.status)}</td>
           <td class="action-cell">
-            ${isAdmin ? `<button class="action-btn edit" onclick="openEditCuti('${r.id}')">Edit & Status</button>` : ''}
-            ${isAdmin ? waEmpBtn : waAdminBtn}
+            <button class="action-btn edit" onclick="openEditCuti('${r.id}')">Edit & Status</button>
+            ${waEmpBtn}
             <button class="action-btn delete" onclick="deleteCuti('${r.id}')">Hapus</button>
           </td>
         </tr>
       `;
-    }).join('');
-  };
+    }).join('') : `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada pengajuan cuti.</td></tr>`;
 
-  document.getElementById('statusCutiTableWrap').innerHTML = `
-    <table>
-      <thead><tr><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi / Notif</th></tr></thead>
-      <tbody>${genRows(saya, false)}</tbody>
-    </table>
-  `;
-
-  if (state.currentUser.role === 'admin') {
     document.getElementById('adminCutiTableWrap').innerHTML = `
       <table>
         <thead><tr><th>User</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi / Notif</th></tr></thead>
-        <tbody>${genRows(state.cuti, true)}</tbody>
+        <tbody>${adminRows}</tbody>
       </table>
     `;
   }
@@ -1198,6 +1552,9 @@ window.deleteUserRecord = async (nik) => {
 
 document.getElementById('userForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSaveUser');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const payload = {
     nik: document.getElementById('userNIK').value.trim(),
     nama: document.getElementById('userName').value.trim(),
@@ -1214,6 +1571,7 @@ document.getElementById('userForm').addEventListener('submit', async (e) => {
   };
 
   const res = await apiRequest('saveUser', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Data karyawan berhasil disimpan!');
     document.getElementById('userForm').reset();
@@ -1250,6 +1608,9 @@ window.openEditLembur = (id) => {
 
 document.getElementById('editLemburForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSaveEditLembur');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const id = document.getElementById('editL_id').value;
   const mulai = document.getElementById('editL_jamMulai').value;
   const selesai = document.getElementById('editL_jamSelesai').value;
@@ -1267,6 +1628,7 @@ document.getElementById('editLemburForm').addEventListener('submit', async (e) =
   };
 
   const res = await apiRequest('updateLembur', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Data lembur berhasil diperbarui!');
     closeModal('editLemburModal');
@@ -1289,6 +1651,9 @@ window.openEditCuti = (id) => {
 
 document.getElementById('editCutiForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('btnSaveEditCuti');
+  setButtonLoading(btn, true, 'Menyimpan...');
+
   const payload = {
     id: document.getElementById('editC_id').value,
     nik: document.getElementById('editC_nik').value,
@@ -1301,6 +1666,7 @@ document.getElementById('editCutiForm').addEventListener('submit', async (e) => 
   };
 
   const res = await apiRequest('updatePerijinan', payload);
+  setButtonLoading(btn, false);
   if (res) {
     showToast('Data perijinan diperbarui & notifikasi dikirim!');
     closeModal('editCutiModal');
@@ -1382,10 +1748,7 @@ async function loadLembur() {
 }
 
 async function loadCuti() {
-  const res = await apiRequest('getPerijinan', { 
-    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
-    role: state.currentUser.role 
-  });
+  const res = await apiRequest('getPerijinan');
   if (res) { 
     state.cuti = res.data || []; 
     renderCutiTables(); 
@@ -1453,6 +1816,7 @@ async function startApp() {
 
   await loadUsersData();
   await loadShifts();
+  await loadRosterShifts();
   await loadAbsensi();
   await loadKasbon();
   await loadLembur(); 
@@ -1468,10 +1832,14 @@ async function startApp() {
 // ================= AUTH EVENTS =================
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = document.getElementById('loginSubmitBtn');
+  setButtonLoading(btn, true, 'Memverifikasi...');
+
   const res = await apiRequest('login', { 
     username: document.getElementById('loginUsername').value, 
     password: document.getElementById('loginPassword').value 
   });
+  setButtonLoading(btn, false);
   if (res && res.user) {
     state.currentUser = res.user;
     localStorage.setItem('currentUser', JSON.stringify(res.user));

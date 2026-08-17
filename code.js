@@ -1,5 +1,5 @@
 function doGet() {
-  return ContentService.createTextOutput('WMS Mini - Warehouse Operations & Payroll API Siap Digunakan.');
+  return ContentService.createTextOutput('Warehouse Management System API - Online.');
 }
 
 function doPost(e) {
@@ -23,16 +23,26 @@ function doPost(e) {
         return jsonResponse({ success: true, users: getUsers() });
       case 'saveUser':
         return jsonResponse({ success: true, user: saveUser(payload) });
+      case 'importUsersBulk':
+        return jsonResponse({ success: true, count: importUsersBulk(payload.userList) });
       case 'deleteUser':
         return jsonResponse({ success: true, ok: deleteUser(payload.nik) });
 
-      // SHIFT & ABSENSI
+      // SHIFT MASTER & ROSTER
       case 'getShifts':
         return jsonResponse({ success: true, data: getShifts() });
       case 'saveShift':
         return jsonResponse({ success: true, data: saveShift(payload) });
       case 'deleteShift':
         return jsonResponse({ success: true, ok: deleteRowById('Data Shift', payload.id) });
+      case 'getRosterShifts':
+        return jsonResponse({ success: true, data: getRosterShifts(payload.nik || '', payload.role || '') });
+      case 'saveRosterBulk':
+        return jsonResponse({ success: true, count: saveRosterBulk(payload.rosterList) });
+      case 'deleteRosterShift':
+        return jsonResponse({ success: true, ok: deleteRowById('Jadwal Shift', payload.id) });
+
+      // ABSENSI
       case 'getAbsensi':
         return jsonResponse({ success: true, data: getAbsensi(payload.nik || '', payload.role || '') });
       case 'checkInAbsensi':
@@ -44,7 +54,7 @@ function doPost(e) {
       case 'deleteAbsensi':
         return jsonResponse({ success: true, ok: deleteRowById('Data Absensi', payload.id) });
 
-      // LEMBUR
+      // LEMBUR (PRIVAT PER KARYAWAN)
       case 'getLembur':
         return jsonResponse({ success: true, data: getLembur(payload.nik || '', payload.role || '') });
       case 'saveLemburMultiple':
@@ -54,9 +64,9 @@ function doPost(e) {
       case 'deleteLembur':
         return jsonResponse({ success: true, ok: deleteRowById('Data Lembur', payload.id) });
 
-      // PERIJINAN (IJIN/CUTI)
+      // PERIJINAN (TRANSPARAN UNTUK SEMUA KARYAWAN WAREHOUSE)
       case 'getPerijinan':
-        return jsonResponse({ success: true, data: getPerijinan(payload.nik || '', payload.role || '') });
+        return jsonResponse({ success: true, data: getPerijinan() });
       case 'savePerijinanMultiple':
         return jsonResponse({ success: true, rows: savePerijinanMultiple(payload.perijinanList) });
       case 'updatePerijinan':
@@ -109,44 +119,52 @@ function ensureSheets() {
     ensureHeaders(karyawanSheet, ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt']);
   }
 
-  // 2. DATA SHIFT
+  // 2. DATA SHIFT MASTER
   let shiftSheet = spreadsheet.getSheetByName('Data Shift');
   if (!shiftSheet) {
     shiftSheet = spreadsheet.insertSheet('Data Shift');
     shiftSheet.appendRow(['ID', 'NamaShift', 'JamMasuk', 'JamPulang', 'ToleransiMenit', 'Status']);
-    shiftSheet.appendRow(['SHIFT-1', 'Shift Pagi', '08:00', '17:00', 15, 'Aktif']);
-    shiftSheet.appendRow(['SHIFT-2', 'Shift Siang/Malam', '13:00', '21:00', 15, 'Aktif']);
+    shiftSheet.appendRow(['SHIFT-1', 'Shift 1', '08:00', '17:00', 15, 'Aktif']);
+    shiftSheet.appendRow(['SHIFT-2', 'Shift 2', '09:00', '18:00', 15, 'Aktif']);
+    shiftSheet.appendRow(['SHIFT-3', 'Shift 3', '12:00', '21:00', 15, 'Aktif']);
   }
 
-  // 3. DATA ABSENSI
+  // 3. JADWAL ROSTER SHIFT KARYAWAN
+  let rosterSheet = spreadsheet.getSheetByName('Jadwal Shift');
+  if (!rosterSheet) {
+    rosterSheet = spreadsheet.insertSheet('Jadwal Shift');
+    rosterSheet.appendRow(['ID', 'NIK', 'Nama', 'Tanggal', 'Shift', 'JamMasuk', 'JamPulang', 'Keterangan', 'UpdatedAt']);
+  }
+
+  // 4. DATA ABSENSI
   let absensiSheet = spreadsheet.getSheetByName('Data Absensi');
   if (!absensiSheet) {
     absensiSheet = spreadsheet.insertSheet('Data Absensi');
     absensiSheet.appendRow(['ID', 'NIK', 'Nama', 'Tanggal', 'Shift', 'JamMasuk', 'JamPulang', 'Status', 'KeterlambatanMenit', 'Catatan']);
   }
 
-  // 4. DATA LEMBUR
+  // 5. DATA LEMBUR
   let lemburSheet = spreadsheet.getSheetByName('Data Lembur');
   if (!lemburSheet) {
     lemburSheet = spreadsheet.insertSheet('Data Lembur');
     lemburSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Catatan', 'Tanggal Input', 'Status', 'UpdatedBy']);
   }
 
-  // 5. DATA PERIJINAN
+  // 6. DATA PERIJINAN
   let perijinanSheet = spreadsheet.getSheetByName('Data Perijinan');
   if (!perijinanSheet) {
     perijinanSheet = spreadsheet.insertSheet('Data Perijinan');
     perijinanSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Jenis', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Tanggal Input', 'Status', 'UpdatedBy']);
   }
 
-  // 6. DATA KASBON
+  // 7. DATA KASBON
   let kasbonSheet = spreadsheet.getSheetByName('Data Kasbon');
   if (!kasbonSheet) {
     kasbonSheet = spreadsheet.insertSheet('Data Kasbon');
     kasbonSheet.appendRow(['ID', 'NIK', 'Nama', 'TanggalPengajuan', 'JumlahPinjaman', 'CicilanPerBulan', 'SisaKasbon', 'Status', 'Catatan']);
   }
 
-  // 7. DATA PAYROLL
+  // 8. DATA PAYROLL
   let payrollSheet = spreadsheet.getSheetByName('Data Payroll');
   if (!payrollSheet) {
     payrollSheet = spreadsheet.insertSheet('Data Payroll');
@@ -207,19 +225,16 @@ function getSheetRows(sheetName) {
       obj[key] = val;
     });
 
-    // Auto-normalize alias keys for Lembur
     if (obj.deskripsiPekerjaan && !obj.deskripsi) obj.deskripsi = obj.deskripsiPekerjaan;
     if (obj.pekerjaan && !obj.deskripsi) obj.deskripsi = obj.pekerjaan;
     if (obj.keterangan && !obj.deskripsi) obj.deskripsi = obj.keterangan;
     if (obj.uraian && !obj.deskripsi) obj.deskripsi = obj.uraian;
     if (obj.deskripsi && !obj.deskripsiPekerjaan) obj.deskripsiPekerjaan = obj.deskripsi;
 
-    // Auto-normalize alias keys for Cuti/Perijinan
     if (obj.tglMulai && !obj.tanggalMulai) obj.tanggalMulai = obj.tglMulai;
     if (obj.tglSelesai && !obj.tanggalSelesai) obj.tanggalSelesai = obj.tglSelesai;
     if (obj.keterangan && !obj.alasan) obj.alasan = obj.keterangan;
 
-    // Auto-normalize alias keys for User
     if (obj.noTelepon && !obj.noHp) obj.noHp = obj.noTelepon;
     if (obj.telepon && !obj.noHp) obj.noHp = obj.telepon;
     if (obj.hp && !obj.noHp) obj.noHp = obj.hp;
@@ -318,6 +333,12 @@ function saveUser(payload) {
   };
 }
 
+function importUsersBulk(userList) {
+  if (!userList || !userList.length) return 0;
+  userList.forEach(u => saveUser(u));
+  return userList.length;
+}
+
 function deleteUser(nik) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Karyawan');
   const values = sheet.getDataRange().getValues();
@@ -330,7 +351,7 @@ function deleteUser(nik) {
   return false;
 }
 
-// ------------- SHIFT -------------
+// ------------- SHIFT MASTER -------------
 function getShifts() {
   const rows = getSheetRows('Data Shift');
   return rows.filter(s => String(s.id || '').trim() !== '');
@@ -362,6 +383,45 @@ function saveShift(payload) {
   return { id, ...payload };
 }
 
+// ------------- JADWAL ROSTER SHIFT KARYAWAN -------------
+function getRosterShifts(nik, role) {
+  const rows = getSheetRows('Jadwal Shift');
+  if (role === 'admin') return rows.filter(r => String(r.id || '').trim() !== '');
+  return rows.filter(r => String(r.nik).trim() === String(nik).trim());
+}
+
+function saveRosterBulk(rosterList) {
+  if (!rosterList || !rosterList.length) return 0;
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Jadwal Shift');
+  const existing = getSheetRows('Jadwal Shift');
+
+  rosterList.forEach(item => {
+    const nik = String(item.nik || '').trim();
+    const tgl = String(item.tanggal || '').trim();
+    const id = `ROSTER-${nik}-${tgl}`;
+    const row = [
+      id,
+      nik,
+      item.nama || '',
+      tgl,
+      item.shift || 'Shift 1',
+      item.jamMasuk || '08:00',
+      item.jamPulang || '17:00',
+      item.keterangan || '',
+      new Date().toISOString()
+    ];
+
+    const matchIndex = existing.findIndex(r => r.id === id);
+    if (matchIndex >= 0) {
+      sheet.getRange(matchIndex + 2, 1, 1, row.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+  });
+
+  return rosterList.length;
+}
+
 // ------------- ABSENSI -------------
 function getAbsensi(nik, role) {
   const rows = getSheetRows('Data Absensi');
@@ -381,11 +441,10 @@ function checkInAbsensi(payload) {
   }
 
   const id = 'ABS-' + Date.now();
-  const shiftName = payload.shift || 'Shift Pagi';
+  const shiftName = payload.shift || 'Shift 1';
   let keterlambatan = 0;
   let status = 'Hadir';
 
-  // Kalkulasi keterlambatan jika ada
   if (payload.shiftJamMasuk) {
     const [smH, smM] = payload.shiftJamMasuk.split(':').map(Number);
     const [curH, curM] = currentTime.split(':').map(Number);
@@ -412,7 +471,7 @@ function checkOutAbsensi(payload) {
     const rowNik = String(values[i][1]).trim();
     const rowDate = formatCellVal(values[i][3]);
     if (rowNik === String(payload.nik).trim() && rowDate === today) {
-      sheet.getRange(i + 1, 7).setValue(currentTime); // Jam Pulang
+      sheet.getRange(i + 1, 7).setValue(currentTime);
       return { ok: true, jamPulang: currentTime };
     }
   }
@@ -431,7 +490,7 @@ function saveAbsensiManual(payload) {
   return { id, ...payload };
 }
 
-// ------------- LEMBUR -------------
+// ------------- LEMBUR (PRIVAT PER USER) -------------
 function getLembur(nik, role) {
   const rows = getSheetRows('Data Lembur');
   if (role === 'admin') return rows.filter(r => String(r.id).trim() !== '');
@@ -483,11 +542,10 @@ function updateLembur(payload) {
   return false;
 }
 
-// ------------- PERIJINAN (IJIN / CUTI) -------------
-function getPerijinan(nik, role) {
+// ------------- PERIJINAN (TRANSPARAN SEMUA KARYAWAN) -------------
+function getPerijinan() {
   const rows = getSheetRows('Data Perijinan');
-  if (role === 'admin') return rows.filter(r => String(r.id).trim() !== '');
-  return rows.filter(r => String(r.nik).trim() === String(nik).trim());
+  return rows.filter(r => String(r.id).trim() !== '');
 }
 
 function savePerijinanMultiple(perijinanList) {
@@ -579,7 +637,6 @@ function saveKasbon(payload) {
     sheet.appendRow(row);
   }
 
-  // Update total saldo kasbon di data karyawan
   updateKaryawanKasbonBalance(payload.nik);
   return { id, ...payload };
 }
@@ -592,7 +649,7 @@ function updateKaryawanKasbonBalance(nik) {
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][0]).trim() === String(nik).trim()) {
-      sheet.getRange(i + 1, 12).setValue(totalSisa); // Col 12: SaldoKasbon
+      sheet.getRange(i + 1, 12).setValue(totalSisa);
       break;
     }
   }
@@ -619,7 +676,6 @@ function generateMonthlyPayroll(periode, adminUsername) {
   const results = [];
 
   users.forEach(user => {
-    // 1. Hitung total jam lembur dalam periode ini
     const userLembur = lemburRows.filter(l => {
       if (String(l.nik).trim() !== String(user.nik).trim()) return false;
       const tgl = String(l.tanggal || '');
@@ -635,7 +691,6 @@ function generateMonthlyPayroll(periode, adminUsername) {
     const rateLembur = Number(user.rateLembur || 25000);
     const totalUangLembur = Math.round(totalJamLembur * rateLembur);
 
-    // 2. Hitung cicilan kasbon aktif
     const activeKasbon = kasbonRows.filter(k => String(k.nik).trim() === String(user.nik).trim() && k.status === 'Aktif');
     let potonganKasbon = 0;
     activeKasbon.forEach(k => {
@@ -750,7 +805,7 @@ function notifyAdminNewLeave(perijinanList) {
       </li>
     `).join('');
 
-    const subject = `[WMS Mini] Pengajuan Ijin / Cuti Baru: ${perijinanList[0].nama}`;
+    const subject = `[Warehouse Management] Pengajuan Ijin / Cuti Baru: ${perijinanList[0].nama}`;
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #d0d7de; border-radius: 10px; background-color: #ffffff; color: #1f2328;">
         <h3 style="color: #0969da; margin-top: 0;">⚡ Notifikasi Pengajuan Ijin / Cuti</h3>
@@ -759,9 +814,9 @@ function notifyAdminNewLeave(perijinanList) {
         <ul style="padding-left: 20px; background: #f6f8fa; padding: 16px 20px; border-radius: 8px; border: 1px solid #e1e4e8;">
           ${summaryList}
         </ul>
-        <p style="margin-top: 20px;">Silakan login ke web <strong>WMS Mini</strong> untuk melakukan persetujuan (Approve / Reject).</p>
+        <p style="margin-top: 20px;">Silakan login ke web <strong>Warehouse Management</strong> untuk melakukan persetujuan (Approve / Reject).</p>
         <hr style="border: 0; border-top: 1px solid #d0d7de; margin: 20px 0;" />
-        <small style="color: #6e7681;">Sistem Otomatis Notifikasi WMS Mini</small>
+        <small style="color: #6e7681;">Sistem Otomatis Notifikasi Warehouse Management</small>
       </div>
     `;
 
@@ -789,7 +844,7 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
     const statusColor = isApproved ? '#1a7f37' : '#cf222e';
     const statusIcon = isApproved ? '✅' : '❌';
 
-    const subject = `[WMS Mini] ${statusIcon} Status Ijin/Cuti Anda: ${newStatus}`;
+    const subject = `[Warehouse Management] ${statusIcon} Status Ijin/Cuti Anda: ${newStatus}`;
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #d0d7de; border-radius: 10px; background-color: #ffffff; color: #1f2328;">
         <h3 style="color: ${statusColor}; margin-top: 0;">${statusIcon} Pengajuan Ijin / Cuti ${newStatus}</h3>
@@ -802,9 +857,9 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
           <tr><td style="padding: 8px 12px; font-weight: bold;">Status:</td><td style="padding: 8px 12px; font-weight: bold; color: ${statusColor};">${newStatus}</td></tr>
           <tr><td style="padding: 8px 12px; font-weight: bold;">Diupdate Oleh:</td><td style="padding: 8px 12px;">${adminUsername || 'Admin'}</td></tr>
         </table>
-        <p>Terima kasih telah menggunakan sistem WMS Mini.</p>
+        <p>Terima kasih telah menggunakan sistem Warehouse Management.</p>
         <hr style="border: 0; border-top: 1px solid #d0d7de; margin: 20px 0;" />
-        <small style="color: #6e7681;">Sistem Otomatis Notifikasi WMS Mini</small>
+        <small style="color: #6e7681;">Sistem Otomatis Notifikasi Warehouse Management</small>
       </div>
     `;
 
