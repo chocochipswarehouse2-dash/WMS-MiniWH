@@ -108,8 +108,28 @@ if (toggleSidebarBtn) toggleSidebarBtn.addEventListener('click', toggleSidebar);
 if (closeSidebarMobileBtn) closeSidebarMobileBtn.addEventListener('click', closeMobileSidebar);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeMobileSidebar);
 
-// ================= API REQUEST =================
+// ================= BACKEND CONFIGURATION (SUPABASE + GAS) =================
+const SUPABASE_URL = "https://rmrbfecagwcojtoqeovk.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_zOn1y93MF0x3CIy8MJ7I8Q_fQMkJ8x9";
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzbydk8A6yPv0FcwI4QhhBEM5pAmW_ivNEbW3Mkb6GZYXjxIeEnUxvePC5vSjCq5CSy/exec";
+
+// Inisialisasi Supabase Client
+const supabase = (window.supabase && typeof window.supabase.createClient === 'function')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+// ================= API REQUEST HANDLER =================
 async function apiRequest(action, payload = {}) {
+  // 1. UTAMAKAN SUPABASE UNTUK KECEPATAN INSTAN (<50ms)
+  if (supabase) {
+    try {
+      return await supabaseApiRequest(action, payload);
+    } catch (err) {
+      console.warn(`[Supabase API] Fallback to GAS for action ${action}:`, err);
+    }
+  }
+
+  // 2. FALLBACK KE GOOGLE APPS SCRIPT JIKA DIPERLUKAN
   try {
     const postData = JSON.stringify({ action, ...payload });
     const body = new URLSearchParams({ data: postData }).toString();
@@ -125,6 +145,512 @@ async function apiRequest(action, payload = {}) {
   } catch (error) {
     showToast(error.message || 'Gagal terhubung ke server', 'error');
     return null;
+  }
+}
+
+// ================= SUPABASE DIRECT CRUD OPERATIONS =================
+async function supabaseApiRequest(action, payload) {
+  switch (action) {
+    case 'login': {
+      const { username, password } = payload;
+      const { data, error } = await supabase
+        .from('karyawan')
+        .select('*')
+        .or(`username.eq.${username},nik.eq.${username}`)
+        .eq('password', password)
+        .maybeSingle();
+
+      if (error || !data) return { success: false, message: 'Username/NIK atau password salah' };
+      return {
+        success: true,
+        user: {
+          nik: data.nik,
+          nama: data.nama,
+          divisi: data.divisi,
+          username: data.username,
+          role: data.role,
+          gajiPokok: Number(data.gaji_pokok || 0),
+          tunjangan: Number(data.tunjangan || 0),
+          rateLembur: Number(data.rate_lembur || 0),
+          saldoKasbon: Number(data.saldo_kasbon || 0),
+          email: data.email || '',
+          noHp: data.no_hp || ''
+        }
+      };
+    }
+
+    case 'getUsers': {
+      const { data, error } = await supabase.from('karyawan').select('*').order('nik', { ascending: true });
+      if (error) throw error;
+      return {
+        success: true,
+        users: data.map(u => ({
+          nik: u.nik,
+          nama: u.nama,
+          divisi: u.divisi,
+          username: u.username,
+          password: u.password,
+          role: u.role,
+          gajiPokok: Number(u.gaji_pokok || 0),
+          tunjangan: Number(u.tunjangan || 0),
+          rateLembur: Number(u.rate_lembur || 0),
+          saldoKasbon: Number(u.saldo_kasbon || 0),
+          email: u.email || '',
+          noHp: u.no_hp || ''
+        }))
+      };
+    }
+
+    case 'saveUser': {
+      const u = payload.user || payload;
+      const row = {
+        nik: u.nik,
+        nama: u.nama,
+        divisi: u.divisi,
+        username: u.username,
+        password: u.password,
+        role: u.role || 'user',
+        gaji_pokok: Number(u.gajiPokok || 0),
+        tunjangan: Number(u.tunjangan || 0),
+        rate_lembur: Number(u.rateLembur || 0),
+        saldo_kasbon: Number(u.saldoKasbon || 0),
+        email: u.email || '',
+        no_hp: u.noHp || '',
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('karyawan').upsert(row);
+      if (error) throw error;
+      return { success: true, message: 'Data karyawan berhasil disimpan' };
+    }
+
+    case 'deleteUser': {
+      const { error } = await supabase.from('karyawan').delete().eq('nik', payload.nik);
+      if (error) throw error;
+      return { success: true, message: 'Karyawan berhasil dihapus' };
+    }
+
+    case 'getShifts': {
+      const { data, error } = await supabase.from('master_shift').select('*').order('id', { ascending: true });
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(s => ({
+          id: s.id,
+          namaShift: s.nama_shift,
+          jamMasuk: (s.jam_masuk || '').slice(0, 5),
+          jamPulang: (s.jam_pulang || '').slice(0, 5),
+          toleransi: s.toleransi,
+          status: s.status
+        }))
+      };
+    }
+
+    case 'saveShift': {
+      const s = payload.shift || payload;
+      const row = {
+        nama_shift: s.namaShift,
+        jam_masuk: s.jamMasuk,
+        jam_pulang: s.jamPulang,
+        toleransi: Number(s.toleransi || 15),
+        status: s.status || 'Aktif'
+      };
+      if (s.id) row.id = s.id;
+      const { error } = await supabase.from('master_shift').upsert(row);
+      if (error) throw error;
+      return { success: true, message: 'Shift berhasil disimpan' };
+    }
+
+    case 'deleteShift': {
+      const { error } = await supabase.from('master_shift').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: 'Shift berhasil dihapus' };
+    }
+
+    case 'getRosterShifts': {
+      let query = supabase.from('roster_shift').select('*, karyawan(nama)').order('tanggal', { ascending: false });
+      if (payload.nik) query = query.eq('nik', payload.nik);
+      const { data, error } = await query;
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(r => ({
+          id: r.id,
+          nik: r.nik,
+          nama: r.karyawan ? r.karyawan.nama : r.nik,
+          tanggal: r.tanggal,
+          shift: r.shift,
+          jamMasuk: r.jam_masuk || '',
+          jamPulang: r.jam_pulang || '',
+          keterangan: r.keterangan || ''
+        }))
+      };
+    }
+
+    case 'importRosterShifts': {
+      const rows = (payload.rosterList || payload.data || []).map(r => ({
+        nik: r.nik,
+        tanggal: r.tanggal,
+        shift: r.shift,
+        jam_masuk: r.jamMasuk,
+        jam_pulang: r.jamPulang,
+        keterangan: r.keterangan || ''
+      }));
+      const { error } = await supabase.from('roster_shift').upsert(rows, { onConflict: 'nik,tanggal' });
+      if (error) throw error;
+      return { success: true, count: rows.length, message: `${rows.length} jadwal roster berhasil diimport` };
+    }
+
+    case 'deleteRosterShift': {
+      const { error } = await supabase.from('roster_shift').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: 'Entri roster berhasil dihapus' };
+    }
+
+    case 'getAbsensi': {
+      let query = supabase.from('presensi').select('*, karyawan(nama, divisi)').order('tanggal', { ascending: false });
+      if (payload.nik) query = query.eq('nik', payload.nik);
+      const { data, error } = await query;
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(a => ({
+          id: a.id,
+          nik: a.nik,
+          nama: a.karyawan ? a.karyawan.nama : a.nik,
+          divisi: a.karyawan ? a.karyawan.divisi : '',
+          tanggal: a.tanggal,
+          shift: a.shift,
+          status: a.status,
+          jamMasuk: (a.jam_masuk || '').slice(0, 5),
+          jamPulang: (a.jam_pulang || '').slice(0, 5),
+          catatan: a.catatan || ''
+        }))
+      };
+    }
+
+    case 'checkIn': {
+      const now = new Date();
+      const time = now.toTimeString().slice(0, 5);
+      const today = now.toISOString().split('T')[0];
+      const row = {
+        nik: payload.nik,
+        tanggal: today,
+        shift: payload.shift || 'Shift 1',
+        status: payload.status || 'Hadir',
+        jam_masuk: time
+      };
+      const { error } = await supabase.from('presensi').upsert(row, { onConflict: 'nik,tanggal' });
+      if (error) throw error;
+      return { success: true, message: `Presensi Masuk berhasil dicatat pukul ${time}` };
+    }
+
+    case 'checkOut': {
+      const now = new Date();
+      const time = now.toTimeString().slice(0, 5);
+      const today = now.toISOString().split('T')[0];
+      const { error } = await supabase.from('presensi').update({ jam_pulang: time }).match({ nik: payload.nik, tanggal: today });
+      if (error) throw error;
+      return { success: true, message: `Presensi Pulang berhasil dicatat pukul ${time}` };
+    }
+
+    case 'saveManualAbsensi': {
+      const a = payload.absensi || payload;
+      const row = {
+        nik: a.nik,
+        tanggal: a.tanggal,
+        shift: a.shift || 'Shift 1',
+        status: a.status || 'Hadir',
+        jam_masuk: a.jamMasuk || null,
+        jam_pulang: a.jamPulang || null,
+        catatan: a.catatan || ''
+      };
+      const { error } = await supabase.from('presensi').upsert(row, { onConflict: 'nik,tanggal' });
+      if (error) throw error;
+      return { success: true, message: 'Presensi berhasil disimpan' };
+    }
+
+    case 'getLembur': {
+      let query = supabase.from('lembur').select('*').order('tanggal', { ascending: false });
+      if (payload.nik) query = query.eq('nik', payload.nik);
+      const { data, error } = await query;
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(l => ({
+          id: l.id,
+          nik: l.nik,
+          nama: l.nama,
+          divisi: l.divisi,
+          tanggal: l.tanggal,
+          deskripsi: l.deskripsi,
+          jamMulai: (l.jam_mulai || '').slice(0, 5),
+          jamSelesai: (l.jam_selesai || '').slice(0, 5),
+          durasiJam: Number(l.durasi_jam || 0),
+          rateLembur: Number(l.rate_lembur || 0),
+          totalLembur: Number(l.total_lembur || 0),
+          status: l.status,
+          approvedBy: l.approved_by || '',
+          catatan: l.catatan || ''
+        }))
+      };
+    }
+
+    case 'saveLembur': {
+      const list = (payload.lemburList || [payload.lembur || payload]).map(l => ({
+        id: l.id || 'LMB-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        nik: l.nik,
+        nama: l.nama,
+        divisi: l.divisi,
+        tanggal: l.tanggal,
+        deskripsi: l.deskripsi,
+        jam_mulai: l.jamMulai,
+        jam_selesai: l.jamSelesai,
+        durasi_jam: Number(l.durasiJam || 0),
+        rate_lembur: Number(l.rateLembur || 0),
+        total_lembur: Number(l.totalLembur || 0),
+        status: 'Diajukan',
+        catatan: l.catatan || ''
+      }));
+      const { error } = await supabase.from('lembur').insert(list);
+      if (error) throw error;
+      
+      // Kirim webhook notifikasi background ke GAS (opsional, non-blocking)
+      fetch(GOOGLE_SHEET_WEB_APP_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ data: JSON.stringify({ action: 'notifyLembur', lemburList: list }) }) 
+      }).catch(() => {});
+
+      return { success: true, message: 'Pengajuan lembur berhasil disimpan' };
+    }
+
+    case 'updateLemburStatus': {
+      const { error } = await supabase.from('lembur').update({
+        status: payload.status,
+        approved_by: payload.approvedBy || (state.currentUser ? state.currentUser.nama : 'Admin'),
+        approved_at: new Date().toISOString()
+      }).eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: `Status lembur berhasil diupdate menjadi ${payload.status}` };
+    }
+
+    case 'editLembur': {
+      const l = payload.lembur || payload;
+      const { error } = await supabase.from('lembur').update({
+        tanggal: l.tanggal,
+        deskripsi: l.deskripsi,
+        jam_mulai: l.jamMulai,
+        jam_selesai: l.jamSelesai,
+        durasi_jam: Number(l.durasiJam || 0),
+        rate_lembur: Number(l.rateLembur || 0),
+        total_lembur: Number(l.totalLembur || 0),
+        catatan: l.catatan || ''
+      }).eq('id', l.id);
+      if (error) throw error;
+      return { success: true, message: 'Data lembur berhasil diperbarui' };
+    }
+
+    case 'deleteLembur': {
+      const { error } = await supabase.from('lembur').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: 'Data lembur berhasil dihapus' };
+    }
+
+    case 'getPerijinan': {
+      const { data, error } = await supabase.from('perijinan_cuti').select('*').order('tgl_mulai', { ascending: false });
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(c => ({
+          id: c.id,
+          nik: c.nik,
+          nama: c.nama,
+          divisi: c.divisi,
+          jenis: c.jenis,
+          tglMulai: c.tgl_mulai,
+          tglSelesai: c.tgl_selesai,
+          jumlahHari: c.jumlah_hari,
+          alasan: c.alasan,
+          status: c.status,
+          approvedBy: c.approved_by || '',
+          catatan: c.catatan || ''
+        }))
+      };
+    }
+
+    case 'savePerijinan': {
+      const list = (payload.cutiList || [payload.cuti || payload]).map(c => ({
+        id: c.id || 'CUTI-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        nik: c.nik,
+        nama: c.nama,
+        divisi: c.divisi,
+        jenis: c.jenis || 'Cuti Tahunan',
+        tgl_mulai: c.tglMulai,
+        tgl_selesai: c.tglSelesai,
+        jumlah_hari: Number(c.jumlahHari || 1),
+        alasan: c.alasan,
+        status: 'Diajukan',
+        catatan: c.catatan || ''
+      }));
+      const { error } = await supabase.from('perijinan_cuti').insert(list);
+      if (error) throw error;
+
+      // Kirim webhook notifikasi background ke GAS (opsional, non-blocking)
+      fetch(GOOGLE_SHEET_WEB_APP_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ data: JSON.stringify({ action: 'notifyCuti', cutiList: list }) }) 
+      }).catch(() => {});
+
+      return { success: true, message: 'Pengajuan cuti berhasil disimpan' };
+    }
+
+    case 'updateCutiStatus': {
+      const { error } = await supabase.from('perijinan_cuti').update({
+        status: payload.status,
+        approved_by: payload.approvedBy || (state.currentUser ? state.currentUser.nama : 'Admin'),
+        approved_at: new Date().toISOString(),
+        catatan: payload.catatan || ''
+      }).eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: `Status ijin/cuti berhasil diupdate menjadi ${payload.status}` };
+    }
+
+    case 'deleteCuti': {
+      const { error } = await supabase.from('perijinan_cuti').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: 'Data cuti berhasil dihapus' };
+    }
+
+    case 'getKasbon': {
+      const { data, error } = await supabase.from('kasbon').select('*, karyawan(nama, divisi)').order('tanggal', { ascending: false });
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(k => ({
+          id: k.id,
+          nik: k.nik,
+          nama: k.karyawan ? k.karyawan.nama : k.nik,
+          divisi: k.karyawan ? k.karyawan.divisi : '',
+          tanggal: k.tanggal,
+          jumlah: Number(k.jumlah || 0),
+          cicilan: Number(k.cicilan || 0),
+          sisaSaldo: Number(k.sisa_saldo || 0),
+          status: k.status,
+          catatan: k.catatan || ''
+        }))
+      };
+    }
+
+    case 'saveKasbon': {
+      const k = payload.kasbon || payload;
+      const row = {
+        id: k.id || 'KSB-' + Date.now(),
+        nik: k.nik,
+        tanggal: k.tanggal,
+        jumlah: Number(k.jumlah || 0),
+        cicilan: Number(k.cicilan || 0),
+        sisa_saldo: Number(k.jumlah || 0),
+        status: 'Aktif',
+        catatan: k.catatan || ''
+      };
+      const { error } = await supabase.from('kasbon').insert(row);
+      if (error) throw error;
+      
+      const { data: user } = await supabase.from('karyawan').select('saldo_kasbon').eq('nik', k.nik).single();
+      const newSaldo = (Number(user?.saldo_kasbon || 0)) + Number(k.jumlah || 0);
+      await supabase.from('karyawan').update({ saldo_kasbon: newSaldo }).eq('nik', k.nik);
+      return { success: true, message: 'Kasbon berhasil disimpan' };
+    }
+
+    case 'deleteKasbon': {
+      const { error } = await supabase.from('kasbon').delete().eq('id', payload.id);
+      if (error) throw error;
+      return { success: true, message: 'Data kasbon berhasil dihapus' };
+    }
+
+    case 'getPayroll': {
+      let query = supabase.from('payroll').select('*').order('periode', { ascending: false });
+      if (payload.periode) query = query.eq('periode', payload.periode);
+      const { data, error } = await query;
+      if (error) throw error;
+      return {
+        success: true,
+        data: data.map(p => ({
+          id: p.id,
+          periode: p.periode,
+          nik: p.nik,
+          nama: p.nama,
+          divisi: p.divisi,
+          gajiPokok: Number(p.gaji_pokok || 0),
+          tunjangan: Number(p.tunjangan || 0),
+          totalJamLembur: Number(p.total_jam_lembur || 0),
+          rateLembur: Number(p.rate_lembur || 0),
+          uangLembur: Number(p.uang_lembur || 0),
+          potonganKasbon: Number(p.potongan_kasbon || 0),
+          potonganAbsensi: Number(p.potongan_absensi || 0),
+          potonganLain: Number(p.potongan_lain || 0),
+          gajiBersih: Number(p.gaji_bersih || 0),
+          status: p.status,
+          catatan: p.catatan || ''
+        }))
+      };
+    }
+
+    case 'savePayrollBulk': {
+      const rows = (payload.payrollList || payload.data || []).map(p => ({
+        id: p.id || `PAY-${p.periode}-${p.nik}`,
+        periode: p.periode,
+        nik: p.nik,
+        nama: p.nama,
+        divisi: p.divisi,
+        gaji_pokok: Number(p.gajiPokok || 0),
+        tunjangan: Number(p.tunjangan || 0),
+        total_jam_lembur: Number(p.totalJamLembur || 0),
+        rate_lembur: Number(p.rateLembur || 0),
+        uang_lembur: Number(p.uangLembur || 0),
+        potongan_kasbon: Number(p.potonganKasbon || 0),
+        potongan_absensi: Number(p.potonganAbsensi || 0),
+        potongan_lain: Number(p.potonganLain || 0),
+        gaji_bersih: Number(p.gajiBersih || 0),
+        status: p.status || 'Draft',
+        catatan: p.catatan || ''
+      }));
+      const { error } = await supabase.from('payroll').upsert(rows, { onConflict: 'periode,nik' });
+      if (error) throw error;
+      return { success: true, message: `${rows.length} data payroll berhasil disimpan` };
+    }
+
+    case 'updatePayrollAdjustment': {
+      const p = payload.adj || payload;
+      const { error } = await supabase.from('payroll').update({
+        gaji_pokok: Number(p.gajiPokok || 0),
+        tunjangan: Number(p.tunjangan || 0),
+        total_jam_lembur: Number(p.totalJamLembur || 0),
+        rate_lembur: Number(p.rateLembur || 0),
+        uang_lembur: Number(p.uangLembur || 0),
+        potongan_kasbon: Number(p.potonganKasbon || 0),
+        potongan_absensi: Number(p.potonganAbsensi || 0),
+        potongan_lain: Number(p.potonganLain || 0),
+        gaji_bersih: Number(p.gajiBersih || 0),
+        catatan: p.catatan || '',
+        updated_at: new Date().toISOString()
+      }).eq('id', p.id);
+      if (error) throw error;
+      return { success: true, message: 'Penyesuaian payroll berhasil disimpan' };
+    }
+
+    case 'approvePayrollFinance': {
+      const { error } = await supabase.from('payroll').update({
+        status: 'Disetujui Finance',
+        approved_at: new Date().toISOString()
+      }).eq('periode', payload.periode);
+      if (error) throw error;
+      return { success: true, message: `Payroll periode ${payload.periode} telah disetujui & diajukan ke Finance` };
+    }
+
+    default:
+      throw new Error(`Aksi tidak dikenali di Supabase adapter: ${action}`);
   }
 }
 
