@@ -152,11 +152,13 @@ async function apiRequest(action, payload = {}) {
 async function supabaseApiRequest(action, payload) {
   switch (action) {
     case 'login': {
-      const { username, password } = payload;
+      const username = String(payload.username || '').trim();
+      const password = String(payload.password || '').trim();
+      
       const { data, error } = await supabase
         .from('karyawan')
         .select('*')
-        .or(`username.eq.${username},nik.eq.${username}`)
+        .or(`username.ilike.${username},nik.ilike.${username}`)
         .eq('password', password)
         .maybeSingle();
 
