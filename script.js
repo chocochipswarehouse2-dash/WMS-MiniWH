@@ -1,6 +1,16 @@
-const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbznkbTBURUZSVAkVQrBHQHBnToztBnfIS9kr_OOKzfkDGgtNTgCv21Jaz6ky5YCWFfl/exec";
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzSj8Aj-WBCjhOtM-LUFSz16bqsnZ_CnVv0n_beUYn81f9vr3MMdqa1aIgcFp_DCSsK/exec";
 
-const state = { currentUser: null, users: [], lembur: [], cuti: [] };
+const state = { 
+  currentUser: null, 
+  users: [], 
+  shifts: [], 
+  absensi: [], 
+  lembur: [], 
+  cuti: [], 
+  kasbon: [], 
+  payroll: [],
+  selectedSlip: null
+};
 
 const htmlEl = document.documentElement;
 const appPageEl = document.getElementById('appPage');
@@ -15,13 +25,18 @@ const panels = document.querySelectorAll('.tab-panel');
 const topbarPageTitle = document.getElementById('topbarPageTitle');
 
 const tabTitles = {
-  formLemburTab: 'Input Lembur',
-  statusLemburTab: 'Status Lembur',
+  presensiTab: 'Presensi & Shift Warehouse',
+  formLemburTab: 'Input Pengajuan Lembur',
+  statusLemburTab: 'Status Lembur Saya',
   formCutiTab: 'Input Ijin / Cuti',
   statusCutiTab: 'Status Ijin / Cuti',
+  slipGajiTab: 'Slip Gaji Bulanan Saya',
+  adminPayrollTab: 'Payroll & Rekap Gaji Finance',
+  adminKasbonTab: 'Manajemen Kasbon Karyawan',
+  adminShiftAbsensiTab: 'Master Shift & Rekap Presensi',
   adminLemburTab: 'Admin Rekap Semua Lembur',
   adminCutiTab: 'Approval & Kelola Ijin / Cuti',
-  settingTab: 'Kelola Data User & Karyawan'
+  settingTab: 'Kelola Data Karyawan & Gaji'
 };
 
 function showToast(msg, type = 'success') {
@@ -41,13 +56,12 @@ function switchTab(tabId) {
     topbarPageTitle.textContent = tabTitles[tabId];
   }
 
-  // Close sidebar on mobile when tab is clicked
   if (window.innerWidth <= 900) {
     closeMobileSidebar();
   }
 }
 
-// ================= SIDEBAR TOGGLE =================
+// ================= SIDEBAR CONTROLS =================
 function toggleSidebar() {
   if (window.innerWidth <= 900) {
     const isOpen = appPageEl.classList.contains('sidebar-mobile-open');
@@ -106,7 +120,17 @@ themeToggleBtn.addEventListener('click', () => {
   localStorage.setItem('theme', nextTheme);
 });
 
-// ================= OVERTIME HELPER =================
+// ================= FORMATTERS & HELPERS =================
+function formatRupiah(num) {
+  const val = Number(num || 0);
+  return 'Rp ' + val.toLocaleString('id-ID');
+}
+
+function formatDate(val) {
+  if (!val) return '-';
+  return String(val);
+}
+
 function calculateOvertime(mulai, selesai) {
   if (!mulai || !selesai) return '0.00';
   const tStart = new Date(`2000-01-01T${mulai}:00`);
@@ -126,7 +150,751 @@ function formatWaNumber(num) {
   return clean;
 }
 
-// ================= DYNAMIC FORMS =================
+// ================= LIVE CLOCK =================
+function startLiveClock() {
+  function update() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
+    const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    
+    const timeEl = document.getElementById('liveClockTime');
+    const dateEl = document.getElementById('liveClockDate');
+    if (timeEl) timeEl.textContent = timeStr;
+    if (dateEl) dateEl.textContent = dateStr;
+  }
+  update();
+  setInterval(update, 1000);
+}
+
+// ================= PRESENSI & ABSENSI =================
+async function loadAbsensi() {
+  const res = await apiRequest('getAbsensi', { 
+    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
+    role: state.currentUser.role 
+  });
+  if (res) {
+    state.absensi = res.data || [];
+    renderUserAbsensi();
+    if (state.currentUser.role === 'admin') renderAdminAbsensi();
+  }
+}
+
+async function loadShifts() {
+  const res = await apiRequest('getShifts');
+  if (res) {
+    state.shifts = res.data || [];
+    renderShiftDropdowns();
+    if (state.currentUser.role === 'admin') renderShiftTable();
+  }
+}
+
+function renderShiftDropdowns() {
+  const userSelect = document.getElementById('userActiveShiftSelect');
+  const manualSelect = document.getElementById('m_abs_shift');
+  
+  const optionsHtml = state.shifts.map(s => `
+    <option value="${s.namaShift}" data-masuk="${s.jamMasuk}" data-pulang="${s.jamPulang}" data-tol="${s.toleransiMenit}">
+      ${s.namaShift} (${s.jamMasuk} - ${s.jamPulang})
+    </option>
+  `).join('');
+
+  if (userSelect) {
+    userSelect.innerHTML = optionsHtml || '<option value="Shift Normal">Shift Normal (08:00 - 17:00)</option>';
+    userSelect.onchange = updateUserShiftDisplay;
+    updateUserShiftDisplay();
+  }
+  if (manualSelect) {
+    manualSelect.innerHTML = optionsHtml || '<option value="Shift Normal">Shift Normal</option>';
+  }
+}
+
+function updateUserShiftDisplay() {
+  const userSelect = document.getElementById('userActiveShiftSelect');
+  const opt = userSelect ? userSelect.selectedOptions[0] : null;
+  if (!opt) return;
+
+  const sName = document.getElementById('infoShiftName');
+  const sHours = document.getElementById('infoShiftHours');
+  const sTol = document.getElementById('infoShiftTol');
+  if (sName) sName.textContent = opt.value;
+  if (sHours) sHours.textContent = `${opt.dataset.masuk || '08:00'} s/d ${opt.dataset.pulang || '17:00'}`;
+  if (sTol) sTol.textContent = `${opt.dataset.tol || '15'} menit`;
+}
+
+function renderUserAbsensi() {
+  const today = new Date().toISOString().split('T')[0];
+  const userToday = state.absensi.find(a => String(a.nik).trim() === String(state.currentUser.nik).trim() && a.tanggal === today);
+  
+  const statusBox = document.getElementById('todayAttendanceStatusBox');
+  if (statusBox) {
+    if (userToday) {
+      statusBox.innerHTML = `✅ <strong>Presensi Masuk:</strong> ${userToday.jamMasuk} | <strong>Pulang:</strong> ${userToday.jamPulang || 'Belum Presensi Pulang'} (${userToday.status})`;
+      statusBox.style.color = 'var(--success)';
+    } else {
+      statusBox.innerHTML = `⚠️ Anda belum melakukan presensi masuk hari ini.`;
+      statusBox.style.color = 'var(--warning)';
+    }
+  }
+
+  const wrap = document.getElementById('userAbsensiTableWrap');
+  if (!wrap) return;
+
+  const saya = state.absensi.filter(a => String(a.nik).trim() === String(state.currentUser.nik).trim());
+  if (!saya.length) {
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada riwayat presensi.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Tanggal</th><th>Shift</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th><th>Keterlambatan</th></tr></thead>
+      <tbody>
+        ${saya.map(a => `
+          <tr>
+            <td><span class="mono-text">${a.tanggal}</span></td>
+            <td><strong>${a.shift}</strong></td>
+            <td><span class="mono-text">${a.jamMasuk || '-'}</span></td>
+            <td><span class="mono-text">${a.jamPulang || '-'}</span></td>
+            <td><span class="status ${a.status === 'Hadir' ? 'disetujui' : 'ditolak'}">${a.status}</span></td>
+            <td><span class="mono-text">${Number(a.keterlambatanMenit || 0) > 0 ? a.keterlambatanMenit + ' menit' : '-'}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderAdminAbsensi() {
+  const wrap = document.getElementById('adminAllAbsensiTableWrap');
+  if (!wrap) return;
+
+  if (!state.absensi.length) {
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada data presensi karyawan.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Pulang</th><th>Status</th><th>Terlambat</th><th>Aksi</th></tr></thead>
+      <tbody>
+        ${state.absensi.map(a => `
+          <tr>
+            <td><strong>${a.nik}</strong><br><small>${a.nama}</small></td>
+            <td><span class="mono-text">${a.tanggal}</span></td>
+            <td>${a.shift}</td>
+            <td><span class="mono-text">${a.jamMasuk || '-'}</span></td>
+            <td><span class="mono-text">${a.jamPulang || '-'}</span></td>
+            <td><span class="status ${a.status === 'Hadir' ? 'disetujui' : 'ditolak'}">${a.status}</span></td>
+            <td><span class="mono-text">${Number(a.keterlambatanMenit || 0) > 0 ? a.keterlambatanMenit + ' mnt' : '-'}</span></td>
+            <td class="action-cell">
+              <button class="action-btn delete" onclick="deleteAbsensiRecord('${a.id}')">Hapus</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// Check-in & Check-out events
+document.getElementById('btnCheckIn').addEventListener('click', async () => {
+  const select = document.getElementById('userActiveShiftSelect');
+  const opt = select ? select.selectedOptions[0] : null;
+
+  const payload = {
+    nik: state.currentUser.nik,
+    nama: state.currentUser.nama,
+    shift: opt ? opt.value : 'Shift Pagi',
+    shiftJamMasuk: opt ? opt.dataset.masuk : '08:00',
+    toleransi: opt ? opt.dataset.tol : '15'
+  };
+
+  const res = await apiRequest('checkInAbsensi', payload);
+  if (res) {
+    showToast('Presensi Masuk Berhasil!');
+    loadAbsensi();
+  }
+});
+
+document.getElementById('btnCheckOut').addEventListener('click', async () => {
+  const res = await apiRequest('checkOutAbsensi', { nik: state.currentUser.nik });
+  if (res) {
+    showToast('Presensi Pulang Berhasil!');
+    loadAbsensi();
+  }
+});
+
+document.getElementById('manualAbsensiForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nik = document.getElementById('m_abs_nik').value;
+  const user = state.users.find(u => u.nik === nik);
+
+  const payload = {
+    nik,
+    nama: user ? user.nama : '',
+    tanggal: document.getElementById('m_abs_tanggal').value,
+    shift: document.getElementById('m_abs_shift').value,
+    status: document.getElementById('m_abs_status').value,
+    jamMasuk: document.getElementById('m_abs_jamMasuk').value,
+    jamPulang: document.getElementById('m_abs_jamPulang').value,
+    catatan: document.getElementById('m_abs_catatan').value
+  };
+
+  const res = await apiRequest('saveAbsensiManual', payload);
+  if (res) {
+    showToast('Presensi manual berhasil disimpan!');
+    document.getElementById('manualAbsensiForm').reset();
+    loadAbsensi();
+  }
+});
+
+window.deleteAbsensiRecord = async (id) => {
+  if (confirm('Hapus log presensi ini?')) {
+    await apiRequest('deleteAbsensi', { id });
+    loadAbsensi();
+  }
+};
+
+// ================= SHIFT MASTER =================
+function renderShiftTable() {
+  const wrap = document.getElementById('adminShiftTableWrap');
+  if (!wrap) return;
+
+  if (!state.shifts.length) {
+    wrap.innerHTML = `<p style="padding: 16px; color: var(--text-muted);">Belum ada shift terdaftar.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Nama Shift</th><th>Jam Kerja</th><th>Toleransi</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody>
+        ${state.shifts.map(s => `
+          <tr>
+            <td><strong>${s.namaShift}</strong></td>
+            <td><span class="mono-text">${s.jamMasuk} - ${s.jamPulang}</span></td>
+            <td><span class="mono-text">${s.toleransiMenit} menit</span></td>
+            <td><span class="status ${s.status === 'Aktif' ? 'disetujui' : 'ditolak'}">${s.status}</span></td>
+            <td class="action-cell">
+              <button class="action-btn edit" onclick="editShiftRecord('${s.id}')">Edit</button>
+              <button class="action-btn delete" onclick="deleteShiftRecord('${s.id}')">Hapus</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('btnOpenAddShiftModal').addEventListener('click', () => {
+  document.getElementById('addShiftForm').reset();
+  document.getElementById('shift_id').value = '';
+  document.getElementById('addShiftModal').classList.remove('hidden');
+});
+
+window.editShiftRecord = (id) => {
+  const s = state.shifts.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('shift_id').value = s.id;
+  document.getElementById('shift_nama').value = s.namaShift;
+  document.getElementById('shift_jamMasuk').value = s.jamMasuk;
+  document.getElementById('shift_jamPulang').value = s.jamPulang;
+  document.getElementById('shift_toleransi').value = s.toleransiMenit || 15;
+  document.getElementById('shift_status').value = s.status || 'Aktif';
+  document.getElementById('addShiftModal').classList.remove('hidden');
+};
+
+document.getElementById('addShiftForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    id: document.getElementById('shift_id').value,
+    namaShift: document.getElementById('shift_nama').value,
+    jamMasuk: document.getElementById('shift_jamMasuk').value,
+    jamPulang: document.getElementById('shift_jamPulang').value,
+    toleransiMenit: document.getElementById('shift_toleransi').value,
+    status: document.getElementById('shift_status').value
+  };
+
+  const res = await apiRequest('saveShift', payload);
+  if (res) {
+    showToast('Shift berhasil disimpan!');
+    closeModal('addShiftModal');
+    loadShifts();
+  }
+});
+
+window.deleteShiftRecord = async (id) => {
+  if (confirm('Hapus shift ini?')) {
+    await apiRequest('deleteShift', { id });
+    loadShifts();
+  }
+};
+
+// ================= KASBON KARYAWAN =================
+async function loadKasbon() {
+  const res = await apiRequest('getKasbon', { 
+    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
+    role: state.currentUser.role 
+  });
+  if (res) {
+    state.kasbon = res.data || [];
+    renderKasbonTable();
+    updateUserKasbonStat();
+  }
+}
+
+function updateUserKasbonStat() {
+  const userActive = state.kasbon.filter(k => String(k.nik).trim() === String(state.currentUser.nik).trim() && k.status === 'Aktif');
+  const total = userActive.reduce((acc, c) => acc + Number(c.sisaKasbon || 0), 0);
+  const el = document.getElementById('userActiveKasbonAmount');
+  if (el) el.textContent = formatRupiah(total);
+}
+
+function renderKasbonTable() {
+  const wrap = document.getElementById('adminKasbonTableWrap');
+  if (!wrap) return;
+
+  if (!state.kasbon.length) {
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada data kasbon karyawan.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Pinjaman</th><th>Cicilan/Bulan</th><th>Sisa Kasbon</th><th>Status</th><th>Catatan</th><th>Aksi</th></tr></thead>
+      <tbody>
+        ${state.kasbon.map(k => `
+          <tr>
+            <td><strong>${k.nik}</strong><br><small>${k.nama}</small></td>
+            <td><span class="mono-text">${k.tanggalPengajuan}</span></td>
+            <td><span class="mono-text">${formatRupiah(k.jumlahPinjaman)}</span></td>
+            <td><span class="mono-text">${formatRupiah(k.cicilanPerBulan)}</span></td>
+            <td><strong class="mono-text" style="color: var(--warning);">${formatRupiah(k.sisaKasbon)}</strong></td>
+            <td><span class="status ${k.status === 'Aktif' ? 'diajukan' : 'disetujui'}">${k.status}</span></td>
+            <td>${k.catatan || '-'}</td>
+            <td class="action-cell">
+              <button class="action-btn delete" onclick="deleteKasbonRecord('${k.id}')">Hapus</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('btnOpenAddKasbonModal').addEventListener('click', () => {
+  const select = document.getElementById('kasbon_nik');
+  if (select) {
+    select.innerHTML = state.users.filter(u => u.nik !== 'admin').map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
+  }
+  document.getElementById('addKasbonForm').reset();
+  document.getElementById('kasbon_tanggal').value = new Date().toISOString().split('T')[0];
+  document.getElementById('addKasbonModal').classList.remove('hidden');
+});
+
+document.getElementById('addKasbonForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nik = document.getElementById('kasbon_nik').value;
+  const user = state.users.find(u => u.nik === nik);
+
+  const payload = {
+    nik,
+    nama: user ? user.nama : '',
+    tanggalPengajuan: document.getElementById('kasbon_tanggal').value,
+    jumlahPinjaman: document.getElementById('kasbon_jumlah').value,
+    cicilanPerBulan: document.getElementById('kasbon_cicilan').value,
+    catatan: document.getElementById('kasbon_catatan').value,
+    status: 'Aktif'
+  };
+
+  const res = await apiRequest('saveKasbon', payload);
+  if (res) {
+    showToast('Data kasbon berhasil disimpan!');
+    closeModal('addKasbonModal');
+    loadKasbon();
+    loadUsersData();
+  }
+});
+
+window.deleteKasbonRecord = async (id) => {
+  if (confirm('Hapus data kasbon ini?')) {
+    await apiRequest('deleteKasbon', { id });
+    loadKasbon();
+    loadUsersData();
+  }
+};
+
+// ================= PAYROLL & AUDIT GAJI =================
+async function loadPayroll() {
+  const period = document.getElementById('payrollMonthPicker').value;
+  const res = await apiRequest('getPayroll', { 
+    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
+    role: state.currentUser.role,
+    periode: period
+  });
+  if (res) {
+    state.payroll = res.data || [];
+    renderPayrollTables();
+    renderUserSlipGajiTable();
+  }
+}
+
+function renderPayrollTables() {
+  const wrap = document.getElementById('adminPayrollTableWrap');
+  if (!wrap) return;
+
+  if (!state.payroll.length) {
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada data payroll untuk periode ini. Klik <strong>Generate Payroll</strong> di atas.</p>`;
+    updatePayrollMetrics(0, 0, 0, 'Belum Ada');
+    return;
+  }
+
+  let totalGaji = 0;
+  let totalLembur = 0;
+  let totalKasbon = 0;
+  let isApprovedAll = true;
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Karyawan</th>
+          <th>Gaji Pokok</th>
+          <th>Tunjangan</th>
+          <th>Lembur (Jam × Rate)</th>
+          <th>Uang Lembur</th>
+          <th>Pot. Kasbon</th>
+          <th>Pot. Absensi/Lain</th>
+          <th>Gaji Bersih</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.payroll.map(p => {
+          const gPokok = Number(p.gajiPokok || 0);
+          const tunj = Number(p.tunjangan || 0);
+          const uLembur = Number(p.totalUangLembur || 0);
+          const potKasbon = Number(p.potonganKasbon || 0);
+          const potLain = Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
+          const gBersih = Number(p.gajiBersih || 0);
+
+          totalGaji += gBersih;
+          totalLembur += uLembur;
+          totalKasbon += potKasbon;
+          if (p.status !== 'Disetujui') isApprovedAll = false;
+
+          return `
+            <tr>
+              <td><strong>${p.nik}</strong><br><small>${p.nama}</small></td>
+              <td><span class="mono-text">${formatRupiah(gPokok)}</span></td>
+              <td><span class="mono-text">${formatRupiah(tunj)}</span></td>
+              <td><span class="mono-text">${p.totalJamLembur || 0} jam @${formatRupiah(p.rateLembur || 25000)}</span></td>
+              <td><span class="mono-text" style="color: var(--success);">${formatRupiah(uLembur)}</span></td>
+              <td><span class="mono-text" style="color: var(--warning);">${formatRupiah(potKasbon)}</span></td>
+              <td><span class="mono-text" style="color: var(--error);">${formatRupiah(potLain)}</span></td>
+              <td><strong class="mono-text" style="color: var(--accent-primary); font-size: 0.95rem;">${formatRupiah(gBersih)}</strong></td>
+              <td><span class="status ${p.status === 'Disetujui' ? 'disetujui' : 'diajukan'}">${p.status || 'Draft'}</span></td>
+              <td class="action-cell">
+                <button class="action-btn edit" onclick="openEditPayrollModal('${p.id}')">Audit/Edit</button>
+                <button class="action-btn view" onclick="openSlipGajiModal('${p.id}')">Slip</button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+
+  updatePayrollMetrics(totalGaji, totalLembur, totalKasbon, isApprovedAll ? 'Disetujui (Approved)' : 'Draft');
+}
+
+function updatePayrollMetrics(totalGaji, totalLembur, totalKasbon, statusStr) {
+  document.getElementById('sumGajiBersih').textContent = formatRupiah(totalGaji);
+  document.getElementById('sumUangLembur').textContent = formatRupiah(totalLembur);
+  document.getElementById('sumPotonganKasbon').textContent = formatRupiah(totalKasbon);
+  const statusEl = document.getElementById('payrollPeriodStatus');
+  statusEl.textContent = statusStr;
+  statusEl.className = `status ${statusStr.includes('Approved') || statusStr.includes('Disetujui') ? 'disetujui' : 'diajukan'}`;
+}
+
+document.getElementById('btnGeneratePayroll').addEventListener('click', async () => {
+  const period = document.getElementById('payrollMonthPicker').value;
+  if (!period) return showToast('Pilih bulan payroll terlebih dahulu!', 'error');
+
+  const res = await apiRequest('generateMonthlyPayroll', { 
+    periode: period, 
+    adminUsername: state.currentUser.username 
+  });
+  if (res) {
+    showToast(`Payroll periode ${period} berhasil di-generate!`);
+    loadPayroll();
+  }
+});
+
+document.getElementById('btnApprovePayrollFinance').addEventListener('click', async () => {
+  const period = document.getElementById('payrollMonthPicker').value;
+  if (!confirm(`Setujui seluruh payroll periode ${period} untuk diajukan ke Finance?`)) return;
+
+  const res = await apiRequest('approvePayroll', { 
+    periode: period, 
+    adminUsername: state.currentUser.username 
+  });
+  if (res) {
+    showToast(`Payroll periode ${period} telah disetujui & siap dibayarkan!`);
+    loadPayroll();
+  }
+});
+
+window.openEditPayrollModal = (id) => {
+  const p = state.payroll.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('adj_id').value = p.id;
+  document.getElementById('adj_nama').textContent = p.nama;
+  document.getElementById('adj_nik').textContent = `${p.nik} - Divisi: ${p.divisi}`;
+  document.getElementById('adj_periode').textContent = p.periode;
+
+  document.getElementById('adj_gajiPokok').value = p.gajiPokok;
+  document.getElementById('adj_tunjangan').value = p.tunjangan;
+  document.getElementById('adj_totalJamLembur').value = p.totalJamLembur;
+  document.getElementById('adj_rateLembur').value = p.rateLembur || 25000;
+  document.getElementById('adj_potonganKasbon').value = p.potonganKasbon;
+  document.getElementById('adj_potonganAbsensi').value = p.potonganAbsensi || 0;
+  document.getElementById('adj_potonganLain').value = p.potonganLain || 0;
+  document.getElementById('adj_catatan').value = p.catatan || '';
+
+  document.getElementById('editPayrollModal').classList.remove('hidden');
+};
+
+document.getElementById('editPayrollForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    id: document.getElementById('adj_id').value,
+    gajiPokok: document.getElementById('adj_gajiPokok').value,
+    tunjangan: document.getElementById('adj_tunjangan').value,
+    totalJamLembur: document.getElementById('adj_totalJamLembur').value,
+    rateLembur: document.getElementById('adj_rateLembur').value,
+    potonganKasbon: document.getElementById('adj_potonganKasbon').value,
+    potonganAbsensi: document.getElementById('adj_potonganAbsensi').value,
+    potonganLain: document.getElementById('adj_potonganLain').value,
+    catatan: document.getElementById('adj_catatan').value,
+    updatedBy: state.currentUser.username
+  };
+
+  const res = await apiRequest('savePayrollAdjustment', payload);
+  if (res) {
+    showToast('Koreksi payroll berhasil disimpan!');
+    closeModal('editPayrollModal');
+    loadPayroll();
+  }
+});
+
+// ================= SLIP GAJI KARYAWAN =================
+function renderUserSlipGajiTable() {
+  const wrap = document.getElementById('userSlipGajiTableWrap');
+  if (!wrap) return;
+
+  const saya = state.payroll.filter(p => String(p.nik).trim() === String(state.currentUser.nik).trim());
+  if (!saya.length) {
+    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada slip gaji yang dirilis untuk Anda.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Periode Bulan</th><th>Gaji Pokok</th><th>Uang Lembur</th><th>Total Potongan</th><th>Gaji Diterima (Take Home Pay)</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody>
+        ${saya.map(p => {
+          const totalPot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
+          return `
+            <tr>
+              <td><strong class="mono-text">${p.periode}</strong></td>
+              <td><span class="mono-text">${formatRupiah(p.gajiPokok)}</span></td>
+              <td><span class="mono-text" style="color: var(--success);">${formatRupiah(p.totalUangLembur)}</span></td>
+              <td><span class="mono-text" style="color: var(--error);">${formatRupiah(totalPot)}</span></td>
+              <td><strong class="mono-text" style="color: var(--accent-primary); font-size: 0.95rem;">${formatRupiah(p.gajiBersih)}</strong></td>
+              <td><span class="status ${p.status === 'Disetujui' ? 'disetujui' : 'diajukan'}">${p.status || 'Draft'}</span></td>
+              <td class="action-cell">
+                <button class="action-btn view" onclick="openSlipGajiModal('${p.id}')">📄 Lihat Slip Gaji</button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+window.openSlipGajiModal = (payrollId) => {
+  const p = state.payroll.find(x => x.id === payrollId);
+  if (!p) return;
+  state.selectedSlip = p;
+
+  const totalPot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
+  const totalPendapatan = Number(p.gajiPokok || 0) + Number(p.tunjangan || 0) + Number(p.totalUangLembur || 0);
+
+  const container = document.getElementById('slipGajiContentArea');
+  container.innerHTML = `
+    <div class="slip-header-info">
+      <div><strong>NIK:</strong> <span class="mono-text">${p.nik}</span></div>
+      <div><strong>Periode:</strong> <span class="mono-text">${p.periode}</span></div>
+      <div><strong>Nama:</strong> ${p.nama}</div>
+      <div><strong>Status Slip:</strong> <span class="status ${p.status === 'Disetujui' ? 'disetujui' : 'diajukan'}">${p.status || 'Draft'}</span></div>
+      <div><strong>Divisi:</strong> ${p.divisi}</div>
+      <div><strong>Tanggal Terbit:</strong> <span class="mono-text">${formatDate(p.createdAt ? p.createdAt.split('T')[0] : '-')}</span></div>
+    </div>
+
+    <div class="slip-grid" style="margin-top: 14px;">
+      <!-- PENERIMAAN -->
+      <div class="slip-col">
+        <h4 style="color: var(--success);">PENERIMAAN (EARNINGS)</h4>
+        <div class="slip-line-item"><span>Gaji Pokok:</span><strong class="mono-text">${formatRupiah(p.gajiPokok)}</strong></div>
+        <div class="slip-line-item"><span>Tunjangan Bulanan:</span><strong class="mono-text">${formatRupiah(p.tunjangan)}</strong></div>
+        <div class="slip-line-item"><span>Uang Lembur (${p.totalJamLembur || 0} Jam):</span><strong class="mono-text">${formatRupiah(p.totalUangLembur)}</strong></div>
+        <div class="slip-line-item" style="border-top: 1px solid var(--border-color); margin-top: 6px; padding-top: 6px;">
+          <strong>Total Pendapatan:</strong><strong class="mono-text" style="color: var(--success);">${formatRupiah(totalPendapatan)}</strong>
+        </div>
+      </div>
+
+      <!-- POTONGAN -->
+      <div class="slip-col">
+        <h4 style="color: var(--error);">POTONGAN (DEDUCTIONS)</h4>
+        <div class="slip-line-item"><span>Cicilan Kasbon:</span><strong class="mono-text">${formatRupiah(p.potonganKasbon)}</strong></div>
+        <div class="slip-line-item"><span>Potongan Absensi:</span><strong class="mono-text">${formatRupiah(p.potonganAbsensi || 0)}</strong></div>
+        <div class="slip-line-item"><span>Potongan Lain / Denda:</span><strong class="mono-text">${formatRupiah(p.potonganLain || 0)}</strong></div>
+        <div class="slip-line-item" style="border-top: 1px solid var(--border-color); margin-top: 6px; padding-top: 6px;">
+          <strong>Total Potongan:</strong><strong class="mono-text" style="color: var(--error);">${formatRupiah(totalPot)}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="slip-total-box" style="margin-top: 16px;">
+      <div>
+        <div class="total-title">GAJI BERSIH DITERIMA (TAKE HOME PAY)</div>
+        <small style="color: var(--text-muted);">Ditransfer via Rekening / Kasir Finance</small>
+      </div>
+      <div class="total-amount">${formatRupiah(p.gajiBersih)}</div>
+    </div>
+  `;
+
+  document.getElementById('viewSlipGajiModal').classList.remove('hidden');
+};
+
+document.getElementById('btnPrintSlipPdf').addEventListener('click', () => {
+  if (!state.selectedSlip) return;
+  exportSingleSlipPdf(state.selectedSlip);
+});
+
+function exportSingleSlipPdf(p) {
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('Library PDF belum siap', 'error');
+
+  const doc = new window.jspdf.jsPDF();
+  const totalPot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
+  const totalPendapatan = Number(p.gajiPokok || 0) + Number(p.tunjangan || 0) + Number(p.totalUangLembur || 0);
+
+  doc.setFontSize(18);
+  doc.setTextColor(30, 41, 59);
+  doc.text('SLIP GAJI KARYAWAN', 14, 20);
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.text('WMS MINI - WAREHOUSE OPERATIONS', 14, 26);
+  doc.line(14, 30, 196, 30);
+
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`NIK: ${p.nik}`, 14, 38);
+  doc.text(`Nama: ${p.nama}`, 14, 44);
+  doc.text(`Divisi: ${p.divisi}`, 14, 50);
+
+  doc.text(`Periode: ${p.periode}`, 130, 38);
+  doc.text(`Status: ${p.status || 'Draft'}`, 130, 44);
+  doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 130, 50);
+
+  doc.autoTable({
+    startY: 56,
+    head: [['PENERIMAAN (EARNINGS)', 'JUMLAH (RP)', 'POTONGAN (DEDUCTIONS)', 'JUMLAH (RP)']],
+    body: [
+      ['Gaji Pokok', formatRupiah(p.gajiPokok), 'Potongan Kasbon', formatRupiah(p.potonganKasbon)],
+      ['Tunjangan Bulanan', formatRupiah(p.tunjangan), 'Potongan Absensi', formatRupiah(p.potonganAbsensi || 0)],
+      [`Uang Lembur (${p.totalJamLembur || 0} Jam)`, formatRupiah(p.totalUangLembur), 'Potongan Lain', formatRupiah(p.potonganLain || 0)],
+      ['TOTAL PENDAPATAN', formatRupiah(totalPendapatan), 'TOTAL POTONGAN', formatRupiah(totalPot)]
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [56, 189, 248], textColor: [13, 17, 23], fontStyle: 'bold' }
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFillColor(240, 249, 255);
+  doc.rect(14, finalY, 182, 16, 'F');
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(3, 105, 161);
+  doc.text('GAJI BERSIH DITERIMA (TAKE HOME PAY):', 20, finalY + 11);
+  doc.text(formatRupiah(p.gajiBersih), 140, finalY + 11);
+
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Diserahkan oleh (Finance/Admin):', 25, finalY + 36);
+  doc.text('Diterima oleh Karyawan:', 135, finalY + 36);
+  doc.text('( ______________________ )', 25, finalY + 56);
+  doc.text(`( ${p.nama} )`, 135, finalY + 56);
+
+  doc.save(`Slip_Gaji_${p.periode}_${p.nik}_${p.nama.replace(/\s+/g, '_')}.pdf`);
+}
+
+// PDF Summary for Finance
+document.getElementById('btnDownloadFinanceSummaryPdf').addEventListener('click', () => {
+  if (!state.payroll.length) return showToast('Belum ada data payroll untuk diexport!', 'error');
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('Library PDF belum siap', 'error');
+
+  const period = document.getElementById('payrollMonthPicker').value || 'Periode';
+  const doc = new window.jspdf.jsPDF('landscape');
+
+  doc.setFontSize(16);
+  doc.text(`REKAPITULASI PEMBAYARAN GAJI KARYAWAN WAREHOUSE - PERIODE ${period}`, 14, 18);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text('Pengajuan Resmi ke Departemen Finance / Accounting', 14, 24);
+
+  let sumBersih = 0;
+  const rows = state.payroll.map((p, idx) => {
+    sumBersih += Number(p.gajiBersih || 0);
+    const pot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
+    return [
+      idx + 1,
+      p.nik,
+      p.nama,
+      p.divisi,
+      formatRupiah(p.gajiPokok),
+      formatRupiah(p.tunjangan),
+      `${p.totalJamLembur || 0} jam`,
+      formatRupiah(p.totalUangLembur),
+      formatRupiah(pot),
+      formatRupiah(p.gajiBersih),
+      p.status || 'Draft'
+    ];
+  });
+
+  doc.autoTable({
+    startY: 28,
+    head: [['No', 'NIK', 'Nama', 'Divisi', 'Gaji Pokok', 'Tunjangan', 'Jam Lembur', 'Uang Lembur', 'Potongan', 'Gaji Bersih', 'Status']],
+    body: rows,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [56, 189, 248], textColor: [13, 17, 23] }
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(0);
+  doc.text(`TOTAL DANA GAJI DIBAYARKAN: ${formatRupiah(sumBersih)}`, 14, finalY);
+
+  doc.save(`Rekap_Payroll_Finance_${period}.pdf`);
+});
+
+// ================= DYNAMIC FORMS & SUBMISSIONS =================
 const lemburContainer = document.getElementById('lemburListContainer');
 function addLemburRow() {
   const rowId = 'lembur_' + Date.now() + Math.floor(Math.random()*1000);
@@ -160,7 +928,7 @@ function addCutiRow() {
         <option value="Ijin">Ijin Lainnya</option>
       </select>
     </label>
-    <label><span>Alasan / Keterangan</span><input type="text" class="c_alasan" placeholder="Cth: Acara keluarga, cek kesehatan" required/></label>
+    <label><span>Alasan / Keterangan</span><input type="text" class="c_alasan" placeholder="Cth: Keperluan keluarga" required/></label>
     <label><span>Tanggal Mulai</span><input type="date" class="c_tglMulai" required/></label>
     <label><span>Tanggal Selesai</span><input type="date" class="c_tglSelesai" required/></label>
   `;
@@ -168,7 +936,6 @@ function addCutiRow() {
 }
 document.getElementById('addCutiRowBtn').addEventListener('click', addCutiRow);
 
-// ================= SUBMIT HANDLING =================
 document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const nik = document.getElementById('l_nik').value;
@@ -223,7 +990,7 @@ document.getElementById('cutiForm').addEventListener('submit', async (e) => {
 
   const res = await apiRequest('savePerijinanMultiple', { perijinanList });
   if (res) {
-    showToast('Ijin/Cuti berhasil diajukan! Notifikasi dikirim.');
+    showToast('Ijin/Cuti diajukan & notifikasi dikirim!');
     cutiContainer.innerHTML = ''; 
     addCutiRow();
     loadCuti(); 
@@ -231,7 +998,7 @@ document.getElementById('cutiForm').addEventListener('submit', async (e) => {
   }
 });
 
-// ================= RENDER TABLES =================
+// ================= RENDER TABLES (LEMBUR & CUTI) =================
 function renderStatusBadge(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'disetujui' || s === 'selesai') return `<span class="status disetujui">${status}</span>`;
@@ -239,14 +1006,20 @@ function renderStatusBadge(status) {
   return `<span class="status diajukan">Diajukan</span>`;
 }
 
-function formatDate(val) {
-  if (!val) return '-';
-  return val;
-}
-
 function renderLemburTables() {
   const saya = state.lembur.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
   
+  // Calculate current month's overtime hours for user
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const myMonthLembur = saya.filter(r => String(r.tanggal || '').startsWith(currentMonth));
+  let totalHours = 0;
+  myMonthLembur.forEach(r => {
+    const num = Number(String(r.totalJam || '').replace(/[^0-9.]/g, ''));
+    totalHours += num || 0;
+  });
+  const monthLemburEl = document.getElementById('userMonthOvertimeHours');
+  if (monthLemburEl) monthLemburEl.textContent = `${totalHours.toFixed(2)} Jam`;
+
   const genRows = (data, isAdmin) => {
     if (!data.length) {
       return `<tr><td colspan="${isAdmin ? 8 : 7}" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur yang tercatat.</td></tr>`;
@@ -287,8 +1060,6 @@ function renderLemburTables() {
 
 function renderCutiTables() {
   const saya = state.cuti.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
-  
-  // Find admin contact for WA link from User side
   const adminUser = state.users.find(u => u.role === 'admin' && (u.noHp || u.nohp));
   const adminPhone = adminUser ? formatWaNumber(adminUser.noHp || adminUser.nohp) : '';
 
@@ -297,17 +1068,14 @@ function renderCutiTables() {
       return `<tr><td colspan="${isAdmin ? 6 : 5}" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data pengajuan ijin/cuti.</td></tr>`;
     }
     return data.map(r => {
-      // Find employee contact for Admin WA link
       const empUser = state.users.find(u => String(u.nik) === String(r.nik));
       const empPhone = empUser ? formatWaNumber(empUser.noHp || empUser.nohp) : '';
 
-      // WA link to Admin (from employee)
-      const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis} untuk periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}. Alasan: ${r.alasan}. Mohon konfirmasi dan persetujuannya. Terima kasih.`);
-      const waAdminBtn = adminPhone ? `<a class="action-btn wa" href="https://wa.me/${adminPhone}?text=${userWaMsg}" target="_blank" title="Kirim WA ke Admin">📲 WA Admin</a>` : '';
+      const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis} untuk periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}. Alasan: ${r.alasan}. Mohon konfirmasi. Terima kasih.`);
+      const waAdminBtn = adminPhone ? `<a class="action-btn wa" href="https://wa.me/${adminPhone}?text=${userWaMsg}" target="_blank">📲 WA Admin</a>` : '';
 
-      // WA link to Employee (from admin)
       const adminWaMsg = encodeURIComponent(`Halo ${r.nama}, terkait pengajuan ${r.jenis} periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}, status pengajuan saat ini: [${r.status || 'Diajukan'}]. Terima kasih.`);
-      const waEmpBtn = empPhone ? `<a class="action-btn wa" href="https://wa.me/${empPhone}?text=${adminWaMsg}" target="_blank" title="Kirim WA ke Karyawan">📲 WA</a>` : '';
+      const waEmpBtn = empPhone ? `<a class="action-btn wa" href="https://wa.me/${empPhone}?text=${adminWaMsg}" target="_blank">📲 WA</a>` : '';
 
       return `
         <tr>
@@ -362,8 +1130,9 @@ function renderUserTable() {
           <th>Divisi</th>
           <th>Username</th>
           <th>Password</th>
-          <th>Email</th>
-          <th>No. HP / WA</th>
+          <th>Gaji Pokok</th>
+          <th>Rate Lembur</th>
+          <th>Kontak</th>
           <th>Role</th>
           <th>Aksi</th>
         </tr>
@@ -376,8 +1145,12 @@ function renderUserTable() {
             <td>${u.divisi}</td>
             <td><span class="mono-text">${u.username}</span></td>
             <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${u.password || '-'}</span></td>
-            <td>${u.email ? `<span class="mono-text">${u.email}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>
-            <td>${u.noHp ? `<span class="mono-text">${u.noHp}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>
+            <td><span class="mono-text">${formatRupiah(u.gajiPokok)}</span></td>
+            <td><span class="mono-text">${formatRupiah(u.rateLembur || 25000)}/jam</span></td>
+            <td>
+              <small>${u.email || '-'}</small><br>
+              <small class="mono-text">${u.noHp || '-'}</small>
+            </td>
             <td><span class="status ${u.role === 'admin' ? 'disetujui' : 'diajukan'}">${u.role}</span></td>
             <td class="action-cell">
               <button class="action-btn edit" onclick="editUser('${u.nik}')">Edit</button>
@@ -389,6 +1162,74 @@ function renderUserTable() {
     </table>
   `;
 }
+
+window.editUser = (nik) => {
+  const u = state.users.find(x => x.nik === nik);
+  if (!u) return;
+  document.getElementById('userEditMode').value = "true";
+  document.getElementById('userNIK').value = u.nik;
+  document.getElementById('userName').value = u.nama;
+  document.getElementById('userDivisi').value = u.divisi;
+  document.getElementById('userUsername').value = u.username;
+  document.getElementById('userPassword').value = u.password;
+  document.getElementById('userGajiPokok').value = u.gajiPokok || 0;
+  document.getElementById('userTunjangan').value = u.tunjangan || 0;
+  document.getElementById('userRateLembur').value = u.rateLembur || 25000;
+  document.getElementById('userSaldoKasbon').value = u.saldoKasbon || 0;
+  document.getElementById('userEmail').value = u.email || '';
+  document.getElementById('userNoHp').value = u.noHp || u.nohp || '';
+  document.getElementById('userRole').value = u.role || 'user';
+  
+  const formTitle = document.getElementById('userFormTitle');
+  if (formTitle) formTitle.textContent = `Edit Karyawan - ${u.nama} (${u.nik})`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.deleteUserRecord = async (nik) => {
+  if (nik === state.currentUser.nik) return showToast('Tidak dapat menghapus akun sendiri!', 'error');
+  if (confirm(`Hapus user dengan NIK ${nik}?`)) {
+    const res = await apiRequest('deleteUser', { nik });
+    if (res) {
+      showToast('User berhasil dihapus');
+      loadUsersData();
+    }
+  }
+};
+
+document.getElementById('userForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    nik: document.getElementById('userNIK').value.trim(),
+    nama: document.getElementById('userName').value.trim(),
+    divisi: document.getElementById('userDivisi').value.trim(),
+    username: document.getElementById('userUsername').value.trim(),
+    password: document.getElementById('userPassword').value.trim(),
+    gajiPokok: document.getElementById('userGajiPokok').value,
+    tunjangan: document.getElementById('userTunjangan').value,
+    rateLembur: document.getElementById('userRateLembur').value,
+    saldoKasbon: document.getElementById('userSaldoKasbon').value,
+    email: document.getElementById('userEmail').value.trim(),
+    noHp: document.getElementById('userNoHp').value.trim(),
+    role: document.getElementById('userRole').value
+  };
+
+  const res = await apiRequest('saveUser', payload);
+  if (res) {
+    showToast('Data karyawan berhasil disimpan!');
+    document.getElementById('userForm').reset();
+    document.getElementById('userEditMode').value = "false";
+    const formTitle = document.getElementById('userFormTitle');
+    if (formTitle) formTitle.textContent = 'Tambah / Edit Data Karyawan & Gaji';
+    loadUsersData();
+  }
+});
+
+document.getElementById('resetUserFormBtn').addEventListener('click', () => {
+  document.getElementById('userForm').reset();
+  document.getElementById('userEditMode').value = "false";
+  const formTitle = document.getElementById('userFormTitle');
+  if (formTitle) formTitle.textContent = 'Tambah / Edit Data Karyawan & Gaji';
+});
 
 // ================= MODAL & ACTIONS =================
 window.closeModal = (modalId) => {
@@ -468,93 +1309,29 @@ document.getElementById('editCutiForm').addEventListener('submit', async (e) => 
 });
 
 window.deleteLembur = async (id) => {
-  if (confirm('Apakah Anda yakin ingin menghapus data lembur ini?')) {
+  if (confirm('Hapus lembur ini?')) {
     await apiRequest('deleteLembur', { id }); 
     loadLembur();
   }
 };
 
 window.deleteCuti = async (id) => {
-  if (confirm('Apakah Anda yakin ingin menghapus data perijinan ini?')) {
+  if (confirm('Hapus perijinan ini?')) {
     await apiRequest('deletePerijinan', { id }); 
     loadCuti();
   }
 };
 
-window.editUser = (nik) => {
-  const u = state.users.find(x => x.nik === nik);
-  if (!u) return;
-  document.getElementById('userEditMode').value = "true";
-  document.getElementById('userNIK').value = u.nik;
-  document.getElementById('userName').value = u.nama;
-  document.getElementById('userDivisi').value = u.divisi;
-  document.getElementById('userUsername').value = u.username;
-  document.getElementById('userPassword').value = u.password;
-  document.getElementById('userEmail').value = u.email || '';
-  document.getElementById('userNoHp').value = u.noHp || u.nohp || '';
-  document.getElementById('userRole').value = u.role || 'user';
-  
-  const formTitle = document.getElementById('userFormTitle');
-  if (formTitle) formTitle.textContent = `Edit User - ${u.nama} (${u.nik})`;
-  
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-window.deleteUserRecord = async (nik) => {
-  if (nik === state.currentUser.nik) return showToast('Tidak dapat menghapus akun sendiri!', 'error');
-  if (confirm(`Hapus user dengan NIK ${nik}?`)) {
-    const res = await apiRequest('deleteUser', { nik });
-    if (res) {
-      showToast('User berhasil dihapus');
-      loadUsersData();
-    }
-  }
-};
-
-document.getElementById('userForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const payload = {
-    nik: document.getElementById('userNIK').value.trim(),
-    nama: document.getElementById('userName').value.trim(),
-    divisi: document.getElementById('userDivisi').value.trim(),
-    username: document.getElementById('userUsername').value.trim(),
-    password: document.getElementById('userPassword').value.trim(),
-    email: document.getElementById('userEmail').value.trim(),
-    noHp: document.getElementById('userNoHp').value.trim(),
-    role: document.getElementById('userRole').value
-  };
-
-  const res = await apiRequest('saveUser', payload);
-  if (res) {
-    showToast('User berhasil disimpan!');
-    document.getElementById('userForm').reset();
-    document.getElementById('userEditMode').value = "false";
-    const formTitle = document.getElementById('userFormTitle');
-    if (formTitle) formTitle.textContent = 'Tambah / Edit User';
-    loadUsersData();
-  }
-});
-
-document.getElementById('resetUserFormBtn').addEventListener('click', () => {
-  document.getElementById('userForm').reset();
-  document.getElementById('userEditMode').value = "false";
-  const formTitle = document.getElementById('userFormTitle');
-  if (formTitle) formTitle.textContent = 'Tambah / Edit User';
-});
-
-// ================= PDF EXPORT =================
+// ================= PDF EXPORT LEMBUR =================
 function exportPdf(isAdmin) {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    showToast('Library PDF belum siap, silakan refresh halaman.', 'error');
-    return;
-  }
+  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('Library PDF belum siap', 'error');
 
   const rows = isAdmin ? state.lembur : state.lembur.filter(r => r.nik === state.currentUser.nik);
   const doc = new window.jspdf.jsPDF();
   const filename = isAdmin ? 'rekap-lembur-admin.pdf' : 'rekap-lembur-saya.pdf';
 
   doc.setFontSize(16);
-  doc.text(isAdmin ? 'Rekap Semua Lembur (Admin)' : 'Rekap Lembur Saya', 14, 20);
+  doc.text(isAdmin ? 'Rekap Semua Lembur Warehouse (Admin)' : 'Rekap Lembur Saya', 14, 20);
 
   if (!rows.length) {
     doc.setFontSize(11);
@@ -622,6 +1399,7 @@ async function loadUsersData() {
     renderUserTable();
     syncUserFields('l_nik', 'l_nama', 'l_divisi');
     syncUserFields('c_nik', 'c_nama', 'c_divisi');
+    syncUserFields('m_abs_nik', null, null);
   }
 }
 
@@ -631,16 +1409,16 @@ function syncUserFields(selectId, namaId, divId) {
   if (state.currentUser.role !== 'admin') {
     select.innerHTML = `<option value="${state.currentUser.nik}">${state.currentUser.nik} - ${state.currentUser.nama}</option>`;
     select.disabled = true;
-    document.getElementById(namaId).value = state.currentUser.nama;
-    document.getElementById(divId).value = state.currentUser.divisi;
+    if (namaId) document.getElementById(namaId).value = state.currentUser.nama;
+    if (divId) document.getElementById(divId).value = state.currentUser.divisi;
   } else {
     select.disabled = false;
     select.innerHTML = state.users.map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
     select.onchange = () => {
       const u = state.users.find(x => x.nik === select.value);
       if (u) { 
-        document.getElementById(namaId).value = u.nama; 
-        document.getElementById(divId).value = u.divisi; 
+        if (namaId) document.getElementById(namaId).value = u.nama; 
+        if (divId) document.getElementById(divId).value = u.divisi; 
       }
     };
     if (state.users.length && !select.value) select.dispatchEvent(new Event('change'));
@@ -651,6 +1429,11 @@ async function startApp() {
   document.getElementById('loginPage').classList.add('hidden');
   document.getElementById('appPage').classList.remove('hidden');
   
+  // Set default current month in payroll picker
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  const picker = document.getElementById('payrollMonthPicker');
+  if (picker && !picker.value) picker.value = currentMonthStr;
+
   // User Labels
   document.getElementById('loggedUserLabel').textContent = `${state.currentUser.nama} (${state.currentUser.role})`;
   const sidebarName = document.getElementById('sidebarUserName');
@@ -658,7 +1441,7 @@ async function startApp() {
   if (sidebarName) sidebarName.textContent = state.currentUser.nama;
   if (sidebarRole) sidebarRole.textContent = `${state.currentUser.divisi} • ${state.currentUser.role}`;
   
-  // Role Access Admin Navigation Group
+  // Admin Navigation Group
   const adminGroup = document.getElementById('adminNavGroup');
   if (state.currentUser.role === 'admin') {
     if (adminGroup) adminGroup.classList.remove('hidden');
@@ -666,14 +1449,20 @@ async function startApp() {
     if (adminGroup) adminGroup.classList.add('hidden');
   }
 
+  startLiveClock();
+
   await loadUsersData();
-  
+  await loadShifts();
+  await loadAbsensi();
+  await loadKasbon();
+  await loadLembur(); 
+  await loadCuti();
+  await loadPayroll();
+
   if (lemburContainer.children.length === 0) addLemburRow();
   if (cutiContainer.children.length === 0) addCutiRow();
 
-  loadLembur(); 
-  loadCuti();
-  switchTab('formLemburTab');
+  switchTab('presensiTab');
 }
 
 // ================= AUTH EVENTS =================
@@ -699,7 +1488,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   location.reload();
 });
 
-// Sidebar navigation clicks
 navItems.forEach(item => {
   item.addEventListener('click', () => switchTab(item.dataset.tab));
 });

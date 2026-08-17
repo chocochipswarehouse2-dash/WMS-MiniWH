@@ -1,5 +1,5 @@
 function doGet() {
-  return ContentService.createTextOutput('Sistem Lembur & Cuti WMS Mini siap digunakan.');
+  return ContentService.createTextOutput('WMS Mini - Warehouse Operations & Payroll API Siap Digunakan.');
 }
 
 function doPost(e) {
@@ -16,6 +16,7 @@ function doPost(e) {
     const action = payload.action || '';
 
     switch (action) {
+      // AUTH & USERS
       case 'login':
         return jsonResponse({ success: true, user: loginUser(payload.username, payload.password) });
       case 'getUsers':
@@ -24,7 +25,25 @@ function doPost(e) {
         return jsonResponse({ success: true, user: saveUser(payload) });
       case 'deleteUser':
         return jsonResponse({ success: true, ok: deleteUser(payload.nik) });
-      
+
+      // SHIFT & ABSENSI
+      case 'getShifts':
+        return jsonResponse({ success: true, data: getShifts() });
+      case 'saveShift':
+        return jsonResponse({ success: true, data: saveShift(payload) });
+      case 'deleteShift':
+        return jsonResponse({ success: true, ok: deleteRowById('Data Shift', payload.id) });
+      case 'getAbsensi':
+        return jsonResponse({ success: true, data: getAbsensi(payload.nik || '', payload.role || '') });
+      case 'checkInAbsensi':
+        return jsonResponse({ success: true, data: checkInAbsensi(payload) });
+      case 'checkOutAbsensi':
+        return jsonResponse({ success: true, data: checkOutAbsensi(payload) });
+      case 'saveAbsensiManual':
+        return jsonResponse({ success: true, data: saveAbsensiManual(payload) });
+      case 'deleteAbsensi':
+        return jsonResponse({ success: true, ok: deleteRowById('Data Absensi', payload.id) });
+
       // LEMBUR
       case 'getLembur':
         return jsonResponse({ success: true, data: getLembur(payload.nik || '', payload.role || '') });
@@ -34,7 +53,7 @@ function doPost(e) {
         return jsonResponse({ success: true, ok: updateLembur(payload) });
       case 'deleteLembur':
         return jsonResponse({ success: true, ok: deleteRowById('Data Lembur', payload.id) });
-        
+
       // PERIJINAN (IJIN/CUTI)
       case 'getPerijinan':
         return jsonResponse({ success: true, data: getPerijinan(payload.nik || '', payload.role || '') });
@@ -48,7 +67,27 @@ function doPost(e) {
         return jsonResponse({ success: true, ok: updateStatusPerijinan(payload.id, 'Ditolak', payload.adminUsername) });
       case 'deletePerijinan':
         return jsonResponse({ success: true, ok: deleteRowById('Data Perijinan', payload.id) });
-        
+
+      // KASBON
+      case 'getKasbon':
+        return jsonResponse({ success: true, data: getKasbon(payload.nik || '', payload.role || '') });
+      case 'saveKasbon':
+        return jsonResponse({ success: true, data: saveKasbon(payload) });
+      case 'deleteKasbon':
+        return jsonResponse({ success: true, ok: deleteRowById('Data Kasbon', payload.id) });
+
+      // PAYROLL
+      case 'getPayroll':
+        return jsonResponse({ success: true, data: getPayroll(payload.nik || '', payload.role || '', payload.periode || '') });
+      case 'generateMonthlyPayroll':
+        return jsonResponse({ success: true, rows: generateMonthlyPayroll(payload.periode, payload.adminUsername) });
+      case 'savePayrollAdjustment':
+        return jsonResponse({ success: true, data: savePayrollAdjustment(payload) });
+      case 'approvePayroll':
+        return jsonResponse({ success: true, ok: approvePayroll(payload.periode, payload.adminUsername) });
+      case 'deletePayroll':
+        return jsonResponse({ success: true, ok: deleteRowById('Data Payroll', payload.id) });
+
       default:
         return jsonResponse({ success: false, message: 'Action tidak valid.' });
     }
@@ -60,34 +99,71 @@ function doPost(e) {
 function ensureSheets() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
+  // 1. DATA KARYAWAN
   let karyawanSheet = spreadsheet.getSheetByName('Data Karyawan');
   if (!karyawanSheet) {
     karyawanSheet = spreadsheet.insertSheet('Data Karyawan');
-    karyawanSheet.appendRow(['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'Status', 'CreatedAt']);
-    karyawanSheet.appendRow(['WH0001', 'Admin WMS', 'Warehouse', 'admin', '12345', 'admin', '', '', 'Aktif', new Date().toISOString()]);
+    karyawanSheet.appendRow(['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt']);
+    karyawanSheet.appendRow(['WH0001', 'Admin Warehouse', 'Warehouse', 'admin', '12345', 'admin', '', '', 4500000, 500000, 25000, 0, 'Aktif', new Date().toISOString()]);
   } else {
-    // Check if Email & NoHP columns exist, if not append headers
-    const headers = karyawanSheet.getRange(1, 1, 1, Math.max(karyawanSheet.getLastColumn(), 1)).getValues()[0];
-    const headerStr = headers.map(h => String(h).toLowerCase()).join(',');
-    if (!headerStr.includes('email')) {
-      karyawanSheet.getRange(1, headers.length + 1).setValue('Email');
-    }
-    if (!headerStr.includes('nohp') && !headerStr.includes('hp') && !headerStr.includes('telepon')) {
-      karyawanSheet.getRange(1, karyawanSheet.getLastColumn() + 1).setValue('NoHP');
-    }
+    ensureHeaders(karyawanSheet, ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt']);
   }
 
+  // 2. DATA SHIFT
+  let shiftSheet = spreadsheet.getSheetByName('Data Shift');
+  if (!shiftSheet) {
+    shiftSheet = spreadsheet.insertSheet('Data Shift');
+    shiftSheet.appendRow(['ID', 'NamaShift', 'JamMasuk', 'JamPulang', 'ToleransiMenit', 'Status']);
+    shiftSheet.appendRow(['SHIFT-1', 'Shift Pagi', '08:00', '17:00', 15, 'Aktif']);
+    shiftSheet.appendRow(['SHIFT-2', 'Shift Siang/Malam', '13:00', '21:00', 15, 'Aktif']);
+  }
+
+  // 3. DATA ABSENSI
+  let absensiSheet = spreadsheet.getSheetByName('Data Absensi');
+  if (!absensiSheet) {
+    absensiSheet = spreadsheet.insertSheet('Data Absensi');
+    absensiSheet.appendRow(['ID', 'NIK', 'Nama', 'Tanggal', 'Shift', 'JamMasuk', 'JamPulang', 'Status', 'KeterlambatanMenit', 'Catatan']);
+  }
+
+  // 4. DATA LEMBUR
   let lemburSheet = spreadsheet.getSheetByName('Data Lembur');
   if (!lemburSheet) {
     lemburSheet = spreadsheet.insertSheet('Data Lembur');
     lemburSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Catatan', 'Tanggal Input', 'Status', 'UpdatedBy']);
   }
 
+  // 5. DATA PERIJINAN
   let perijinanSheet = spreadsheet.getSheetByName('Data Perijinan');
   if (!perijinanSheet) {
     perijinanSheet = spreadsheet.insertSheet('Data Perijinan');
     perijinanSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Jenis', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Tanggal Input', 'Status', 'UpdatedBy']);
   }
+
+  // 6. DATA KASBON
+  let kasbonSheet = spreadsheet.getSheetByName('Data Kasbon');
+  if (!kasbonSheet) {
+    kasbonSheet = spreadsheet.insertSheet('Data Kasbon');
+    kasbonSheet.appendRow(['ID', 'NIK', 'Nama', 'TanggalPengajuan', 'JumlahPinjaman', 'CicilanPerBulan', 'SisaKasbon', 'Status', 'Catatan']);
+  }
+
+  // 7. DATA PAYROLL
+  let payrollSheet = spreadsheet.getSheetByName('Data Payroll');
+  if (!payrollSheet) {
+    payrollSheet = spreadsheet.insertSheet('Data Payroll');
+    payrollSheet.appendRow(['ID', 'Periode', 'NIK', 'Nama', 'Divisi', 'GajiPokok', 'Tunjangan', 'TotalJamLembur', 'RateLembur', 'TotalUangLembur', 'PotonganKasbon', 'PotonganAbsensi', 'PotonganLain', 'GajiBersih', 'Status', 'Catatan', 'UpdatedBy', 'CreatedAt']);
+  }
+}
+
+function ensureHeaders(sheet, expectedHeaders) {
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const currentHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  
+  expectedHeaders.forEach(expected => {
+    const norm = expected.toLowerCase();
+    if (!currentHeaders.includes(norm)) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(expected);
+    }
+  });
 }
 
 function jsonResponse(data) {
@@ -166,7 +242,8 @@ function loginUser(username, password) {
   return {
     nik: match.nik, nama: match.nama, divisi: match.divisi,
     username: match.username, role: match.role || 'user',
-    email: match.email || '', noHp: match.noHp || match.nohp || ''
+    email: match.email || '', noHp: match.noHp || match.nohp || '',
+    gajiPokok: match.gajiPokok || 0, tunjangan: match.tunjangan || 0, rateLembur: match.rateLembur || 0
   };
 }
 
@@ -182,7 +259,11 @@ function getUsers() {
       password: String(u.password || '').trim(),
       role: String(u.role || 'user').trim(),
       email: String(u.email || '').trim(),
-      noHp: String(u.noHp || u.nohp || u.telepon || u.hp || '').trim()
+      noHp: String(u.noHp || u.nohp || u.telepon || u.hp || '').trim(),
+      gajiPokok: Number(u.gajiPokok || 0),
+      tunjangan: Number(u.tunjangan || 0),
+      rateLembur: Number(u.rateLembur || 0),
+      saldoKasbon: Number(u.saldoKasbon || 0)
     }));
 }
 
@@ -191,13 +272,10 @@ function saveUser(payload) {
   const values = sheet.getDataRange().getValues();
   const targetNIK = String(payload.nik || '').trim();
 
-  const emailVal = String(payload.email || '').trim();
-  const noHpVal = String(payload.noHp || payload.nohp || '').trim();
-
   let existingRowIndex = -1;
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][0]).trim() === targetNIK) {
-      existingRowIndex = i + 1; // 1-indexed row number
+      existingRowIndex = i + 1;
       break;
     }
   }
@@ -205,12 +283,16 @@ function saveUser(payload) {
   const rowData = [
     targetNIK, 
     payload.nama || '', 
-    payload.divisi || '', 
+    payload.divisi || 'Warehouse', 
     payload.username || '', 
     payload.password || '', 
     payload.role || 'user', 
-    emailVal, 
-    noHpVal, 
+    payload.email || '', 
+    payload.noHp || payload.nohp || '',
+    Number(payload.gajiPokok || 0),
+    Number(payload.tunjangan || 0),
+    Number(payload.rateLembur || 0),
+    Number(payload.saldoKasbon || 0),
     'Aktif', 
     new Date().toISOString()
   ];
@@ -227,8 +309,12 @@ function saveUser(payload) {
     divisi: payload.divisi, 
     username: payload.username, 
     role: payload.role,
-    email: emailVal,
-    noHp: noHpVal
+    email: payload.email,
+    noHp: payload.noHp,
+    gajiPokok: payload.gajiPokok,
+    tunjangan: payload.tunjangan,
+    rateLembur: payload.rateLembur,
+    saldoKasbon: payload.saldoKasbon
   };
 }
 
@@ -242,6 +328,107 @@ function deleteUser(nik) {
     }
   }
   return false;
+}
+
+// ------------- SHIFT -------------
+function getShifts() {
+  const rows = getSheetRows('Data Shift');
+  return rows.filter(s => String(s.id || '').trim() !== '');
+}
+
+function saveShift(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Shift');
+  const id = payload.id || 'SHIFT-' + Date.now();
+  const rowData = [
+    id, 
+    payload.namaShift || '', 
+    payload.jamMasuk || '', 
+    payload.jamPulang || '', 
+    Number(payload.toleransiMenit || 15), 
+    payload.status || 'Aktif'
+  ];
+
+  const values = sheet.getDataRange().getValues();
+  let matchIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === id) { matchIndex = i + 1; break; }
+  }
+
+  if (matchIndex > 0) {
+    sheet.getRange(matchIndex, 1, 1, rowData.length).setValues([rowData]);
+  } else {
+    sheet.appendRow(rowData);
+  }
+  return { id, ...payload };
+}
+
+// ------------- ABSENSI -------------
+function getAbsensi(nik, role) {
+  const rows = getSheetRows('Data Absensi');
+  if (role === 'admin') return rows.filter(r => String(r.id || '').trim() !== '');
+  return rows.filter(r => String(r.nik).trim() === String(nik).trim());
+}
+
+function checkInAbsensi(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Absensi');
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const currentTime = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm');
+  const rows = getSheetRows('Data Absensi');
+
+  const existing = rows.find(r => String(r.nik).trim() === String(payload.nik).trim() && String(r.tanggal) === today);
+  if (existing) {
+    throw new Error('Anda sudah melakukan presensi masuk hari ini pada pukul ' + existing.jamMasuk);
+  }
+
+  const id = 'ABS-' + Date.now();
+  const shiftName = payload.shift || 'Shift Pagi';
+  let keterlambatan = 0;
+  let status = 'Hadir';
+
+  // Kalkulasi keterlambatan jika ada
+  if (payload.shiftJamMasuk) {
+    const [smH, smM] = payload.shiftJamMasuk.split(':').map(Number);
+    const [curH, curM] = currentTime.split(':').map(Number);
+    const scheduledMinutes = smH * 60 + smM + Number(payload.toleransi || 15);
+    const currentMinutes = curH * 60 + curM;
+    if (currentMinutes > scheduledMinutes) {
+      keterlambatan = currentMinutes - (smH * 60 + smM);
+      status = 'Terlambat';
+    }
+  }
+
+  const row = [id, payload.nik, payload.nama, today, shiftName, currentTime, '', status, keterlambatan, payload.catatan || ''];
+  sheet.appendRow(row);
+  return { id, nik: payload.nik, tanggal: today, jamMasuk: currentTime, status, keterlambatan };
+}
+
+function checkOutAbsensi(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Absensi');
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const currentTime = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm');
+  const values = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < values.length; i++) {
+    const rowNik = String(values[i][1]).trim();
+    const rowDate = formatCellVal(values[i][3]);
+    if (rowNik === String(payload.nik).trim() && rowDate === today) {
+      sheet.getRange(i + 1, 7).setValue(currentTime); // Jam Pulang
+      return { ok: true, jamPulang: currentTime };
+    }
+  }
+  throw new Error('Belum ada data presensi masuk untuk hari ini.');
+}
+
+function saveAbsensiManual(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Absensi');
+  const id = payload.id || 'ABS-' + Date.now();
+  const row = [
+    id, payload.nik, payload.nama, payload.tanggal, payload.shift || 'Normal',
+    payload.jamMasuk || '', payload.jamPulang || '', payload.status || 'Hadir',
+    Number(payload.keterlambatanMenit || 0), payload.catatan || ''
+  ];
+  sheet.appendRow(row);
+  return { id, ...payload };
 }
 
 // ------------- LEMBUR -------------
@@ -318,9 +505,7 @@ function savePerijinanMultiple(perijinanList) {
     saved.push(row);
   });
 
-  // Notifikasi Email ke Admin saat ada pengajuan ijin/cuti baru
   notifyAdminNewLeave(perijinanList);
-
   return saved;
 }
 
@@ -338,7 +523,6 @@ function updatePerijinan(payload) {
       if (payload.status !== undefined) sheet.getRange(i + 1, 10).setValue(payload.status);
       if (payload.updatedBy !== undefined) sheet.getRange(i + 1, 11).setValue(payload.updatedBy);
       
-      // Notifikasi Email ke Karyawan jika status berubah
       if (payload.status && payload.status !== 'Diajukan') {
         notifyEmployeeLeaveStatus(id, payload.status, payload.updatedBy);
       }
@@ -356,13 +540,183 @@ function updateStatusPerijinan(id, newStatus, adminUsername) {
     if (String(values[i][0]) === String(id)) {
       sheet.getRange(i + 1, 10).setValue(newStatus);
       sheet.getRange(i + 1, 11).setValue(adminUsername);
-
-      // Notifikasi Email ke Karyawan terkait Approval/Reject
       notifyEmployeeLeaveStatus(id, newStatus, adminUsername);
       return true;
     }
   }
   return false;
+}
+
+// ------------- KASBON KARYAWAN -------------
+function getKasbon(nik, role) {
+  const rows = getSheetRows('Data Kasbon');
+  if (role === 'admin') return rows.filter(r => String(r.id || '').trim() !== '');
+  return rows.filter(r => String(r.nik).trim() === String(nik).trim());
+}
+
+function saveKasbon(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Kasbon');
+  const id = payload.id || 'KSB-' + Date.now();
+  const pinjaman = Number(payload.jumlahPinjaman || 0);
+  const cicilan = Number(payload.cicilanPerBulan || 0);
+  const sisa = payload.sisaKasbon !== undefined ? Number(payload.sisaKasbon) : pinjaman;
+
+  const row = [
+    id, payload.nik, payload.nama, 
+    payload.tanggalPengajuan || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    pinjaman, cicilan, sisa, payload.status || 'Aktif', payload.catatan || ''
+  ];
+
+  const values = sheet.getDataRange().getValues();
+  let matchIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === id) { matchIndex = i + 1; break; }
+  }
+
+  if (matchIndex > 0) {
+    sheet.getRange(matchIndex, 1, 1, row.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
+
+  // Update total saldo kasbon di data karyawan
+  updateKaryawanKasbonBalance(payload.nik);
+  return { id, ...payload };
+}
+
+function updateKaryawanKasbonBalance(nik) {
+  const kasbonRows = getSheetRows('Data Kasbon').filter(k => String(k.nik).trim() === String(nik).trim() && k.status === 'Aktif');
+  const totalSisa = kasbonRows.reduce((acc, curr) => acc + Number(curr.sisaKasbon || 0), 0);
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Karyawan');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]).trim() === String(nik).trim()) {
+      sheet.getRange(i + 1, 12).setValue(totalSisa); // Col 12: SaldoKasbon
+      break;
+    }
+  }
+}
+
+// ------------- PAYROLL GENERATOR & AUDIT -------------
+function getPayroll(nik, role, periode) {
+  const rows = getSheetRows('Data Payroll');
+  let filtered = rows;
+  if (periode) filtered = filtered.filter(r => r.periode === periode);
+  if (role !== 'admin') filtered = filtered.filter(r => String(r.nik).trim() === String(nik).trim());
+  return filtered;
+}
+
+function generateMonthlyPayroll(periode, adminUsername) {
+  if (!periode) throw new Error('Periode bulan dan tahun wajib diisi (Contoh: 2026-08)');
+  
+  const users = getUsers().filter(u => u.nik !== 'admin');
+  const lemburRows = getSheetRows('Data Lembur');
+  const kasbonRows = getSheetRows('Data Kasbon');
+  const payrollSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Payroll');
+  const existingPayroll = getSheetRows('Data Payroll');
+
+  const results = [];
+
+  users.forEach(user => {
+    // 1. Hitung total jam lembur dalam periode ini
+    const userLembur = lemburRows.filter(l => {
+      if (String(l.nik).trim() !== String(user.nik).trim()) return false;
+      const tgl = String(l.tanggal || '');
+      return tgl.startsWith(periode);
+    });
+
+    let totalJamLembur = 0;
+    userLembur.forEach(l => {
+      const jamStr = String(l.totalJam || '').replace(/[^0-9.]/g, '');
+      totalJamLembur += Number(jamStr || 0);
+    });
+
+    const rateLembur = Number(user.rateLembur || 25000);
+    const totalUangLembur = Math.round(totalJamLembur * rateLembur);
+
+    // 2. Hitung cicilan kasbon aktif
+    const activeKasbon = kasbonRows.filter(k => String(k.nik).trim() === String(user.nik).trim() && k.status === 'Aktif');
+    let potonganKasbon = 0;
+    activeKasbon.forEach(k => {
+      const cicil = Number(k.cicilanPerBulan || 0);
+      const sisa = Number(k.sisaKasbon || 0);
+      potonganKasbon += Math.min(cicil, sisa);
+    });
+
+    const gajiPokok = Number(user.gajiPokok || 0);
+    const tunjangan = Number(user.tunjangan || 0);
+    const potonganAbsensi = 0;
+    const potonganLain = 0;
+    const gajiBersih = (gajiPokok + tunjangan + totalUangLembur) - (potonganKasbon + potonganAbsensi + potonganLain);
+
+    const id = `PAY-${periode}-${user.nik}`;
+    const row = [
+      id, periode, user.nik, user.nama, user.divisi,
+      gajiPokok, tunjangan, Number(totalJamLembur.toFixed(2)), rateLembur, totalUangLembur,
+      potonganKasbon, potonganAbsensi, potonganLain, gajiBersih,
+      'Draft', '', adminUsername || 'Admin', new Date().toISOString()
+    ];
+
+    const matchIdx = existingPayroll.findIndex(p => p.id === id);
+    if (matchIdx >= 0) {
+      payrollSheet.getRange(matchIdx + 2, 1, 1, row.length).setValues([row]);
+    } else {
+      payrollSheet.appendRow(row);
+    }
+    results.push(row);
+  });
+
+  return results;
+}
+
+function savePayrollAdjustment(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Payroll');
+  const values = sheet.getDataRange().getValues();
+  const id = String(payload.id);
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === id) {
+      const gPokok = Number(payload.gajiPokok || values[i][5]);
+      const tunjangan = Number(payload.tunjangan || values[i][6]);
+      const jamLembur = Number(payload.totalJamLembur || values[i][7]);
+      const rateLembur = Number(payload.rateLembur || values[i][8]);
+      const uangLembur = Math.round(jamLembur * rateLembur);
+
+      const potKasbon = Number(payload.potonganKasbon || values[i][10]);
+      const potAbsen = Number(payload.potonganAbsensi || values[i][11]);
+      const potLain = Number(payload.potonganLain || values[i][12]);
+
+      const gBersih = (gPokok + tunjangan + uangLembur) - (potKasbon + potAbsen + potLain);
+
+      sheet.getRange(i + 1, 6).setValue(gPokok);
+      sheet.getRange(i + 1, 7).setValue(tunjangan);
+      sheet.getRange(i + 1, 8).setValue(jamLembur);
+      sheet.getRange(i + 1, 9).setValue(rateLembur);
+      sheet.getRange(i + 1, 10).setValue(uangLembur);
+      sheet.getRange(i + 1, 11).setValue(potKasbon);
+      sheet.getRange(i + 1, 12).setValue(potAbsen);
+      sheet.getRange(i + 1, 13).setValue(potLain);
+      sheet.getRange(i + 1, 14).setValue(gBersih);
+      if (payload.catatan !== undefined) sheet.getRange(i + 1, 16).setValue(payload.catatan);
+      sheet.getRange(i + 1, 17).setValue(payload.updatedBy || 'Admin');
+      return { ok: true, gajiBersih: gBersih };
+    }
+  }
+  throw new Error('Data payroll tidak ditemukan.');
+}
+
+function approvePayroll(periode, adminUsername) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Payroll');
+  const values = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][1]) === periode) {
+      sheet.getRange(i + 1, 15).setValue('Disetujui');
+      sheet.getRange(i + 1, 17).setValue(adminUsername);
+    }
+  }
+  return true;
 }
 
 function deleteRowById(sheetName, id) {
@@ -378,7 +732,6 @@ function deleteRowById(sheetName, id) {
 }
 
 // ------------- NOTIFIKASI EMAIL OTOMATIS -------------
-
 function notifyAdminNewLeave(perijinanList) {
   try {
     if (!perijinanList || !perijinanList.length) return;
@@ -400,9 +753,9 @@ function notifyAdminNewLeave(perijinanList) {
     const subject = `[WMS Mini] Pengajuan Ijin / Cuti Baru: ${perijinanList[0].nama}`;
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #d0d7de; border-radius: 10px; background-color: #ffffff; color: #1f2328;">
-        <h3 style="color: #0969da; margin-top: 0; display: flex; align-items: center; gap: 8px;">⚡ Notifikasi Pengajuan Ijin / Cuti</h3>
+        <h3 style="color: #0969da; margin-top: 0;">⚡ Notifikasi Pengajuan Ijin / Cuti</h3>
         <p>Halo Admin,</p>
-        <p>Terdapat pengajuan Ijin / Cuti baru yang memerlukan review & persetujuan:</p>
+        <p>Terdapat pengajuan Ijin / Cuti baru di Warehouse yang memerlukan review & persetujuan:</p>
         <ul style="padding-left: 20px; background: #f6f8fa; padding: 16px 20px; border-radius: 8px; border: 1px solid #e1e4e8;">
           ${summaryList}
         </ul>
@@ -441,7 +794,7 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #d0d7de; border-radius: 10px; background-color: #ffffff; color: #1f2328;">
         <h3 style="color: ${statusColor}; margin-top: 0;">${statusIcon} Pengajuan Ijin / Cuti ${newStatus}</h3>
         <p>Halo <strong>${employee.nama}</strong>,</p>
-        <p>Pengajuan perijinan Anda dengan rincian berikut telah diperbarui statusnya:</p>
+        <p>Pengajuan perijinan Anda telah diperbarui statusnya:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background: #f6f8fa; border-radius: 8px;">
           <tr><td style="padding: 8px 12px; font-weight: bold; width: 140px;">Jenis:</td><td style="padding: 8px 12px;">${item.jenis}</td></tr>
           <tr><td style="padding: 8px 12px; font-weight: bold;">Periode:</td><td style="padding: 8px 12px;">${item.tanggalMulai} s/d ${item.tanggalSelesai}</td></tr>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sistem Lembur & Cuti - WMS Mini</title>
+  <title>WMS Mini - Warehouse Operations & HR</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
   <div id="loginPage" class="auth-wrap">
     <div class="auth-card">
       <div class="brand-title">WMS Mini</div>
-      <h1>Sistem Lembur & Cuti</h1>
+      <p class="auth-subtitle">Portal Karyawan & Operasional Warehouse</p>
       <form id="loginForm">
         <label>
           <span>Username / NIK</span>
@@ -44,9 +44,14 @@
       </div>
 
       <div class="sidebar-content">
+        <!-- KARYAWAN MENU -->
         <div class="sidebar-section-title">Menu Karyawan</div>
         <nav class="sidebar-nav">
-          <button class="nav-item active" data-tab="formLemburTab">
+          <button class="nav-item active" data-tab="presensiTab">
+            <span class="nav-icon">🕒</span>
+            <span class="nav-label">Presensi & Shift</span>
+          </button>
+          <button class="nav-item" data-tab="formLemburTab">
             <span class="nav-icon">📝</span>
             <span class="nav-label">Input Lembur</span>
           </button>
@@ -62,11 +67,28 @@
             <span class="nav-icon">📋</span>
             <span class="nav-label">Status Ijin/Cuti</span>
           </button>
+          <button class="nav-item" data-tab="slipGajiTab">
+            <span class="nav-icon">💵</span>
+            <span class="nav-label">Slip Gaji Saya</span>
+          </button>
         </nav>
 
+        <!-- ADMIN MENU -->
         <div id="adminNavGroup" class="hidden">
-          <div class="sidebar-section-title">Menu Admin</div>
+          <div class="sidebar-section-title">Menu Admin Warehouse</div>
           <nav class="sidebar-nav">
+            <button id="adminPayrollTabBtn" class="nav-item" data-tab="adminPayrollTab">
+              <span class="nav-icon">💰</span>
+              <span class="nav-label">Payroll & Gaji Bulanan</span>
+            </button>
+            <button id="adminKasbonTabBtn" class="nav-item" data-tab="adminKasbonTab">
+              <span class="nav-icon">💳</span>
+              <span class="nav-label">Kasbon Karyawan</span>
+            </button>
+            <button id="adminShiftAbsensiTabBtn" class="nav-item" data-tab="adminShiftAbsensiTab">
+              <span class="nav-icon">⏱️</span>
+              <span class="nav-label">Master Shift & Absensi</span>
+            </button>
             <button id="adminLemburTabBtn" class="nav-item" data-tab="adminLemburTab">
               <span class="nav-icon">📑</span>
               <span class="nav-label">Admin Rekap Lembur</span>
@@ -76,8 +98,8 @@
               <span class="nav-label">Approval Ijin/Cuti</span>
             </button>
             <button id="settingTabBtn" class="nav-item" data-tab="settingTab">
-              <span class="nav-icon">⚙️</span>
-              <span class="nav-label">Setting User</span>
+              <span class="nav-icon">👥</span>
+              <span class="nav-label">Kelola Karyawan & Gaji</span>
             </button>
           </nav>
         </div>
@@ -102,7 +124,7 @@
       <header class="topbar">
         <div class="topbar-left">
           <button id="toggleSidebarBtn" class="icon-btn sidebar-toggle-btn" title="Toggle Sidebar">☰</button>
-          <h2 id="topbarPageTitle">Input Lembur</h2>
+          <h2 id="topbarPageTitle">Presensi & Shift</h2>
         </div>
         <div class="topbar-actions">
           <span id="loggedUserLabel" class="user-badge">User</span>
@@ -113,11 +135,66 @@
 
       <main class="app-content">
         
-        <!-- TAB: INPUT LEMBUR -->
-        <section id="formLemburTab" class="tab-panel active">
+        <!-- TAB: PRESENSI & SHIFT (KARYAWAN) -->
+        <section id="presensiTab" class="tab-panel active">
+          <div class="grid two-columns" style="margin-bottom: 24px;">
+            <!-- PRESENSI WIDGET -->
+            <div class="panel attendance-card">
+              <div class="panel-header-row">
+                <h3>Presensi Harian Warehouse</h3>
+                <span id="liveClockDate" class="mono-text" style="color: var(--accent-primary); font-weight: 600;">-</span>
+              </div>
+              <div class="clock-display" id="liveClockTime">00:00:00</div>
+              
+              <div class="attendance-controls">
+                <label style="margin-bottom: 12px;">
+                  <span>Pilih Jadwal Shift Hari Ini:</span>
+                  <select id="userActiveShiftSelect"></select>
+                </label>
+                <div class="grid two-columns" style="gap: 12px;">
+                  <button type="button" id="btnCheckIn" class="primary-btn" style="background: var(--success); color:#fff; padding: 14px;">🟢 Presensi Masuk</button>
+                  <button type="button" id="btnCheckOut" class="secondary-btn" style="padding: 14px;">🔴 Presensi Pulang</button>
+                </div>
+              </div>
+              <div id="todayAttendanceStatusBox" class="attendance-status-badge">Memuat status presensi...</div>
+            </div>
+
+            <!-- INFO SHIFT & SUMMARY CARD -->
+            <div class="panel">
+              <div class="panel-header-row">
+                <h3>Informasi Jadwal Shift & Akumulasi</h3>
+              </div>
+              <div id="userShiftInfoBox" class="user-info-box" style="margin-bottom: 16px;">
+                <p><strong>Shift Aktif:</strong> <span id="infoShiftName">-</span></p>
+                <p><strong>Jam Kerja:</strong> <span id="infoShiftHours" class="mono-text">-</span> (Toleransi: <span id="infoShiftTol" class="mono-text">15 menit</span>)</p>
+              </div>
+              <div class="quick-stats-grid">
+                <div class="stat-box">
+                  <span class="stat-label">Total Lembur Bulan Ini</span>
+                  <span id="userMonthOvertimeHours" class="stat-value">0.00 Jam</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-label">Sisa Kasbon Aktif</span>
+                  <span id="userActiveKasbonAmount" class="stat-value" style="color: var(--warning);">Rp 0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIWAYAT ABSENSI SAYA -->
           <div class="panel">
             <div class="panel-header-row">
-              <h3>Form Pengajuan Lembur</h3>
+              <h3>Riwayat Presensi Saya</h3>
+            </div>
+            <div id="userAbsensiTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- TAB: INPUT LEMBUR -->
+        <section id="formLemburTab" class="tab-panel">
+          <div class="panel">
+            <div class="panel-header-row">
+              <h3>Form Pengajuan Lembur Warehouse</h3>
             </div>
             <form id="lemburForm">
               <div class="user-info-box grid three-columns">
@@ -183,7 +260,120 @@
           </div>
         </section>
 
-        <!-- TAB: ADMIN LEMBUR -->
+        <!-- TAB: SLIP GAJI SAYA (KARYAWAN) -->
+        <section id="slipGajiTab" class="tab-panel">
+          <div class="panel">
+            <div class="panel-header-row">
+              <h3>Daftar Slip Gaji Bulanan Saya</h3>
+            </div>
+            <div id="userSlipGajiTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- ================= ADMIN TABS ================= -->
+
+        <!-- TAB: ADMIN PAYROLL & REKAP GAJI FINANCE -->
+        <section id="adminPayrollTab" class="tab-panel hidden">
+          <div class="panel" style="margin-bottom: 24px;">
+            <div class="panel-header-row">
+              <h3>Kalkulasi & Audit Payroll Bulanan Warehouse</h3>
+              <div class="submit-row" style="align-items: center; gap: 8px;">
+                <input type="month" id="payrollMonthPicker" style="width: auto; padding: 7px 12px;" />
+                <button type="button" id="btnGeneratePayroll" class="primary-btn small-btn">⚡ Generate Payroll</button>
+                <button type="button" id="btnApprovePayrollFinance" class="secondary-btn small-btn" style="color: var(--success); border-color: var(--success);">✅ Setujui & Ajukan ke Finance</button>
+                <button type="button" id="btnDownloadFinanceSummaryPdf" class="secondary-btn small-btn">📑 Download PDF Finance</button>
+              </div>
+            </div>
+
+            <!-- METRIC STATS -->
+            <div class="quick-stats-grid" style="margin-bottom: 20px;">
+              <div class="stat-box">
+                <span class="stat-label">Total Pengeluaran Gaji Bersih</span>
+                <span id="sumGajiBersih" class="stat-value" style="color: var(--accent-primary);">Rp 0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Total Uang Lembur Dibayarkan</span>
+                <span id="sumUangLembur" class="stat-value" style="color: var(--success);">Rp 0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Total Potongan Kasbon</span>
+                <span id="sumPotonganKasbon" class="stat-value" style="color: var(--warning);">Rp 0</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Status Payroll Periode</span>
+                <span id="payrollPeriodStatus" class="status diajukan">Draft</span>
+              </div>
+            </div>
+
+            <div class="panel-header-row">
+              <h3>Tabel Audit Payroll Karyawan</h3>
+              <small style="color: var(--text-muted);">Admin dapat mengklik "Audit/Edit" untuk mengoreksi angka gaji sebelum diajukan ke finance.</small>
+            </div>
+            <div id="adminPayrollTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- TAB: ADMIN KASBON KARYAWAN -->
+        <section id="adminKasbonTab" class="tab-panel hidden">
+          <div class="panel">
+            <div class="panel-header-row">
+              <h3>Manajemen Kasbon & Pinjaman Karyawan</h3>
+              <button type="button" id="btnOpenAddKasbonModal" class="primary-btn small-btn">+ Ajukan / Tambah Kasbon</button>
+            </div>
+            <div id="adminKasbonTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- TAB: ADMIN MASTER SHIFT & ABSENSI -->
+        <section id="adminShiftAbsensiTab" class="tab-panel hidden">
+          <div class="grid two-columns" style="margin-bottom: 24px;">
+            <!-- MASTER SHIFT -->
+            <div class="panel">
+              <div class="panel-header-row">
+                <h3>Master Shift Kerja Warehouse</h3>
+                <button type="button" id="btnOpenAddShiftModal" class="primary-btn small-btn">+ Tambah Shift</button>
+              </div>
+              <div id="adminShiftTableWrap" class="table-wrap"></div>
+            </div>
+
+            <!-- MANUAL ABSENSI -->
+            <div class="panel">
+              <div class="panel-header-row">
+                <h3>Input Manual Presensi Karyawan</h3>
+              </div>
+              <form id="manualAbsensiForm" class="grid two-columns">
+                <label><span>NIK</span><select id="m_abs_nik" required></select></label>
+                <label><span>Tanggal</span><input type="date" id="m_abs_tanggal" required/></label>
+                <label><span>Shift</span><select id="m_abs_shift"></select></label>
+                <label><span>Status</span>
+                  <select id="m_abs_status">
+                    <option value="Hadir">Hadir</option>
+                    <option value="Terlambat">Terlambat</option>
+                    <option value="Ijin">Ijin</option>
+                    <option value="Sakit">Sakit</option>
+                    <option value="Alpha">Alpha</option>
+                  </select>
+                </label>
+                <label><span>Jam Masuk</span><input type="time" id="m_abs_jamMasuk"/></label>
+                <label><span>Jam Pulang</span><input type="time" id="m_abs_jamPulang"/></label>
+                <label style="grid-column: 1 / -1;"><span>Catatan</span><input type="text" id="m_abs_catatan" placeholder="Catatan..."/></label>
+                <div class="submit-row" style="grid-column: 1 / -1;">
+                  <button type="submit" class="primary-btn small-btn">Simpan Presensi</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- REKAP SEMUA ABSENSI -->
+          <div class="panel">
+            <div class="panel-header-row">
+              <h3>Rekap Seluruh Presensi Karyawan Warehouse</h3>
+            </div>
+            <div id="adminAllAbsensiTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- TAB: ADMIN REKAP LEMBUR -->
         <section id="adminLemburTab" class="tab-panel hidden">
           <div class="panel">
             <div class="panel-header-row">
@@ -194,7 +384,7 @@
           </div>
         </section>
 
-        <!-- TAB: ADMIN IJIN/CUTI -->
+        <!-- TAB: ADMIN APPROVAL IJIN/CUTI -->
         <section id="adminCutiTab" class="tab-panel hidden">
           <div class="panel">
             <div class="panel-header-row">
@@ -205,41 +395,146 @@
           </div>
         </section>
 
-        <!-- TAB: SETTING -->
+        <!-- TAB: SETTING / DATA KARYAWAN & GAJI -->
         <section id="settingTab" class="tab-panel hidden">
           <div class="panel">
             <div class="panel-header-row">
-              <h3 id="userFormTitle">Tambah / Edit User</h3>
+              <h3 id="userFormTitle">Tambah / Edit Data Karyawan & Gaji</h3>
             </div>
             <form id="userForm" class="user-form grid two-columns">
               <input type="hidden" id="userEditMode" value="false">
-              <label><span>NIK</span><input id="userNIK" placeholder="Contoh: WH0001" required/></label>
+              <label><span>NIK Karyawan</span><input id="userNIK" placeholder="Contoh: WH0001" required/></label>
               <label><span>Nama Lengkap</span><input id="userName" placeholder="Nama karyawan..." required/></label>
-              <label><span>Divisi</span><input id="userDivisi" placeholder="Contoh: Warehouse, QC" required/></label>
-              <label><span>Username</span><input id="userUsername" placeholder="Username login..." required/></label>
+              <label><span>Divisi / Unit</span><input id="userDivisi" placeholder="Contoh: Warehouse, QC, Staging" required/></label>
+              <label><span>Username Login</span><input id="userUsername" placeholder="Username login..." required/></label>
               <label>
                 <span>Password</span>
                 <div class="input-password-wrapper">
                   <input id="userPassword" type="text" placeholder="Password login..." required/>
                 </div>
               </label>
-              <label><span>Email Aktif (Notifikasi)</span><input id="userEmail" type="email" placeholder="karyawan@perusahaan.com"/></label>
+              <label><span>Role Akses</span><select id="userRole"><option value="user">User / Karyawan</option><option value="admin">Admin Warehouse</option></select></label>
+              
+              <!-- GAJI & RATE LEMBUR -->
+              <label><span>Gaji Pokok (Rp)</span><input id="userGajiPokok" type="number" placeholder="4500000" required/></label>
+              <label><span>Tunjangan Bulanan (Rp)</span><input id="userTunjangan" type="number" placeholder="500000"/></label>
+              <label><span>Rate Lembur per Jam (Rp)</span><input id="userRateLembur" type="number" placeholder="25000" required/></label>
+              <label><span>Saldo Kasbon (Rp)</span><input id="userSaldoKasbon" type="number" placeholder="0" readonly/></label>
+
+              <!-- KONTAK -->
+              <label><span>Email Aktif (Notifikasi)</span><input id="userEmail" type="email" placeholder="karyawan@warehouse.com"/></label>
               <label><span>No. HP / WhatsApp</span><input id="userNoHp" type="tel" placeholder="Contoh: 081234567890"/></label>
-              <label><span>Role Akses</span><select id="userRole"><option value="user">User</option><option value="admin">Admin</option></select></label>
+              
               <div class="submit-row" style="grid-column: 1 / -1; margin-top: 8px;">
-                <button type="submit" class="primary-btn">Simpan User</button>
+                <button type="submit" class="primary-btn">Simpan Karyawan</button>
                 <button type="button" id="resetUserFormBtn" class="secondary-btn">Batal / Reset</button>
               </div>
             </form>
             <hr class="divider"/>
             <div class="panel-header-row">
-              <h3>Daftar Karyawan Terdaftar</h3>
+              <h3>Daftar Karyawan Warehouse Terdaftar</h3>
             </div>
             <div id="userListWrap" class="table-wrap"></div>
           </div>
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- MODAL AUDIT / EDIT PAYROLL ADJUSTMENT -->
+  <div id="editPayrollModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <h3>Audit / Koreksi Gaji Karyawan</h3>
+      <form id="editPayrollForm">
+        <input type="hidden" id="adj_id">
+        <div class="user-info-box grid two-columns" style="margin-bottom: 12px;">
+          <div><strong id="adj_nama">-</strong><br><small id="adj_nik" class="mono-text">-</small></div>
+          <div style="text-align: right;"><span id="adj_periode" class="status diajukan">-</span></div>
+        </div>
+        <div class="grid two-columns">
+          <label><span>Gaji Pokok (Rp)</span><input type="number" id="adj_gajiPokok" required></label>
+          <label><span>Tunjangan (Rp)</span><input type="number" id="adj_tunjangan" required></label>
+          <label><span>Total Jam Lembur</span><input type="number" step="0.01" id="adj_totalJamLembur" required></label>
+          <label><span>Rate Lembur / Jam (Rp)</span><input type="number" id="adj_rateLembur" required></label>
+          <label><span>Potongan Kasbon (Rp)</span><input type="number" id="adj_potonganKasbon" required></label>
+          <label><span>Potongan Absensi/Alpha (Rp)</span><input type="number" id="adj_potonganAbsensi" required></label>
+          <label><span>Potongan Lain / Denda (Rp)</span><input type="number" id="adj_potonganLain" required></label>
+          <label><span>Catatan Koreksi</span><input type="text" id="adj_catatan" placeholder="Alasan koreksi..."></label>
+        </div>
+        <div class="submit-row" style="margin-top: 20px;">
+          <button type="submit" class="primary-btn">Simpan Penyesuaian</button>
+          <button type="button" class="secondary-btn" onclick="closeModal('editPayrollModal')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL VIEW & PRINT SLIP GAJI -->
+  <div id="viewSlipGajiModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="panel-header-row" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">⚡</span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.1rem;">SLIP GAJI KARYAWAN</h3>
+            <small style="color: var(--text-muted);">WMS MINI WAREHOUSE OPERATIONS</small>
+          </div>
+        </div>
+        <button type="button" id="btnPrintSlipPdf" class="primary-btn small-btn">📄 Download PDF</button>
+      </div>
+
+      <div id="slipGajiContentArea" class="slip-gaji-preview" style="padding: 16px 0;">
+        <!-- Dynamically rendered -->
+      </div>
+
+      <div class="submit-row" style="justify-content: flex-end; margin-top: 16px;">
+        <button type="button" class="secondary-btn" onclick="closeModal('viewSlipGajiModal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TAMBAH KASBON -->
+  <div id="addKasbonModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Tambah / Ajukan Kasbon Karyawan</h3>
+      <form id="addKasbonForm">
+        <label><span>Pilih Karyawan</span><select id="kasbon_nik" required></select></label>
+        <label><span>Tanggal Pengajuan</span><input type="date" id="kasbon_tanggal" required></label>
+        <label><span>Jumlah Pinjaman / Kasbon (Rp)</span><input type="number" id="kasbon_jumlah" placeholder="Contoh: 1000000" required></label>
+        <label><span>Cicilan Potong Gaji per Bulan (Rp)</span><input type="number" id="kasbon_cicilan" placeholder="Contoh: 250000" required></label>
+        <label><span>Catatan / Keperluan</span><input type="text" id="kasbon_catatan" placeholder="Keperluan mendesak..."></label>
+        <div class="submit-row" style="margin-top: 16px;">
+          <button type="submit" class="primary-btn">Simpan Kasbon</button>
+          <button type="button" class="secondary-btn" onclick="closeModal('addKasbonModal')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL MASTER SHIFT -->
+  <div id="addShiftModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Tambah / Edit Shift Warehouse</h3>
+      <form id="addShiftForm">
+        <input type="hidden" id="shift_id">
+        <label><span>Nama Shift</span><input type="text" id="shift_nama" placeholder="Contoh: Shift Pagi, Shift Malam" required></label>
+        <div class="grid two-columns">
+          <label><span>Jam Masuk</span><input type="time" id="shift_jamMasuk" required></label>
+          <label><span>Jam Pulang</span><input type="time" id="shift_jamPulang" required></label>
+        </div>
+        <label><span>Toleransi Keterlambatan (Menit)</span><input type="number" id="shift_toleransi" value="15" required></label>
+        <label><span>Status</span>
+          <select id="shift_status">
+            <option value="Aktif">Aktif</option>
+            <option value="Nonaktif">Nonaktif</option>
+          </select>
+        </label>
+        <div class="submit-row" style="margin-top: 16px;">
+          <button type="submit" class="primary-btn">Simpan Shift</button>
+          <button type="button" class="secondary-btn" onclick="closeModal('addShiftModal')">Batal</button>
+        </div>
+      </form>
     </div>
   </div>
 

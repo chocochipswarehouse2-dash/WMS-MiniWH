@@ -1,6 +1,6 @@
 /* ==========================================================================
-   WMS MINI - IDE THEME & SIDEBAR DESIGN SYSTEM (DARK & LIGHT)
-   Typography: Inter (UI) + JetBrains Mono (Data/Code)
+   WMS MINI - WAREHOUSE OPERATIONS & HR/PAYROLL DESIGN SYSTEM
+   Typography: Inter (UI) + JetBrains Mono (Data/Code/Financial)
    ========================================================================== */
 
 :root {
@@ -171,7 +171,7 @@ body {
 
 .brand-title {
   font-family: var(--font-mono);
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: var(--accent-primary);
   text-align: center;
@@ -187,9 +187,9 @@ body {
   font-size: 1.3rem;
 }
 
-.auth-card h1 {
+.auth-subtitle {
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 500;
   margin-top: 4px;
   margin-bottom: 24px;
@@ -221,7 +221,6 @@ body {
   overflow-y: auto;
 }
 
-/* Sidebar Collapsed State (Desktop) */
 .app-layout.sidebar-collapsed .sidebar {
   margin-left: calc(-1 * var(--sidebar-width));
 }
@@ -353,7 +352,6 @@ body {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--text-muted);
-  text-transform: capitalize;
 }
 
 /* MAIN WRAPPER */
@@ -486,6 +484,66 @@ body {
   border: 1px solid var(--border-color);
 }
 
+/* ================= Attendance / Presensi Card ================= */
+.attendance-card {
+  text-align: center;
+}
+
+.clock-display {
+  font-family: var(--font-mono);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 2px;
+  margin: 12px 0 20px;
+}
+
+.attendance-controls {
+  margin-bottom: 16px;
+}
+
+.attendance-status-badge {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+/* ================= Quick Stats Grid ================= */
+.quick-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 /* ================= Forms & Grids ================= */
 form {
   display: grid;
@@ -513,7 +571,7 @@ input, textarea, select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input[type="date"], input[type="time"] {
+input[type="date"], input[type="time"], input[type="month"], input[type="number"] {
   font-family: var(--font-mono);
   font-size: 0.85rem;
 }
@@ -771,6 +829,16 @@ td small {
   color: #fff;
 }
 
+.action-btn.view {
+  background: var(--accent-primary-glow);
+  color: var(--accent-primary);
+  border-color: var(--border-color);
+}
+.action-btn.view:hover {
+  background: var(--accent-primary);
+  color: #000;
+}
+
 .action-btn.wa {
   background: var(--wa-bg);
   color: var(--wa-green);
@@ -829,11 +897,83 @@ td small {
   font-size: 0.82rem;
 }
 
+/* ================= Slip Gaji Card Preview ================= */
+.slip-gaji-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.slip-header-info {
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.slip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.slip-col {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.slip-col h4 {
+  font-size: 0.88rem;
+  color: var(--accent-primary);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.slip-line-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.slip-line-item:last-child {
+  border-bottom: none;
+}
+
+.slip-total-box {
+  background: var(--accent-primary-glow);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slip-total-box .total-title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.slip-total-box .total-amount {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+}
+
 /* ================= Modals ================= */
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(14, 17, 23, 0.75);
+  background: rgba(13, 17, 23, 0.78);
   backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
@@ -845,11 +985,13 @@ td small {
   background: var(--bg-panel);
   border: 1px solid var(--border-color);
   width: 100%;
-  max-width: 520px;
+  max-width: 540px;
   padding: 28px;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   animation: modalScale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 @keyframes modalScale {
@@ -938,7 +1080,7 @@ td small {
     display: inline-flex;
   }
 
-  .two-columns, .three-columns {
+  .two-columns, .three-columns, .slip-grid, .slip-header-info {
     grid-template-columns: 1fr;
   }
 
