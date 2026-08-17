@@ -419,38 +419,10 @@
                 <button type="button" id="btnOpenAddShiftModal" class="secondary-btn small-btn">+ Tambah Shift</button>
               </div>
             </div>
-            <div class="grid two-columns">
-              <!-- MASTER SHIFT TABLE -->
-              <div>
-                <h4 style="margin-bottom: 10px;">Master Shift Standar</h4>
-                <div id="adminShiftTableWrap" class="table-wrap"></div>
-              </div>
-              <!-- MANUAL ABSENSI -->
-              <div>
-                <h4 style="margin-bottom: 10px;">Input Manual Presensi Karyawan</h4>
-                <form id="manualAbsensiForm" class="grid two-columns user-info-box">
-                  <label><span>NIK</span><select id="m_abs_nik" required></select></label>
-                  <label><span>Tanggal</span><input type="date" id="m_abs_tanggal" required/></label>
-                  <label><span>Shift</span><select id="m_abs_shift"></select></label>
-                  <label><span>Status</span>
-                    <select id="m_abs_status">
-                      <option value="Hadir">Hadir</option>
-                      <option value="Terlambat">Terlambat</option>
-                      <option value="Ijin">Ijin</option>
-                      <option value="Sakit">Sakit</option>
-                      <option value="Alpha">Alpha</option>
-                    </select>
-                  </label>
-                  <label><span>Jam Masuk</span><input type="time" id="m_abs_jamMasuk"/></label>
-                  <label><span>Jam Pulang</span><input type="time" id="m_abs_jamPulang"/></label>
-                  <label style="grid-column: 1 / -1;"><span>Catatan</span><input type="text" id="m_abs_catatan" placeholder="Catatan..."/></label>
-                  <div class="submit-row" style="grid-column: 1 / -1;">
-                    <button type="submit" id="btnSaveManualAbsensi" class="primary-btn small-btn">
-                      <span class="btn-text">Simpan Presensi</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
+            <!-- MASTER SHIFT TABLE -->
+            <div style="margin-bottom: 24px;">
+              <h4 style="margin-bottom: 10px;">Master Shift Standar</h4>
+              <div id="adminShiftTableWrap" class="table-wrap"></div>
             </div>
           </div>
 
@@ -878,6 +850,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=2.2"></script>
 </body>
 </html>

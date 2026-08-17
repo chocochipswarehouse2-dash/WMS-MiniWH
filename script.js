@@ -1108,34 +1108,6 @@ document.getElementById('btnCheckOut').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('manualAbsensiForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSaveManualAbsensi');
-  setButtonLoading(btn, true, 'Menyimpan...');
-
-  const nik = document.getElementById('m_abs_nik').value;
-  const user = state.users.find(u => u.nik === nik);
-
-  const payload = {
-    nik,
-    nama: user ? user.nama : '',
-    tanggal: document.getElementById('m_abs_tanggal').value,
-    shift: document.getElementById('m_abs_shift').value,
-    status: document.getElementById('m_abs_status').value,
-    jamMasuk: document.getElementById('m_abs_jamMasuk').value,
-    jamPulang: document.getElementById('m_abs_jamPulang').value,
-    catatan: document.getElementById('m_abs_catatan').value
-  };
-
-  const res = await apiRequest('saveAbsensiManual', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Presensi manual berhasil disimpan!');
-    document.getElementById('manualAbsensiForm').reset();
-    loadAbsensi();
-  }
-});
-
 window.deleteAbsensiRecord = async (id) => {
   if (confirm('Hapus log presensi ini?')) {
     await apiRequest('deleteAbsensi', { id });
@@ -2640,7 +2612,6 @@ async function loadUsersData() {
     renderUserTable();
     syncUserFields('l_nik', 'l_nama', 'l_divisi');
     syncUserFields('c_nik', 'c_nama', 'c_divisi');
-    syncUserFields('m_abs_nik', null, null);
   }
 }
 
