@@ -278,19 +278,28 @@ async function supabaseApiRequest(action, payload) {
 
     case 'saveShift': {
       const s = payload.shift || payload;
+      const jamM = s.jamMasuk || '08:00';
+      const jamP = s.jamPulang || '17:00';
       const row = {
         nama_shift: s.namaShift,
-        jam_masuk: s.jamMasuk.length === 5 ? s.jamMasuk + ':00' : s.jamMasuk,
-        jam_pulang: s.jamPulang.length === 5 ? s.jamPulang + ':00' : s.jamPulang,
-        toleransi: Number(s.toleransi || 15),
+        jam_masuk: jamM.length === 5 ? jamM + ':00' : jamM,
+        jam_pulang: jamP.length === 5 ? jamP + ':00' : jamP,
+        toleransi: Number(s.toleransi || s.toleransiMenit || 15),
         status: s.status || 'Aktif'
       };
-      if (s.id) row.id = s.id;
-      await supabaseFetch('master_shift?on_conflict=nama_shift', {
-        method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
-        body: [row]
-      });
+
+      if (s.id && !isNaN(Number(s.id))) {
+        await supabaseFetch(`master_shift?id=eq.${encodeURIComponent(s.id)}`, {
+          method: 'PATCH',
+          body: row
+        });
+      } else {
+        await supabaseFetch('master_shift?on_conflict=nama_shift', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates' },
+          body: [row]
+        });
+      }
       return { success: true, message: 'Shift berhasil disimpan' };
     }
 
