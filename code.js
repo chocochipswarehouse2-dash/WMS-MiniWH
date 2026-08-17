@@ -110,12 +110,12 @@ function doPost(e) {
 function ensureSheets() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. DATA KARYAWAN (Auto-normalize & Realignment)
+  // 1. DATA KARYAWAN (Auto-fix & normalize)
   let karyawanSheet = spreadsheet.getSheetByName('Data Karyawan');
   if (!karyawanSheet) {
     karyawanSheet = spreadsheet.insertSheet('Data Karyawan');
     karyawanSheet.appendRow(['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt']);
-    karyawanSheet.appendRow(['WH0001', 'Admin Warehouse', 'Warehouse', 'admin', '12345', 'admin', '', '', 4500000, 500000, 25000, 0, 'Aktif', new Date().toISOString()]);
+    karyawanSheet.appendRow(['WH0001', 'Effendy', 'Warehouse', 'Admin', '00000', 'admin', '', '', 4500000, 500000, 25000, 0, 'Aktif', new Date().toISOString()]);
   } else {
     normalizeAndFixKaryawanSheet(karyawanSheet);
   }
@@ -174,78 +174,73 @@ function ensureSheets() {
 }
 
 /**
- * Otomatis memperbaiki pergeseran kolom (misaligned columns) pada Data Karyawan
+ * Normalisasi dan Perbaikan Struktur Sheet Data Karyawan
  */
 function normalizeAndFixKaryawanSheet(sheet) {
   const standardHeaders = ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'CreatedAt'];
   const values = sheet.getDataRange().getValues();
   if (values.length < 1) return;
 
-  const currentHeaders = values[0].map(h => String(h).trim().toLowerCase());
-  
-  // Deteksi apakah ada pergeseran kolom (misal kolom G berisi 'status aktif' atau email berisi angka gaji)
-  const isShifted = currentHeaders.includes('status aktif') || 
-                    currentHeaders.indexOf('email') > 6 || 
-                    (values.length > 1 && String(values[1][currentHeaders.indexOf('email')]).match(/^[0-9]{5,}$/));
+  const rawHeaders = values[0].map(h => String(h || '').trim());
+  const normHeaders = rawHeaders.map(h => normalizeHeaderName(h));
 
-  if (isShifted) {
-    const cleanedRows = [standardHeaders];
+  const cleanedRows = [standardHeaders];
 
-    for (let i = 1; i < values.length; i++) {
-      const row = values[i];
-      const nik = String(row[0] || '').trim();
-      if (!nik) continue;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const nik = String(row[0] || '').trim();
+    if (!nik) continue;
 
-      let nama = String(row[1] || '').trim();
-      let divisi = String(row[2] || 'Warehouse').trim();
-      let username = String(row[3] || nik).trim();
-      let password = String(row[4] || '12345').trim();
-      let role = String(row[5] || 'user').trim();
+    // Buat lookup object berdasarkan nama header yang ada
+    const obj = {};
+    normHeaders.forEach((key, colIdx) => {
+      if (key) obj[key] = row[colIdx];
+    });
 
-      // Periksa apakah data lama bergeser 2 kolom ke kanan (karena adanya kolom 'status aktif' dan blank)
-      let email = '';
-      let noHp = '';
-      let gajiPokok = 0;
-      let tunjangan = 0;
-      let rateLembur = 25000;
-      let saldoKasbon = 0;
-      let status = 'Aktif';
-      let createdAt = new Date().toISOString();
+    const nama = String(obj.nama || row[1] || '').trim();
+    const divisi = String(obj.divisi || row[2] || 'Warehouse').trim();
+    const username = String(obj.username || row[3] || nik).trim();
+    
+    let password = String(obj.password !== undefined ? obj.password : (row[4] || '')).trim();
+    let role = String(obj.role || row[5] || 'user').trim();
 
-      // Kasus pergeseran: Col 8 = Gaji Pokok (tercatat di Col I)
-      if (row.length > 8 && !isNaN(Number(row[8])) && Number(row[8]) > 100000) {
-        email = (String(row[6] || '').includes('@')) ? String(row[6]).trim() : '';
-        noHp = (String(row[7] || '').startsWith('0') || String(row[7] || '').startsWith('62') || String(row[7] || '').startsWith('8')) ? String(row[7]).trim() : '';
-        gajiPokok = Number(row[8] || 0);
-        tunjangan = Number(row[9] || 0);
-        rateLembur = Number(row[10] || 25000);
-        saldoKasbon = Number(row[11] || 0);
-        status = String(row[12] || 'Aktif').trim();
-        createdAt = formatCellVal(row[13]) || new Date().toISOString();
-      } else {
-        email = String(row[6] || '').trim();
-        noHp = String(row[7] || '').trim();
-        gajiPokok = Number(row[8] || 0);
-        tunjangan = Number(row[9] || 0);
-        rateLembur = Number(row[10] || 25000);
-        saldoKasbon = Number(row[11] || 0);
-        status = String(row[12] || 'Aktif').trim();
-        createdAt = formatCellVal(row[13]) || new Date().toISOString();
-      }
+    // Perbaikan jika password dan role menyatu di satu cell (misal '12345 user')
+    if ((!password || password === '') && role.includes(' ')) {
+      const parts = role.split(/\s+/);
+      password = parts[0];
+      role = parts[1] || 'user';
+    }
+    if (!password) password = '12345';
 
-      cleanedRows.push([
-        nik, nama, divisi, username, password, role,
-        email, noHp, gajiPokok, tunjangan, rateLembur, saldoKasbon, status, createdAt
-      ]);
+    let email = String(obj.email || row[6] || '').trim();
+    let noHp = String(obj.nohp || obj.noHp || obj.telepon || obj.hp || row[7] || '').trim();
+
+    // Jika email berisi angka murni (>10000), kemungkinan itu adalah gaji pokok yang bergeser
+    let gajiPokok = Number(obj.gajipokok || obj.gajpokok || obj.gapok || obj.gaji || row[8] || 0);
+    if ((!gajiPokok || gajiPokok === 0) && !isNaN(Number(email)) && Number(email) > 100000) {
+      gajiPokok = Number(email);
+      email = '';
     }
 
-    // Bersihkan sheet dan timpa dengan susunan kolom standar yang rapi
-    sheet.clear();
-    sheet.getRange(1, 1, cleanedRows.length, standardHeaders.length).setValues(cleanedRows);
-  } else {
-    // Pastikan header lengkap
-    ensureHeaders(sheet, standardHeaders);
+    let tunjangan = Number(obj.tunjangan || row[9] || 0);
+    let rateLembur = Number(obj.ratelembur || obj.rate || obj.lembur || row[10] || 0);
+    if (!rateLembur || rateLembur === 0) {
+      rateLembur = 10000; // default jika 0
+    }
+
+    let saldoKasbon = Number(obj.saldokasbon || obj.kasbon || row[11] || 0);
+    let status = String(obj.status || row[12] || 'Aktif').trim();
+    let createdAt = formatCellVal(obj.createdat || row[13]) || new Date().toISOString();
+
+    cleanedRows.push([
+      nik, nama, divisi, username, password, role,
+      email, noHp, gajiPokok, tunjangan, rateLembur, saldoKasbon, status, createdAt
+    ]);
   }
+
+  // Tulis ulang ke sheet dengan header dan baris yang sudah bersih & terstandarisasi
+  sheet.clear();
+  sheet.getRange(1, 1, cleanedRows.length, standardHeaders.length).setValues(cleanedRows);
 }
 
 function ensureHeaders(sheet, expectedHeaders) {
@@ -268,7 +263,8 @@ function normalizeHeaderName(header) {
   return String(header)
     .trim()
     .toLowerCase()
-    .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase());
+    .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase())
+    .replace(/[^a-zA-Z0-9]/g, '');
 }
 
 function formatCellVal(val) {
@@ -300,6 +296,19 @@ function getSheetRows(sheetName) {
       const val = formatCellVal(row[index]);
       obj[key] = val;
     });
+
+    // Auto-normalize alias keys for Gaji Pokok & Rate Lembur
+    if (obj.gajpokok && !obj.gajiPokok) obj.gajiPokok = obj.gajpokok;
+    if (obj.gajipokok && !obj.gajiPokok) obj.gajiPokok = obj.gajipokok;
+    if (obj.gapok && !obj.gajiPokok) obj.gajiPokok = obj.gapok;
+    if (obj.gaji && !obj.gajiPokok) obj.gajiPokok = obj.gaji;
+
+    if (obj.ratelembur && !obj.rateLembur) obj.rateLembur = obj.ratelembur;
+    if (obj.rate && !obj.rateLembur) obj.rateLembur = obj.rate;
+    if (obj.lembur && !obj.rateLembur) obj.rateLembur = obj.lembur;
+
+    if (obj.saldokasbon && !obj.saldoKasbon) obj.saldoKasbon = obj.saldokasbon;
+    if (obj.kasbon && !obj.saldoKasbon) obj.saldoKasbon = obj.kasbon;
 
     if (obj.deskripsiPekerjaan && !obj.deskripsi) obj.deskripsi = obj.deskripsiPekerjaan;
     if (obj.pekerjaan && !obj.deskripsi) obj.deskripsi = obj.pekerjaan;
@@ -351,10 +360,10 @@ function getUsers() {
       role: String(u.role || 'user').trim(),
       email: String(u.email || '').trim(),
       noHp: String(u.noHp || u.nohp || u.telepon || u.hp || '').trim(),
-      gajiPokok: Number(u.gajiPokok || 0),
+      gajiPokok: Number(u.gajiPokok || u.gajpokok || u.gajipokok || u.gapok || 0),
       tunjangan: Number(u.tunjangan || 0),
-      rateLembur: Number(u.rateLembur || 0),
-      saldoKasbon: Number(u.saldoKasbon || 0)
+      rateLembur: Number(u.rateLembur || u.ratelembur || 25000),
+      saldoKasbon: Number(u.saldoKasbon || u.saldokasbon || 0)
     }));
 }
 
