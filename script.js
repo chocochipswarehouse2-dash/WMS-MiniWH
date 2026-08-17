@@ -2388,65 +2388,83 @@ function syncUserFields(selectId, namaId, divId) {
 }
 
 async function startApp() {
-  document.getElementById('loginPage').classList.add('hidden');
-  document.getElementById('appPage').classList.remove('hidden');
-  
-  // Set default current month in payroll picker
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const picker = document.getElementById('payrollMonthPicker');
-  if (picker && !picker.value) picker.value = currentMonthStr;
+  try {
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('appPage').classList.remove('hidden');
+    
+    // Set default current month in payroll picker
+    const currentMonthStr = new Date().toISOString().slice(0, 7);
+    const picker = document.getElementById('payrollMonthPicker');
+    if (picker && !picker.value) picker.value = currentMonthStr;
 
-  // User Labels
-  document.getElementById('loggedUserLabel').textContent = `${state.currentUser.nama} (${state.currentUser.role})`;
-  const sidebarName = document.getElementById('sidebarUserName');
-  const sidebarRole = document.getElementById('sidebarUserRole');
-  if (sidebarName) sidebarName.textContent = state.currentUser.nama;
-  if (sidebarRole) sidebarRole.textContent = `${state.currentUser.divisi} • ${state.currentUser.role}`;
-  
-  // Admin Navigation Group
-  const adminGroup = document.getElementById('adminNavGroup');
-  if (state.currentUser.role === 'admin') {
-    if (adminGroup) adminGroup.classList.remove('hidden');
-  } else {
-    if (adminGroup) adminGroup.classList.add('hidden');
+    // User Labels
+    if (state.currentUser) {
+      const userLabel = document.getElementById('loggedUserLabel');
+      if (userLabel) userLabel.textContent = `${state.currentUser.nama || ''} (${state.currentUser.role || ''})`;
+      
+      const sidebarName = document.getElementById('sidebarUserName');
+      const sidebarRole = document.getElementById('sidebarUserRole');
+      if (sidebarName) sidebarName.textContent = state.currentUser.nama || 'Pengguna';
+      if (sidebarRole) sidebarRole.textContent = `${state.currentUser.divisi || 'Warehouse'} • ${state.currentUser.role || 'user'}`;
+      
+      // Admin Navigation Group
+      const adminGroup = document.getElementById('adminNavGroup');
+      if (adminGroup) {
+        if (state.currentUser.role === 'admin') {
+          adminGroup.classList.remove('hidden');
+        } else {
+          adminGroup.classList.add('hidden');
+        }
+      }
+    }
+
+    startLiveClock();
+    switchTab('presensiTab');
+
+    // Load data in parallel for maximum speed
+    await Promise.allSettled([
+      loadUsersData(),
+      loadShifts(),
+      loadRosterShifts(),
+      loadAbsensi(),
+      loadKasbon(),
+      loadLembur(),
+      loadCuti(),
+      loadPayroll()
+    ]);
+  } catch (err) {
+    console.error('Error starting app:', err);
   }
-
-  startLiveClock();
-
-  await loadUsersData();
-  await loadShifts();
-  await loadRosterShifts();
-  await loadAbsensi();
-  await loadKasbon();
-  await loadLembur(); 
-  await loadCuti();
-  await loadPayroll();
-
-  if (lemburContainer.children.length === 0) addLemburRow();
-  if (cutiContainer.children.length === 0) addCutiRow();
-
-  switchTab('presensiTab');
 }
 
 // ================= AUTH EVENTS =================
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('loginSubmitBtn');
+  const msg = document.getElementById('loginMessage');
+  if (msg) {
+    msg.textContent = '';
+  }
   setButtonLoading(btn, true, 'Memverifikasi...');
 
+  const usernameInput = document.getElementById('loginUsername');
+  const passwordInput = document.getElementById('loginPassword');
+
   const res = await apiRequest('login', { 
-    username: document.getElementById('loginUsername').value, 
-    password: document.getElementById('loginPassword').value 
+    username: usernameInput ? usernameInput.value.trim() : '', 
+    password: passwordInput ? passwordInput.value.trim() : '' 
   });
+  
   setButtonLoading(btn, false);
-  if (res && res.user) {
+  if (res && res.success && res.user) {
     state.currentUser = res.user;
     localStorage.setItem('currentUser', JSON.stringify(res.user));
-    startApp();
+    await startApp();
   } else {
-    const msg = document.getElementById('loginMessage');
-    msg.textContent = 'Username/NIK atau password salah!';
-    msg.style.color = 'var(--error)';
+    if (msg) {
+      msg.textContent = (res && res.message) ? res.message : 'Username/NIK atau password salah!';
+      msg.style.color = 'var(--error)';
+    }
   }
 });
 
@@ -2463,6 +2481,10 @@ initTheme();
 
 const savedUser = localStorage.getItem('currentUser');
 if (savedUser) { 
-  state.currentUser = JSON.parse(savedUser); 
-  startApp(); 
+  try {
+    state.currentUser = JSON.parse(savedUser); 
+    startApp(); 
+  } catch (e) {
+    localStorage.removeItem('currentUser');
+  }
 }
