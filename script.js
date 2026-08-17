@@ -96,6 +96,17 @@ function addCutiRow() {
 }
 document.getElementById('addCutiRowBtn').addEventListener('click', addCutiRow);
 
+function calculateOvertime(mulai, selesai) {
+  if (!mulai || !selesai) return '0.00';
+  const tStart = new Date(`2000-01-01T${mulai}:00`);
+  let tEnd = new Date(`2000-01-01T${selesai}:00`);
+  if (tEnd < tStart) {
+    tEnd = new Date(`2000-01-02T${selesai}:00`);
+  }
+  const diffHours = (tEnd - tStart) / (1000 * 60 * 60);
+  return diffHours > 0 ? diffHours.toFixed(2) : '0.00';
+}
+
 // ================= SUBMIT HANDLING =================
 document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -106,10 +117,7 @@ document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   const lemburList = rows.map(row => {
     const mulai = row.querySelector('.l_jamMulai').value;
     const selesai = row.querySelector('.l_jamSelesai').value;
-    const tStart = new Date(`2000-01-01T${mulai}:00`);
-    const tEnd = new Date(`2000-01-01T${selesai}:00`);
-    let totalJam = ((tEnd - tStart) / (1000 * 60 * 60)).toFixed(2);
-    if(totalJam < 0) totalJam = '0.00';
+    const totalJam = calculateOvertime(mulai, selesai);
 
     return {
       nik, nama: document.getElementById('l_nama').value, divisi: document.getElementById('l_divisi').value,
@@ -281,10 +289,7 @@ document.getElementById('editLemburForm').addEventListener('submit', async (e) =
   const id = document.getElementById('editL_id').value;
   const mulai = document.getElementById('editL_jamMulai').value;
   const selesai = document.getElementById('editL_jamSelesai').value;
-  const tStart = new Date(`2000-01-01T${mulai}:00`);
-  const tEnd = new Date(`2000-01-01T${selesai}:00`);
-  let totalJam = ((tEnd - tStart) / (1000 * 60 * 60)).toFixed(2);
-  if(totalJam < 0) totalJam = '0.00';
+  const totalJam = calculateOvertime(mulai, selesai);
 
   const payload = {
     id,

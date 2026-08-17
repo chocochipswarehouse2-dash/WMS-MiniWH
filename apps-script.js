@@ -30,6 +30,8 @@ function doPost(e) {
         return jsonResponse({ success: true, data: getLembur(payload.nik || '', payload.role || '') });
       case 'saveLemburMultiple':
         return jsonResponse({ success: true, rows: saveLemburMultiple(payload.lemburList) });
+      case 'updateLembur':
+        return jsonResponse({ success: true, ok: updateLembur(payload) });
       case 'deleteLembur':
         return jsonResponse({ success: true, ok: deleteRowById('Data Lembur', payload.id) });
         
@@ -38,6 +40,8 @@ function doPost(e) {
         return jsonResponse({ success: true, data: getPerijinan(payload.nik || '', payload.role || '') });
       case 'savePerijinanMultiple':
         return jsonResponse({ success: true, rows: savePerijinanMultiple(payload.perijinanList) });
+      case 'updatePerijinan':
+        return jsonResponse({ success: true, ok: updatePerijinan(payload) });
       case 'approvePerijinan':
         return jsonResponse({ success: true, ok: updateStatusPerijinan(payload.id, 'Disetujui', payload.adminUsername) });
       case 'rejectPerijinan':
@@ -66,7 +70,7 @@ function ensureSheets() {
   let lemburSheet = spreadsheet.getSheetByName('Data Lembur');
   if (!lemburSheet) {
     lemburSheet = spreadsheet.insertSheet('Data Lembur');
-    lemburSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Tanggal Input', 'Status', 'UpdatedBy']);
+    lemburSheet.appendRow(['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Catatan', 'Tanggal Input', 'Status', 'UpdatedBy']);
   }
 
   let perijinanSheet = spreadsheet.getSheetByName('Data Perijinan');
@@ -194,7 +198,7 @@ function saveLemburMultiple(lemburList) {
     const id = payload.id || String(Date.now() + Math.floor(Math.random() * 1000));
     const row = [
       id, payload.nik, payload.nama, payload.divisi, payload.tanggal, payload.deskripsi,
-      payload.jamMulai, payload.jamSelesai, payload.totalJam, 
+      payload.jamMulai, payload.jamSelesai, payload.totalJam, payload.catatan || '',
       payload.tanggalInput || new Date().toISOString(), 'Diajukan', payload.updatedBy || ''
     ];
 
@@ -207,6 +211,26 @@ function saveLemburMultiple(lemburList) {
     saved.push(row);
   });
   return saved;
+}
+
+function updateLembur(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Lembur');
+  const values = sheet.getDataRange().getValues();
+  const id = String(payload.id);
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === id) {
+      if (payload.tanggal !== undefined) sheet.getRange(i + 1, 5).setValue(payload.tanggal);
+      if (payload.deskripsi !== undefined) sheet.getRange(i + 1, 6).setValue(payload.deskripsi);
+      if (payload.jamMulai !== undefined) sheet.getRange(i + 1, 7).setValue(payload.jamMulai);
+      if (payload.jamSelesai !== undefined) sheet.getRange(i + 1, 8).setValue(payload.jamSelesai);
+      if (payload.totalJam !== undefined) sheet.getRange(i + 1, 9).setValue(payload.totalJam);
+      if (payload.catatan !== undefined) sheet.getRange(i + 1, 10).setValue(payload.catatan);
+      if (payload.updatedBy !== undefined) sheet.getRange(i + 1, 13).setValue(payload.updatedBy);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ------------- PERIJINAN -------------
@@ -231,6 +255,25 @@ function savePerijinanMultiple(perijinanList) {
     saved.push(row);
   });
   return saved;
+}
+
+function updatePerijinan(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Perijinan');
+  const values = sheet.getDataRange().getValues();
+  const id = String(payload.id);
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === id) {
+      if (payload.jenis !== undefined) sheet.getRange(i + 1, 5).setValue(payload.jenis);
+      if (payload.tanggalMulai !== undefined) sheet.getRange(i + 1, 6).setValue(payload.tanggalMulai);
+      if (payload.tanggalSelesai !== undefined) sheet.getRange(i + 1, 7).setValue(payload.tanggalSelesai);
+      if (payload.alasan !== undefined) sheet.getRange(i + 1, 8).setValue(payload.alasan);
+      if (payload.status !== undefined) sheet.getRange(i + 1, 10).setValue(payload.status);
+      if (payload.updatedBy !== undefined) sheet.getRange(i + 1, 11).setValue(payload.updatedBy);
+      return true;
+    }
+  }
+  return false;
 }
 
 function updateStatusPerijinan(id, newStatus, adminUsername) {
