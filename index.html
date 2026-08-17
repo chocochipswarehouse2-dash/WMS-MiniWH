@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.3" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -249,6 +249,7 @@
           <div class="panel">
             <div class="panel-header-row">
               <h3>Riwayat Presensi Saya</h3>
+              <button type="button" id="exportUserAbsensiCsvBtn" class="secondary-btn small-btn">📤 Export CSV Presensi</button>
             </div>
             <div id="userAbsensiTableWrap" class="table-wrap"></div>
           </div>
@@ -288,7 +289,10 @@
                 <h3>Rekap Lembur Saya</h3>
                 <small style="color: var(--text-muted);">Data lembur bersifat privat dan hanya dapat diakses oleh Anda dan Admin.</small>
               </div>
-              <button type="button" id="downloadStatusPdfBtn" class="primary-btn small-btn">Download PDF</button>
+              <div class="submit-row" style="gap: 8px;">
+                <button type="button" id="exportUserLemburCsvBtn" class="secondary-btn small-btn">📤 Export CSV</button>
+                <button type="button" id="downloadStatusPdfBtn" class="primary-btn small-btn">📄 Download PDF</button>
+              </div>
             </div>
             <div id="statusLemburTableWrap" class="table-wrap"></div>
           </div>
@@ -331,6 +335,7 @@
                 <h3>Info Ijin & Cuti Tim Warehouse</h3>
                 <small style="color: var(--text-muted);">Transparansi jadwal cuti seluruh rekan warehouse agar mempermudah koordinasi operasional.</small>
               </div>
+              <button type="button" id="exportUserCutiCsvBtn" class="secondary-btn small-btn">📤 Export CSV Cuti</button>
             </div>
             <div id="statusCutiTableWrap" class="table-wrap"></div>
           </div>
@@ -341,6 +346,7 @@
           <div class="panel">
             <div class="panel-header-row">
               <h3>Daftar Slip Gaji Bulanan Saya</h3>
+              <button type="button" id="exportUserSlipGajiCsvBtn" class="secondary-btn small-btn">📤 Export CSV</button>
             </div>
             <div id="userSlipGajiTableWrap" class="table-wrap"></div>
           </div>
@@ -361,6 +367,7 @@
                 <button type="button" id="btnApprovePayrollFinance" class="secondary-btn small-btn" style="color: var(--success); border-color: var(--success);">
                   <span class="btn-text">✅ Setujui & Ajukan ke Finance</span>
                 </button>
+                <button type="button" id="exportAdminPayrollCsvBtn" class="secondary-btn small-btn">📤 Export CSV Payroll</button>
                 <button type="button" id="btnDownloadFinanceSummaryPdf" class="secondary-btn small-btn">📑 Download PDF Finance</button>
               </div>
             </div>
@@ -398,7 +405,10 @@
           <div class="panel">
             <div class="panel-header-row">
               <h3>Manajemen Kasbon & Pinjaman Karyawan</h3>
-              <button type="button" id="btnOpenAddKasbonModal" class="primary-btn small-btn">+ Ajukan / Tambah Kasbon</button>
+              <div class="submit-row" style="gap: 8px;">
+                <button type="button" id="exportAdminKasbonCsvBtn" class="secondary-btn small-btn">📤 Export CSV Kasbon</button>
+                <button type="button" id="btnOpenAddKasbonModal" class="primary-btn small-btn">+ Ajukan / Tambah Kasbon</button>
+              </div>
             </div>
             <div id="adminKasbonTableWrap" class="table-wrap"></div>
           </div>
@@ -438,6 +448,7 @@
           <div class="panel">
             <div class="panel-header-row">
               <h3>Rekap Seluruh Log Presensi Karyawan Warehouse</h3>
+              <button type="button" id="exportAdminAbsensiCsvBtn" class="secondary-btn small-btn">📤 Export CSV Log Presensi</button>
             </div>
             <div id="adminAllAbsensiTableWrap" class="table-wrap"></div>
           </div>
@@ -448,7 +459,10 @@
           <div class="panel">
             <div class="panel-header-row">
                <h3>Admin Rekap Semua Lembur</h3>
-               <button type="button" id="downloadAdminPdfBtn" class="primary-btn small-btn">Download PDF</button>
+               <div class="submit-row" style="gap: 8px;">
+                 <button type="button" id="exportAdminLemburCsvBtn" class="secondary-btn small-btn">📤 Export CSV</button>
+                 <button type="button" id="downloadAdminPdfBtn" class="primary-btn small-btn">📄 Download PDF</button>
+               </div>
             </div>
             <div id="adminLemburTableWrap" class="table-wrap"></div>
           </div>
@@ -462,6 +476,7 @@
                 <h3>Approval & Kelola Ijin / Cuti Karyawan</h3>
                 <small class="header-hint">📧 Update status otomatis mengirim email notifikasi ke karyawan</small>
               </div>
+              <button type="button" id="exportAdminCutiCsvBtn" class="secondary-btn small-btn">📤 Export CSV Data Cuti</button>
             </div>
             <div id="adminCutiTableWrap" class="table-wrap"></div>
           </div>
@@ -850,6 +865,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=2.2"></script>
+  <script src="script.js?v=2.3"></script>
 </body>
 </html>

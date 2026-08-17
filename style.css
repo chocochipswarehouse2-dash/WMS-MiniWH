@@ -1318,6 +1318,28 @@ td small {
     flex: 1 1 auto;
   }
 
+  /* Panel & Header Rows on Mobile */
+  .panel-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .panel-header-row .submit-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .panel-header-row .submit-row button,
+  .panel-header-row .submit-row input {
+    flex: 1 1 calc(50% - 4px);
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    min-height: 38px;
+  }
+
   /* Quick Stats Grid */
   .quick-stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1485,15 +1507,35 @@ td small {
 
 /* Extra Small Phones (max-width: 480px) */
 @media (max-width: 480px) {
+  .topbar {
+    padding: 8px 12px;
+  }
+
+  .topbar-left {
+    min-width: 0;
+    flex: 1;
+  }
+
   .topbar-left h2 {
-    font-size: 0.85rem;
-    max-width: 120px;
+    font-size: 0.88rem;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-badge {
-    max-width: 90px;
-    font-size: 0.68rem;
+    max-width: 120px;
+    font-size: 0.72rem;
     padding: 3px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .panel-header-row .submit-row button,
+  .panel-header-row .submit-row input {
+    flex: 1 1 100%;
   }
 
   .attendance-controls .grid.two-columns {

@@ -727,20 +727,106 @@ async function supabaseApiRequest(action, payload) {
       return { success: true, message: `${rows.length} data payroll berhasil disimpan` };
     }
 
+    case 'generateMonthlyPayroll': {
+      const periode = payload.periode;
+      if (!periode) throw new Error('Periode payroll harus ditentukan');
+
+      const [pYear, pMonth] = periode.split('-').map(Number);
+      const prevMonth = pMonth === 1 ? 12 : pMonth - 1;
+      const prevYear = pMonth === 1 ? pYear - 1 : pYear;
+
+      const startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-26`;
+      const endDate = `${pYear}-${String(pMonth).padStart(2, '0')}-25`;
+
+      const users = await supabaseFetch('karyawan?select=*');
+      const lemburRows = await supabaseFetch(`lembur?tanggal=gte.${startDate}&tanggal=lte.${endDate}`);
+      const kasbonRows = await supabaseFetch('kasbon?status=eq.Aktif');
+
+      const payrollList = [];
+      for (const u of users) {
+        if (u.role === 'admin' && u.nik === 'admin') continue;
+
+        // Lembur
+        const userLembur = (lemburRows || []).filter(l => String(l.nik).trim() === String(u.nik).trim());
+        let totalJam = 0;
+        userLembur.forEach(l => {
+          totalJam += Number(l.durasi_jam || 0);
+        });
+
+        const rateLembur = Number(u.rate_lembur || 25000);
+        const totalUangLembur = Math.round(totalJam * rateLembur);
+
+        // Kasbon
+        const userKasbon = (kasbonRows || []).filter(k => String(k.nik).trim() === String(u.nik).trim());
+        let totalPotKasbon = 0;
+        userKasbon.forEach(k => {
+          const cicil = Number(k.cicilan || 0);
+          const sisa = Number(k.sisa_saldo || 0);
+          totalPotKasbon += Math.min(cicil, sisa > 0 ? sisa : cicil);
+        });
+
+        const gajiPokok = Number(u.gaji_pokok || 0);
+        const tunjangan = Number(u.tunjangan || 0);
+        const potonganAbsensi = 0;
+        const potonganLain = 0;
+        const gajiBersih = (gajiPokok + tunjangan + totalUangLembur) - (totalPotKasbon + potonganAbsensi + potonganLain);
+
+        payrollList.push({
+          id: `PAY-${periode}-${u.nik}`,
+          periode,
+          nik: u.nik,
+          nama: u.nama,
+          divisi: u.divisi || 'Warehouse',
+          gaji_pokok: gajiPokok,
+          tunjangan,
+          total_jam_lembur: Number(totalJam.toFixed(2)),
+          rate_lembur: rateLembur,
+          uang_lembur: totalUangLembur,
+          potongan_kasbon: totalPotKasbon,
+          potongan_absensi: potonganAbsensi,
+          potongan_lain: potonganLain,
+          gaji_bersih: gajiBersih,
+          status: 'Draft',
+          catatan: `Periode ${startDate} s/d ${endDate}`
+        });
+      }
+
+      if (payrollList.length > 0) {
+        await supabaseFetch('payroll?on_conflict=periode,nik', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates' },
+          body: payrollList
+        });
+      }
+
+      return { success: true, message: `Payroll periode ${periode} (${payrollList.length} karyawan) berhasil di-generate!` };
+    }
+
+    case 'savePayrollAdjustment':
     case 'updatePayrollAdjustment': {
       const p = payload.adj || payload;
+      const gPokok = Number(p.gajiPokok || 0);
+      const tunj = Number(p.tunjangan || 0);
+      const jamLembur = Number(p.totalJamLembur || 0);
+      const rateLembur = Number(p.rateLembur || 25000);
+      const uangLembur = Math.round(jamLembur * rateLembur);
+      const potKasbon = Number(p.potonganKasbon || 0);
+      const potAbsen = Number(p.potonganAbsensi || 0);
+      const potLain = Number(p.potonganLain || 0);
+      const gBersih = (gPokok + tunj + uangLembur) - (potKasbon + potAbsen + potLain);
+
       await supabaseFetch(`payroll?id=eq.${encodeURIComponent(p.id)}`, {
         method: 'PATCH',
         body: {
-          gaji_pokok: Number(p.gajiPokok || 0),
-          tunjangan: Number(p.tunjangan || 0),
-          total_jam_lembur: Number(p.totalJamLembur || 0),
-          rate_lembur: Number(p.rateLembur || 0),
-          uang_lembur: Number(p.uangLembur || 0),
-          potongan_kasbon: Number(p.potonganKasbon || 0),
-          potongan_absensi: Number(p.potonganAbsensi || 0),
-          potongan_lain: Number(p.potonganLain || 0),
-          gaji_bersih: Number(p.gajiBersih || 0),
+          gaji_pokok: gPokok,
+          tunjangan: tunj,
+          total_jam_lembur: jamLembur,
+          rate_lembur: rateLembur,
+          uang_lembur: uangLembur,
+          potongan_kasbon: potKasbon,
+          potongan_absensi: potAbsen,
+          potongan_lain: potLain,
+          gaji_bersih: gBersih,
           catatan: p.catatan || '',
           updated_at: new Date().toISOString()
         }
@@ -748,12 +834,13 @@ async function supabaseApiRequest(action, payload) {
       return { success: true, message: 'Penyesuaian payroll berhasil disimpan' };
     }
 
+    case 'approvePayroll':
     case 'approvePayrollFinance': {
       await supabaseFetch(`payroll?periode=eq.${encodeURIComponent(payload.periode)}`, {
         method: 'PATCH',
         body: {
-          status: 'Disetujui Finance',
-          approved_at: new Date().toISOString()
+          status: 'Disetujui',
+          updated_at: new Date().toISOString()
         }
       });
       return { success: true, message: `Payroll periode ${payload.periode} telah disetujui & diajukan ke Finance` };
@@ -928,7 +1015,7 @@ function renderAdminRosterTable() {
       <tbody>
         ${state.roster.map(r => `
           <tr>
-            <td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>
+            <td><strong>${r.nama || '-'}</strong><br><small class="mono-text">${r.nik}</small></td>
             <td><span class="mono-text">${r.tanggal}</span></td>
             <td><strong>${r.shift}</strong></td>
             <td><span class="mono-text">${r.jamMasuk}</span></td>
@@ -969,7 +1056,7 @@ async function loadShifts() {
   if (res) {
     state.shifts = res.data || [];
     renderShiftDropdowns();
-    if (state.currentUser.role === 'admin') renderShiftTable();
+    if (state.currentUser && state.currentUser.role === 'admin') renderShiftTable();
   }
 }
 
@@ -998,25 +1085,11 @@ function renderShiftDropdowns() {
 }
 
 function renderUserAbsensi() {
-  const today = new Date().toISOString().split('T')[0];
-  const userToday = state.absensi.find(a => String(a.nik).trim() === String(state.currentUser.nik).trim() && a.tanggal === today);
-  
-  const statusBox = document.getElementById('todayAttendanceStatusBox');
-  if (statusBox) {
-    if (userToday) {
-      statusBox.innerHTML = `✅ <strong>Presensi Masuk:</strong> ${userToday.jamMasuk} | <strong>Pulang:</strong> ${userToday.jamPulang || 'Belum Presensi Pulang'} (${userToday.status})`;
-      statusBox.style.color = 'var(--success)';
-    } else {
-      statusBox.innerHTML = `⚠️ Anda belum melakukan presensi masuk hari ini.`;
-      statusBox.style.color = 'var(--warning)';
-    }
-  }
-
   const wrap = document.getElementById('userAbsensiTableWrap');
   if (!wrap) return;
 
-  const saya = state.absensi.filter(a => String(a.nik).trim() === String(state.currentUser.nik).trim());
-  if (!saya.length) {
+  const data = state.absensi.filter(a => a.nik === state.currentUser.nik);
+  if (!data.length) {
     wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada riwayat presensi.</p>`;
     return;
   }
@@ -1025,7 +1098,7 @@ function renderUserAbsensi() {
     <table>
       <thead><tr><th>Tanggal</th><th>Shift</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th><th>Keterlambatan</th></tr></thead>
       <tbody>
-        ${saya.map(a => `
+        ${data.map(a => `
           <tr>
             <td><span class="mono-text">${a.tanggal}</span></td>
             <td><strong>${a.shift}</strong></td>
@@ -1055,7 +1128,7 @@ function renderAdminAbsensi() {
       <tbody>
         ${state.absensi.map(a => `
           <tr>
-            <td><strong>${a.nik}</strong><br><small>${a.nama}</small></td>
+            <td><strong>${a.nama || '-'}</strong><br><small class="mono-text">${a.nik}</small></td>
             <td><span class="mono-text">${a.tanggal}</span></td>
             <td>${a.shift}</td>
             <td><span class="mono-text">${a.jamMasuk || '-'}</span></td>
@@ -1552,7 +1625,7 @@ function renderKasbonTable() {
       <tbody>
         ${state.kasbon.map(k => `
           <tr>
-            <td><strong>${k.nik}</strong><br><small>${k.nama}</small></td>
+            <td><strong>${k.nama || '-'}</strong><br><small class="mono-text">${k.nik}</small></td>
             <td><span class="mono-text">${k.tanggalPengajuan}</span></td>
             <td><span class="mono-text">${formatRupiah(k.jumlahPinjaman)}</span></td>
             <td><span class="mono-text">${formatRupiah(k.cicilanPerBulan)}</span></td>
@@ -1677,7 +1750,7 @@ function renderPayrollTables() {
 
           return `
             <tr>
-              <td><strong>${p.nik}</strong><br><small>${p.nama}</small></td>
+              <td><strong>${p.nama || '-'}</strong><br><small class="mono-text">${p.nik}</small></td>
               <td><span class="mono-text">${formatRupiah(gPokok)}</span></td>
               <td><span class="mono-text">${formatRupiah(tunj)}</span></td>
               <td><span class="mono-text">${p.totalJamLembur || 0} jam @${formatRupiah(p.rateLembur || 25000)}</span></td>
@@ -2329,8 +2402,8 @@ function renderUserTable() {
     <table>
       <thead>
         <tr>
-          <th>NIK</th>
-          <th>Nama</th>
+          <th>Nama Lengkap</th>
+          <th>ID (NIK)</th>
           <th>Divisi</th>
           <th>Username</th>
           <th>Password</th>
@@ -2344,8 +2417,8 @@ function renderUserTable() {
       <tbody>
         ${state.users.map(u => `
           <tr>
-            <td><strong>${u.nik}</strong></td>
-            <td>${u.nama}</td>
+            <td><strong>${u.nama}</strong></td>
+            <td><span class="mono-text">${u.nik}</span></td>
             <td>${u.divisi}</td>
             <td><span class="mono-text">${u.username}</span></td>
             <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${u.password || '-'}</span></td>
@@ -2584,6 +2657,122 @@ function exportPdf(isAdmin) {
 
 document.getElementById('downloadStatusPdfBtn').addEventListener('click', () => exportPdf(false));
 document.getElementById('downloadAdminPdfBtn').addEventListener('click', () => exportPdf(true));
+
+// ================= CSV EXPORTERS (LEMBUR, CUTI, ABSENSI, KASBON, PAYROLL) =================
+const setupCsvExportListeners = () => {
+  // 1. Export Lembur Saya (User)
+  const btnUserLembur = document.getElementById('exportUserLemburCsvBtn');
+  if (btnUserLembur) {
+    btnUserLembur.addEventListener('click', () => {
+      const rows = state.lembur.filter(r => r.nik === state.currentUser.nik);
+      if (!rows.length) return showToast('Belum ada data lembur untuk diexport!', 'error');
+      const header = 'Tanggal,Deskripsi,JamMulai,JamSelesai,TotalJam,Catatan,Status\n';
+      const data = rows.map(r => `"${r.tanggal}","${(r.deskripsi || r.deskripsiPekerjaan || r.keterangan || '').replace(/"/g, '""')}","${r.jamMulai || ''}","${r.jamSelesai || ''}","${r.totalJam || ''}","${(r.catatan || '').replace(/"/g, '""')}","${r.status || 'Diajukan'}"`).join('\n');
+      downloadCsv(`rekap_lembur_saya_${state.currentUser.nik}.csv`, header + data);
+      showToast('Export CSV Lembur berhasil diunduh!');
+    });
+  }
+
+  // 2. Export Semua Lembur (Admin)
+  const btnAdminLembur = document.getElementById('exportAdminLemburCsvBtn');
+  if (btnAdminLembur) {
+    btnAdminLembur.addEventListener('click', () => {
+      if (!state.lembur.length) return showToast('Belum ada data lembur untuk diexport!', 'error');
+      const header = 'Nama,NIK,Divisi,Tanggal,Deskripsi,JamMulai,JamSelesai,TotalJam,Catatan,Status\n';
+      const data = state.lembur.map(r => `"${r.nama || ''}","${r.nik || ''}","${r.divisi || ''}","${r.tanggal}","${(r.deskripsi || r.deskripsiPekerjaan || r.keterangan || '').replace(/"/g, '""')}","${r.jamMulai || ''}","${r.jamSelesai || ''}","${r.totalJam || ''}","${(r.catatan || '').replace(/"/g, '""')}","${r.status || 'Diajukan'}"`).join('\n');
+      downloadCsv('rekap_seluruh_lembur_warehouse.csv', header + data);
+      showToast('Export CSV Seluruh Lembur berhasil diunduh!');
+    });
+  }
+
+  // 3. Export Cuti Tim (User)
+  const btnUserCuti = document.getElementById('exportUserCutiCsvBtn');
+  if (btnUserCuti) {
+    btnUserCuti.addEventListener('click', () => {
+      if (!state.cuti.length) return showToast('Belum ada data ijin/cuti untuk diexport!', 'error');
+      const header = 'Nama,NIK,Divisi,Jenis,TanggalMulai,TanggalSelesai,Alasan,Status\n';
+      const data = state.cuti.map(r => `"${r.nama || ''}","${r.nik || ''}","${r.divisi || ''}","${r.jenis || ''}","${r.tanggalMulai || r.tglMulai || ''}","${r.tanggalSelesai || r.tglSelesai || ''}","${(r.alasan || '').replace(/"/g, '""')}","${r.status || 'Diajukan'}"`).join('\n');
+      downloadCsv('data_ijin_cuti_tim_warehouse.csv', header + data);
+      showToast('Export CSV Ijin/Cuti berhasil diunduh!');
+    });
+  }
+
+  // 4. Export Approval Cuti (Admin)
+  const btnAdminCuti = document.getElementById('exportAdminCutiCsvBtn');
+  if (btnAdminCuti) {
+    btnAdminCuti.addEventListener('click', () => {
+      if (!state.cuti.length) return showToast('Belum ada data cuti untuk diexport!', 'error');
+      const header = 'Nama,NIK,Divisi,Jenis,TanggalMulai,TanggalSelesai,Alasan,Status\n';
+      const data = state.cuti.map(r => `"${r.nama || ''}","${r.nik || ''}","${r.divisi || ''}","${r.jenis || ''}","${r.tanggalMulai || r.tglMulai || ''}","${r.tanggalSelesai || r.tglSelesai || ''}","${(r.alasan || '').replace(/"/g, '""')}","${r.status || 'Diajukan'}"`).join('\n');
+      downloadCsv('rekap_approval_cuti_admin.csv', header + data);
+      showToast('Export CSV Approval Cuti berhasil diunduh!');
+    });
+  }
+
+  // 5. Export Presensi Saya (User)
+  const btnUserAbs = document.getElementById('exportUserAbsensiCsvBtn');
+  if (btnUserAbs) {
+    btnUserAbs.addEventListener('click', () => {
+      const rows = state.absensi.filter(a => a.nik === state.currentUser.nik);
+      if (!rows.length) return showToast('Belum ada data presensi untuk diexport!', 'error');
+      const header = 'Tanggal,Shift,JamMasuk,JamPulang,Status,KeterlambatanMenit\n';
+      const data = rows.map(a => `"${a.tanggal}","${a.shift || ''}","${a.jamMasuk || ''}","${a.jamPulang || ''}","${a.status || ''}",${a.keterlambatanMenit || 0}`).join('\n');
+      downloadCsv(`riwayat_presensi_${state.currentUser.nik}.csv`, header + data);
+      showToast('Export CSV Presensi berhasil diunduh!');
+    });
+  }
+
+  // 6. Export Semua Presensi (Admin)
+  const btnAdminAbs = document.getElementById('exportAdminAbsensiCsvBtn');
+  if (btnAdminAbs) {
+    btnAdminAbs.addEventListener('click', () => {
+      if (!state.absensi.length) return showToast('Belum ada data presensi untuk diexport!', 'error');
+      const header = 'Nama,NIK,Tanggal,Shift,JamMasuk,JamPulang,Status,KeterlambatanMenit\n';
+      const data = state.absensi.map(a => `"${a.nama || ''}","${a.nik || ''}","${a.tanggal}","${a.shift || ''}","${a.jamMasuk || ''}","${a.jamPulang || ''}","${a.status || ''}",${a.keterlambatanMenit || 0}`).join('\n');
+      downloadCsv('rekap_seluruh_presensi_karyawan.csv', header + data);
+      showToast('Export CSV Log Presensi berhasil diunduh!');
+    });
+  }
+
+  // 7. Export Kasbon (Admin)
+  const btnAdminKasbon = document.getElementById('exportAdminKasbonCsvBtn');
+  if (btnAdminKasbon) {
+    btnAdminKasbon.addEventListener('click', () => {
+      if (!state.kasbon.length) return showToast('Belum ada data kasbon untuk diexport!', 'error');
+      const header = 'Nama,NIK,TanggalPengajuan,JumlahPinjaman,CicilanPerBulan,SisaKasbon,Status,Catatan\n';
+      const data = state.kasbon.map(k => `"${k.nama || ''}","${k.nik || ''}","${k.tanggalPengajuan}",${k.jumlahPinjaman || 0},${k.cicilanPerBulan || 0},${k.sisaKasbon || 0},"${k.status || ''}","${(k.catatan || '').replace(/"/g, '""')}"`).join('\n');
+      downloadCsv('rekap_kasbon_karyawan.csv', header + data);
+      showToast('Export CSV Kasbon berhasil diunduh!');
+    });
+  }
+
+  // 8. Export Payroll Finance (Admin)
+  const btnAdminPayroll = document.getElementById('exportAdminPayrollCsvBtn');
+  if (btnAdminPayroll) {
+    btnAdminPayroll.addEventListener('click', () => {
+      if (!state.payroll.length) return showToast('Belum ada data payroll untuk diexport!', 'error');
+      const period = document.getElementById('payrollMonthPicker').value || 'periode';
+      const header = 'Nama,NIK,Divisi,Periode,GajiPokok,Tunjangan,TotalJamLembur,RateLembur,TotalUangLembur,PotonganKasbon,PotonganAbsensi,PotonganLain,GajiBersih,Status\n';
+      const data = state.payroll.map(p => `"${p.nama || ''}","${p.nik || ''}","${p.divisi || ''}","${p.periode}",${p.gajiPokok || 0},${p.tunjangan || 0},${p.totalJamLembur || 0},${p.rateLembur || 25000},${p.totalUangLembur || 0},${p.potonganKasbon || 0},${p.potonganAbsensi || 0},${p.potonganLain || 0},${p.gajiBersih || 0},"${p.status || 'Draft'}"`).join('\n');
+      downloadCsv(`rekap_payroll_finance_${period}.csv`, header + data);
+      showToast('Export CSV Payroll berhasil diunduh!');
+    });
+  }
+
+  // 9. Export Slip Gaji (User)
+  const btnUserSlip = document.getElementById('exportUserSlipGajiCsvBtn');
+  if (btnUserSlip) {
+    btnUserSlip.addEventListener('click', () => {
+      const rows = state.payroll.filter(p => String(p.nik).trim() === String(state.currentUser.nik).trim());
+      if (!rows.length) return showToast('Belum ada data slip gaji untuk diexport!', 'error');
+      const header = 'Periode,Nama,NIK,GajiPokok,Tunjangan,TotalJamLembur,TotalUangLembur,PotonganKasbon,PotonganAbsensi,PotonganLain,GajiBersih,Status\n';
+      const data = rows.map(p => `"${p.periode}","${p.nama || state.currentUser.nama}","${p.nik || state.currentUser.nik}",${p.gajiPokok || 0},${p.tunjangan || 0},${p.totalJamLembur || 0},${p.totalUangLembur || 0},${p.potonganKasbon || 0},${p.potonganAbsensi || 0},${p.potonganLain || 0},${p.gajiBersih || 0},"${p.status || ''}"`).join('\n');
+      downloadCsv(`riwayat_slip_gaji_${state.currentUser.nik}.csv`, header + data);
+      showToast('Export CSV Slip Gaji berhasil diunduh!');
+    });
+  }
+};
+setupCsvExportListeners();
 
 // ================= DATA LOADERS =================
 async function loadLembur() {
