@@ -1,4 +1,4 @@
-const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwzme5WXV7_sY87iCjz7RyVT8IV5q6T2stIGpqPbDph5UDBDCFH1VVoCRjgXZWB2e6k/exec";
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzbydk8A6yPv0FcwI4QhhBEM5pAmW_ivNEbW3Mkb6GZYXjxIeEnUxvePC5vSjCq5CSy/exec";
 
 const state = { 
   currentUser: null, 
