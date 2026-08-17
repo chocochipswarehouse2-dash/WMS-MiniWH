@@ -1,5 +1,5 @@
 function doGet() {
-  return ContentService.createTextOutput('Sistem Lembur & Cuti siap digunakan.');
+  return ContentService.createTextOutput('Sistem Lembur & Cuti WMS Mini siap digunakan.');
 }
 
 function doPost(e) {
@@ -63,8 +63,18 @@ function ensureSheets() {
   let karyawanSheet = spreadsheet.getSheetByName('Data Karyawan');
   if (!karyawanSheet) {
     karyawanSheet = spreadsheet.insertSheet('Data Karyawan');
-    karyawanSheet.appendRow(['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Status', 'CreatedAt']);
-    karyawanSheet.appendRow(['admin', 'Admin', 'Administrator', 'admin', '12345', 'admin', 'Aktif', new Date().toISOString()]);
+    karyawanSheet.appendRow(['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'Status', 'CreatedAt']);
+    karyawanSheet.appendRow(['WH0001', 'Admin WMS', 'Warehouse', 'admin', '12345', 'admin', '', '', 'Aktif', new Date().toISOString()]);
+  } else {
+    // Check if Email & NoHP columns exist, if not append headers
+    const headers = karyawanSheet.getRange(1, 1, 1, Math.max(karyawanSheet.getLastColumn(), 1)).getValues()[0];
+    const headerStr = headers.map(h => String(h).toLowerCase()).join(',');
+    if (!headerStr.includes('email')) {
+      karyawanSheet.getRange(1, headers.length + 1).setValue('Email');
+    }
+    if (!headerStr.includes('nohp') && !headerStr.includes('hp') && !headerStr.includes('telepon')) {
+      karyawanSheet.getRange(1, karyawanSheet.getLastColumn() + 1).setValue('NoHP');
+    }
   }
 
   let lemburSheet = spreadsheet.getSheetByName('Data Lembur');
@@ -91,16 +101,14 @@ function normalizeHeaderName(header) {
     .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase());
 }
 
-// Fungsi pembantu agar Google Sheets Date/Time object tidak error menjadi 1899-12-30
 function formatCellVal(val) {
   if (val instanceof Date) {
-    // Jika format waktu (tahun 1899)
     if (val.getFullYear() === 1899) {
       return Utilities.formatDate(val, Session.getScriptTimeZone(), 'HH:mm');
     }
     return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   }
-  return String(val || '').trim();
+  return String(val !== undefined && val !== null ? val : '').trim();
 }
 
 function getSheetRows(sheetName) {
@@ -135,6 +143,12 @@ function getSheetRows(sheetName) {
     if (obj.tglSelesai && !obj.tanggalSelesai) obj.tanggalSelesai = obj.tglSelesai;
     if (obj.keterangan && !obj.alasan) obj.alasan = obj.keterangan;
 
+    // Auto-normalize alias keys for User
+    if (obj.noTelepon && !obj.noHp) obj.noHp = obj.noTelepon;
+    if (obj.telepon && !obj.noHp) obj.noHp = obj.telepon;
+    if (obj.hp && !obj.noHp) obj.noHp = obj.hp;
+    if (obj.nohp && !obj.noHp) obj.noHp = obj.nohp;
+
     rows.push(obj);
   }
 
@@ -145,13 +159,14 @@ function getSheetRows(sheetName) {
 function loginUser(username, password) {
   const users = getUsers();
   const match = users.find(u => 
-    (String(u.username) === String(username) || String(u.nik) === String(username)) 
+    (String(u.username).toLowerCase() === String(username).toLowerCase() || String(u.nik).toLowerCase() === String(username).toLowerCase()) 
     && String(u.password) === String(password)
   );
   if (!match) return null;
   return {
     nik: match.nik, nama: match.nama, divisi: match.divisi,
-    username: match.username, role: match.role || 'user'
+    username: match.username, role: match.role || 'user',
+    email: match.email || '', noHp: match.noHp || match.nohp || ''
   };
 }
 
@@ -165,24 +180,56 @@ function getUsers() {
       divisi: String(u.divisi || '').trim(),
       username: String(u.username || '').trim(),
       password: String(u.password || '').trim(),
-      role: String(u.role || 'user').trim()
+      role: String(u.role || 'user').trim(),
+      email: String(u.email || '').trim(),
+      noHp: String(u.noHp || u.nohp || u.telepon || u.hp || '').trim()
     }));
 }
 
 function saveUser(payload) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Karyawan');
-  const users = getUsers();
+  const values = sheet.getDataRange().getValues();
   const targetNIK = String(payload.nik || '').trim();
 
-  const existingIndex = users.findIndex(u => u.nik === targetNIK);
-  const row = [targetNIK, payload.nama, payload.divisi, payload.username, payload.password, payload.role, 'Aktif', new Date().toISOString()];
+  const emailVal = String(payload.email || '').trim();
+  const noHpVal = String(payload.noHp || payload.nohp || '').trim();
 
-  if (existingIndex >= 0) {
-    sheet.getRange(existingIndex + 2, 1, 1, row.length).setValues([row]);
-  } else {
-    sheet.appendRow(row);
+  let existingRowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]).trim() === targetNIK) {
+      existingRowIndex = i + 1; // 1-indexed row number
+      break;
+    }
   }
-  return { nik: targetNIK, nama: payload.nama, divisi: payload.divisi, username: payload.username, role: payload.role };
+
+  const rowData = [
+    targetNIK, 
+    payload.nama || '', 
+    payload.divisi || '', 
+    payload.username || '', 
+    payload.password || '', 
+    payload.role || 'user', 
+    emailVal, 
+    noHpVal, 
+    'Aktif', 
+    new Date().toISOString()
+  ];
+
+  if (existingRowIndex > 0) {
+    sheet.getRange(existingRowIndex, 1, 1, rowData.length).setValues([rowData]);
+  } else {
+    sheet.appendRow(rowData);
+  }
+
+  return { 
+    nik: targetNIK, 
+    nama: payload.nama, 
+    divisi: payload.divisi, 
+    username: payload.username, 
+    role: payload.role,
+    email: emailVal,
+    noHp: noHpVal
+  };
 }
 
 function deleteUser(nik) {
@@ -249,7 +296,7 @@ function updateLembur(payload) {
   return false;
 }
 
-// ------------- PERIJINAN -------------
+// ------------- PERIJINAN (IJIN / CUTI) -------------
 function getPerijinan(nik, role) {
   const rows = getSheetRows('Data Perijinan');
   if (role === 'admin') return rows.filter(r => String(r.id).trim() !== '');
@@ -270,6 +317,10 @@ function savePerijinanMultiple(perijinanList) {
     sheet.appendRow(row);
     saved.push(row);
   });
+
+  // Notifikasi Email ke Admin saat ada pengajuan ijin/cuti baru
+  notifyAdminNewLeave(perijinanList);
+
   return saved;
 }
 
@@ -286,6 +337,11 @@ function updatePerijinan(payload) {
       if (payload.alasan !== undefined) sheet.getRange(i + 1, 8).setValue(payload.alasan);
       if (payload.status !== undefined) sheet.getRange(i + 1, 10).setValue(payload.status);
       if (payload.updatedBy !== undefined) sheet.getRange(i + 1, 11).setValue(payload.updatedBy);
+      
+      // Notifikasi Email ke Karyawan jika status berubah
+      if (payload.status && payload.status !== 'Diajukan') {
+        notifyEmployeeLeaveStatus(id, payload.status, payload.updatedBy);
+      }
       return true;
     }
   }
@@ -300,6 +356,9 @@ function updateStatusPerijinan(id, newStatus, adminUsername) {
     if (String(values[i][0]) === String(id)) {
       sheet.getRange(i + 1, 10).setValue(newStatus);
       sheet.getRange(i + 1, 11).setValue(adminUsername);
+
+      // Notifikasi Email ke Karyawan terkait Approval/Reject
+      notifyEmployeeLeaveStatus(id, newStatus, adminUsername);
       return true;
     }
   }
@@ -316,4 +375,92 @@ function deleteRowById(sheetName, id) {
     }
   }
   return false;
+}
+
+// ------------- NOTIFIKASI EMAIL OTOMATIS -------------
+
+function notifyAdminNewLeave(perijinanList) {
+  try {
+    if (!perijinanList || !perijinanList.length) return;
+    const users = getUsers();
+    const adminEmails = users
+      .filter(u => u.role === 'admin' && u.email && u.email.includes('@'))
+      .map(u => u.email.trim());
+
+    if (!adminEmails.length) return;
+
+    const summaryList = perijinanList.map(p => `
+      <li style="margin-bottom: 8px;">
+        <strong>${p.nama} (${p.nik})</strong> - <em>${p.jenis}</em><br/>
+        📅 Periode: <strong>${p.tanggalMulai} s/d ${p.tanggalSelesai}</strong><br/>
+        📝 Alasan: ${p.alasan}
+      </li>
+    `).join('');
+
+    const subject = `[WMS Mini] Pengajuan Ijin / Cuti Baru: ${perijinanList[0].nama}`;
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #d0d7de; border-radius: 10px; background-color: #ffffff; color: #1f2328;">
+        <h3 style="color: #0969da; margin-top: 0; display: flex; align-items: center; gap: 8px;">⚡ Notifikasi Pengajuan Ijin / Cuti</h3>
+        <p>Halo Admin,</p>
+        <p>Terdapat pengajuan Ijin / Cuti baru yang memerlukan review & persetujuan:</p>
+        <ul style="padding-left: 20px; background: #f6f8fa; padding: 16px 20px; border-radius: 8px; border: 1px solid #e1e4e8;">
+          ${summaryList}
+        </ul>
+        <p style="margin-top: 20px;">Silakan login ke web <strong>WMS Mini</strong> untuk melakukan persetujuan (Approve / Reject).</p>
+        <hr style="border: 0; border-top: 1px solid #d0d7de; margin: 20px 0;" />
+        <small style="color: #6e7681;">Sistem Otomatis Notifikasi WMS Mini</small>
+      </div>
+    `;
+
+    MailApp.sendEmail({
+      to: adminEmails.join(','),
+      subject: subject,
+      htmlBody: htmlBody
+    });
+  } catch (err) {
+    Logger.log('Gagal mengirim email ke admin: ' + err.message);
+  }
+}
+
+function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
+  try {
+    const perijinanRows = getSheetRows('Data Perijinan');
+    const item = perijinanRows.find(r => String(r.id) === String(id));
+    if (!item) return;
+
+    const users = getUsers();
+    const employee = users.find(u => String(u.nik).trim() === String(item.nik).trim());
+    if (!employee || !employee.email || !employee.email.includes('@')) return;
+
+    const isApproved = newStatus === 'Disetujui';
+    const statusColor = isApproved ? '#1a7f37' : '#cf222e';
+    const statusIcon = isApproved ? '✅' : '❌';
+
+    const subject = `[WMS Mini] ${statusIcon} Status Ijin/Cuti Anda: ${newStatus}`;
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; padding: 24px; border: 1px solid #d0d7de; border-radius: 10px; background-color: #ffffff; color: #1f2328;">
+        <h3 style="color: ${statusColor}; margin-top: 0;">${statusIcon} Pengajuan Ijin / Cuti ${newStatus}</h3>
+        <p>Halo <strong>${employee.nama}</strong>,</p>
+        <p>Pengajuan perijinan Anda dengan rincian berikut telah diperbarui statusnya:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background: #f6f8fa; border-radius: 8px;">
+          <tr><td style="padding: 8px 12px; font-weight: bold; width: 140px;">Jenis:</td><td style="padding: 8px 12px;">${item.jenis}</td></tr>
+          <tr><td style="padding: 8px 12px; font-weight: bold;">Periode:</td><td style="padding: 8px 12px;">${item.tanggalMulai} s/d ${item.tanggalSelesai}</td></tr>
+          <tr><td style="padding: 8px 12px; font-weight: bold;">Alasan:</td><td style="padding: 8px 12px;">${item.alasan || '-'}</td></tr>
+          <tr><td style="padding: 8px 12px; font-weight: bold;">Status:</td><td style="padding: 8px 12px; font-weight: bold; color: ${statusColor};">${newStatus}</td></tr>
+          <tr><td style="padding: 8px 12px; font-weight: bold;">Diupdate Oleh:</td><td style="padding: 8px 12px;">${adminUsername || 'Admin'}</td></tr>
+        </table>
+        <p>Terima kasih telah menggunakan sistem WMS Mini.</p>
+        <hr style="border: 0; border-top: 1px solid #d0d7de; margin: 20px 0;" />
+        <small style="color: #6e7681;">Sistem Otomatis Notifikasi WMS Mini</small>
+      </div>
+    `;
+
+    MailApp.sendEmail({
+      to: employee.email.trim(),
+      subject: subject,
+      htmlBody: htmlBody
+    });
+  } catch (err) {
+    Logger.log('Gagal mengirim email ke karyawan: ' + err.message);
+  }
 }

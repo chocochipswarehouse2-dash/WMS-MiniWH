@@ -3,24 +3,76 @@ const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbziFOC
 const state = { currentUser: null, users: [], lembur: [], cuti: [] };
 
 const htmlEl = document.documentElement;
+const appPageEl = document.getElementById('appPage');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
+const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+const closeSidebarMobileBtn = document.getElementById('closeSidebarMobileBtn');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 const toast = document.getElementById('toast');
 
-const tabs = document.querySelectorAll('.tab-btn');
+const navItems = document.querySelectorAll('.nav-item');
 const panels = document.querySelectorAll('.tab-panel');
+const topbarPageTitle = document.getElementById('topbarPageTitle');
+
+const tabTitles = {
+  formLemburTab: 'Input Lembur',
+  statusLemburTab: 'Status Lembur',
+  formCutiTab: 'Input Ijin / Cuti',
+  statusCutiTab: 'Status Ijin / Cuti',
+  adminLemburTab: 'Admin Rekap Semua Lembur',
+  adminCutiTab: 'Approval & Kelola Ijin / Cuti',
+  settingTab: 'Kelola Data User & Karyawan'
+};
 
 function showToast(msg, type = 'success') {
-  toast.textContent = msg; toast.className = `toast ${type}`; toast.classList.remove('hidden');
+  toast.textContent = msg; 
+  toast.className = `toast ${type}`; 
+  toast.classList.remove('hidden');
   clearTimeout(showToast.timeout);
-  showToast.timeout = setTimeout(() => toast.classList.add('hidden'), 3000);
+  showToast.timeout = setTimeout(() => toast.classList.add('hidden'), 3500);
 }
 
 function switchTab(tabId) {
-  tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+  navItems.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
   panels.forEach(p => p.classList.toggle('active', p.id === tabId));
   panels.forEach(p => p.classList.toggle('hidden', p.id !== tabId));
+  
+  if (topbarPageTitle && tabTitles[tabId]) {
+    topbarPageTitle.textContent = tabTitles[tabId];
+  }
+
+  // Close sidebar on mobile when tab is clicked
+  if (window.innerWidth <= 900) {
+    closeMobileSidebar();
+  }
 }
 
+// ================= SIDEBAR TOGGLE =================
+function toggleSidebar() {
+  if (window.innerWidth <= 900) {
+    const isOpen = appPageEl.classList.contains('sidebar-mobile-open');
+    if (isOpen) closeMobileSidebar();
+    else openMobileSidebar();
+  } else {
+    appPageEl.classList.toggle('sidebar-collapsed');
+  }
+}
+
+function openMobileSidebar() {
+  appPageEl.classList.add('sidebar-mobile-open');
+  sidebarOverlay.classList.remove('hidden');
+}
+
+function closeMobileSidebar() {
+  appPageEl.classList.remove('sidebar-mobile-open');
+  sidebarOverlay.classList.add('hidden');
+}
+
+if (toggleSidebarBtn) toggleSidebarBtn.addEventListener('click', toggleSidebar);
+if (closeSidebarMobileBtn) closeSidebarMobileBtn.addEventListener('click', closeMobileSidebar);
+if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+// ================= API REQUEST =================
 async function apiRequest(action, payload = {}) {
   try {
     const postData = JSON.stringify({ action, ...payload });
@@ -53,6 +105,26 @@ themeToggleBtn.addEventListener('click', () => {
   themeToggleBtn.textContent = nextTheme === 'dark' ? '☀️' : '🌙';
   localStorage.setItem('theme', nextTheme);
 });
+
+// ================= OVERTIME HELPER =================
+function calculateOvertime(mulai, selesai) {
+  if (!mulai || !selesai) return '0.00';
+  const tStart = new Date(`2000-01-01T${mulai}:00`);
+  let tEnd = new Date(`2000-01-01T${selesai}:00`);
+  if (tEnd < tStart) {
+    tEnd = new Date(`2000-01-02T${selesai}:00`);
+  }
+  const diffHours = (tEnd - tStart) / (1000 * 60 * 60);
+  return diffHours > 0 ? diffHours.toFixed(2) : '0.00';
+}
+
+function formatWaNumber(num) {
+  if (!num) return '';
+  let clean = String(num).replace(/[^0-9]/g, '');
+  if (clean.startsWith('0')) clean = '62' + clean.slice(1);
+  if (clean.startsWith('8')) clean = '62' + clean;
+  return clean;
+}
 
 // ================= DYNAMIC FORMS =================
 const lemburContainer = document.getElementById('lemburListContainer');
@@ -88,24 +160,13 @@ function addCutiRow() {
         <option value="Ijin">Ijin Lainnya</option>
       </select>
     </label>
-    <label><span>Alasan / Keterangan</span><input type="text" class="c_alasan" placeholder="Cth: Acara keluarga" required/></label>
+    <label><span>Alasan / Keterangan</span><input type="text" class="c_alasan" placeholder="Cth: Acara keluarga, cek kesehatan" required/></label>
     <label><span>Tanggal Mulai</span><input type="date" class="c_tglMulai" required/></label>
     <label><span>Tanggal Selesai</span><input type="date" class="c_tglSelesai" required/></label>
   `;
   cutiContainer.appendChild(div);
 }
 document.getElementById('addCutiRowBtn').addEventListener('click', addCutiRow);
-
-function calculateOvertime(mulai, selesai) {
-  if (!mulai || !selesai) return '0.00';
-  const tStart = new Date(`2000-01-01T${mulai}:00`);
-  let tEnd = new Date(`2000-01-01T${selesai}:00`);
-  if (tEnd < tStart) {
-    tEnd = new Date(`2000-01-02T${selesai}:00`);
-  }
-  const diffHours = (tEnd - tStart) / (1000 * 60 * 60);
-  return diffHours > 0 ? diffHours.toFixed(2) : '0.00';
-}
 
 // ================= SUBMIT HANDLING =================
 document.getElementById('lemburForm').addEventListener('submit', async (e) => {
@@ -120,10 +181,14 @@ document.getElementById('lemburForm').addEventListener('submit', async (e) => {
     const totalJam = calculateOvertime(mulai, selesai);
 
     return {
-      nik, nama: document.getElementById('l_nama').value, divisi: document.getElementById('l_divisi').value,
+      nik, 
+      nama: document.getElementById('l_nama').value, 
+      divisi: document.getElementById('l_divisi').value,
       tanggal: row.querySelector('.l_tanggal').value,
       deskripsi: row.querySelector('.l_deskripsi').value,
-      jamMulai: mulai, jamSelesai: selesai, totalJam: `${totalJam} jam`,
+      jamMulai: mulai, 
+      jamSelesai: selesai, 
+      totalJam: `${totalJam} jam`,
       catatan: row.querySelector('.l_catatan').value,
       updatedBy: state.currentUser.username
     };
@@ -132,8 +197,10 @@ document.getElementById('lemburForm').addEventListener('submit', async (e) => {
   const res = await apiRequest('saveLemburMultiple', { lemburList });
   if (res) {
     showToast('Lembur berhasil disimpan!');
-    lemburContainer.innerHTML = ''; addLemburRow();
-    loadLembur(); switchTab('statusLemburTab');
+    lemburContainer.innerHTML = ''; 
+    addLemburRow();
+    loadLembur(); 
+    switchTab('statusLemburTab');
   }
 });
 
@@ -144,61 +211,76 @@ document.getElementById('cutiForm').addEventListener('submit', async (e) => {
   if (rows.length === 0) return showToast('Tambahkan minimal 1 baris Ijin/Cuti!', 'error');
 
   const perijinanList = rows.map(row => ({
-    nik, nama: document.getElementById('c_nama').value, divisi: document.getElementById('c_divisi').value,
-    jenis: row.querySelector('.c_jenis').value, alasan: row.querySelector('.c_alasan').value,
-    tanggalMulai: row.querySelector('.c_tglMulai').value, tanggalSelesai: row.querySelector('.c_tglSelesai').value,
+    nik, 
+    nama: document.getElementById('c_nama').value, 
+    divisi: document.getElementById('c_divisi').value,
+    jenis: row.querySelector('.c_jenis').value, 
+    alasan: row.querySelector('.c_alasan').value,
+    tanggalMulai: row.querySelector('.c_tglMulai').value, 
+    tanggalSelesai: row.querySelector('.c_tglSelesai').value,
     updatedBy: state.currentUser.username
   }));
 
   const res = await apiRequest('savePerijinanMultiple', { perijinanList });
   if (res) {
-    showToast('Ijin/Cuti berhasil diajukan!');
-    cutiContainer.innerHTML = ''; addCutiRow();
-    loadCuti(); switchTab('statusCutiTab');
+    showToast('Ijin/Cuti berhasil diajukan! Notifikasi dikirim.');
+    cutiContainer.innerHTML = ''; 
+    addCutiRow();
+    loadCuti(); 
+    switchTab('statusCutiTab');
   }
 });
 
 // ================= RENDER TABLES =================
 function renderStatusBadge(status) {
   const s = String(status || '').toLowerCase();
-  if(s === 'disetujui' || s === 'selesai') return `<span class="status disetujui">${status}</span>`;
-  if(s === 'ditolak') return `<span class="status ditolak">Ditolak</span>`;
+  if (s === 'disetujui' || s === 'selesai') return `<span class="status disetujui">${status}</span>`;
+  if (s === 'ditolak') return `<span class="status ditolak">Ditolak</span>`;
   return `<span class="status diajukan">Diajukan</span>`;
 }
 
 function formatDate(val) {
-  if(!val) return '-';
+  if (!val) return '-';
   return val;
 }
 
 function renderLemburTables() {
   const saya = state.lembur.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
   
-  const genRows = (data, isAdmin) => data.map(r => `
-    <tr>
-      ${isAdmin ? `<td>${r.nik}<br><small>${r.nama}</small></td>` : ''}
-      <td>${formatDate(r.tanggal)}</td>
-      <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
-      <td>${r.jamMulai || '-'}</td>
-      <td>${r.jamSelesai || '-'}</td>
-      <td>${r.totalJam || '-'}</td>
-      <td>${r.catatan || '-'}</td>
-      <td class="action-cell">
-        <button class="action-btn edit" onclick="openEditLembur('${r.id}')">Edit</button>
-        <button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button>
-      </td>
-    </tr>
-  `).join('');
+  const genRows = (data, isAdmin) => {
+    if (!data.length) {
+      return `<tr><td colspan="${isAdmin ? 8 : 7}" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data lembur yang tercatat.</td></tr>`;
+    }
+    return data.map(r => `
+      <tr>
+        ${isAdmin ? `<td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>` : ''}
+        <td><span class="mono-text">${formatDate(r.tanggal)}</span></td>
+        <td><strong>${r.deskripsi || r.deskripsiPekerjaan || r.keterangan || r.pekerjaan || '-'}</strong></td>
+        <td><span class="mono-text">${r.jamMulai || '-'}</span></td>
+        <td><span class="mono-text">${r.jamSelesai || '-'}</span></td>
+        <td><span class="mono-text">${r.totalJam || '-'}</span></td>
+        <td>${r.catatan || '-'}</td>
+        <td class="action-cell">
+          <button class="action-btn edit" onclick="openEditLembur('${r.id}')">Edit</button>
+          <button class="action-btn delete" onclick="deleteLembur('${r.id}')">Hapus</button>
+        </td>
+      </tr>
+    `).join('');
+  };
 
   document.getElementById('statusLemburTableWrap').innerHTML = `
-    <table><thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
-    <tbody>${genRows(saya, false)}</tbody></table>
+    <table>
+      <thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
+      <tbody>${genRows(saya, false)}</tbody>
+    </table>
   `;
 
-  if(state.currentUser.role === 'admin') {
+  if (state.currentUser.role === 'admin') {
     document.getElementById('adminLemburTableWrap').innerHTML = `
-      <table><thead><tr><th>User</th><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
-      <tbody>${genRows(state.lembur, true)}</tbody></table>
+      <table>
+        <thead><tr><th>User</th><th>Tanggal</th><th>Deskripsi</th><th>Jam Mulai</th><th>Jam Selesai</th><th>Total Jam</th><th>Catatan</th><th>Aksi</th></tr></thead>
+        <tbody>${genRows(state.lembur, true)}</tbody>
+      </table>
     `;
   }
 }
@@ -206,29 +288,57 @@ function renderLemburTables() {
 function renderCutiTables() {
   const saya = state.cuti.filter(r => state.currentUser.role === 'admin' || r.nik === state.currentUser.nik);
   
-  const genRows = (data, isAdmin) => data.map(r => `
-    <tr>
-      ${isAdmin ? `<td>${r.nik}<br><small>${r.nama}</small></td>` : ''}
-      <td>${r.jenis}</td>
-      <td>${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</td>
-      <td>${r.alasan}</td>
-      <td>${renderStatusBadge(r.status)}</td>
-      <td class="action-cell">
-        ${isAdmin ? `<button class="action-btn edit" onclick="openEditCuti('${r.id}')">Edit & Status</button>` : ''}
-        <button class="action-btn delete" onclick="deleteCuti('${r.id}')">Hapus</button>
-      </td>
-    </tr>
-  `).join('');
+  // Find admin contact for WA link from User side
+  const adminUser = state.users.find(u => u.role === 'admin' && (u.noHp || u.nohp));
+  const adminPhone = adminUser ? formatWaNumber(adminUser.noHp || adminUser.nohp) : '';
+
+  const genRows = (data, isAdmin) => {
+    if (!data.length) {
+      return `<tr><td colspan="${isAdmin ? 6 : 5}" style="text-align:center; padding: 24px; color: var(--text-muted);">Belum ada data pengajuan ijin/cuti.</td></tr>`;
+    }
+    return data.map(r => {
+      // Find employee contact for Admin WA link
+      const empUser = state.users.find(u => String(u.nik) === String(r.nik));
+      const empPhone = empUser ? formatWaNumber(empUser.noHp || empUser.nohp) : '';
+
+      // WA link to Admin (from employee)
+      const userWaMsg = encodeURIComponent(`Halo Admin, saya telah mengajukan ${r.jenis} untuk periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}. Alasan: ${r.alasan}. Mohon konfirmasi dan persetujuannya. Terima kasih.`);
+      const waAdminBtn = adminPhone ? `<a class="action-btn wa" href="https://wa.me/${adminPhone}?text=${userWaMsg}" target="_blank" title="Kirim WA ke Admin">📲 WA Admin</a>` : '';
+
+      // WA link to Employee (from admin)
+      const adminWaMsg = encodeURIComponent(`Halo ${r.nama}, terkait pengajuan ${r.jenis} periode ${r.tanggalMulai} s/d ${r.tanggalSelesai}, status pengajuan saat ini: [${r.status || 'Diajukan'}]. Terima kasih.`);
+      const waEmpBtn = empPhone ? `<a class="action-btn wa" href="https://wa.me/${empPhone}?text=${adminWaMsg}" target="_blank" title="Kirim WA ke Karyawan">📲 WA</a>` : '';
+
+      return `
+        <tr>
+          ${isAdmin ? `<td><strong>${r.nik}</strong><br><small>${r.nama}</small></td>` : ''}
+          <td><strong>${r.jenis}</strong></td>
+          <td><span class="mono-text">${formatDate(r.tanggalMulai)} s/d ${formatDate(r.tanggalSelesai)}</span></td>
+          <td>${r.alasan}</td>
+          <td>${renderStatusBadge(r.status)}</td>
+          <td class="action-cell">
+            ${isAdmin ? `<button class="action-btn edit" onclick="openEditCuti('${r.id}')">Edit & Status</button>` : ''}
+            ${isAdmin ? waEmpBtn : waAdminBtn}
+            <button class="action-btn delete" onclick="deleteCuti('${r.id}')">Hapus</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
 
   document.getElementById('statusCutiTableWrap').innerHTML = `
-    <table><thead><tr><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi</th></tr></thead>
-    <tbody>${genRows(saya, false)}</tbody></table>
+    <table>
+      <thead><tr><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi / Notif</th></tr></thead>
+      <tbody>${genRows(saya, false)}</tbody>
+    </table>
   `;
 
-  if(state.currentUser.role === 'admin') {
+  if (state.currentUser.role === 'admin') {
     document.getElementById('adminCutiTableWrap').innerHTML = `
-      <table><thead><tr><th>User</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi</th></tr></thead>
-      <tbody>${genRows(state.cuti, true)}</tbody></table>
+      <table>
+        <thead><tr><th>User</th><th>Jenis</th><th>Tanggal</th><th>Alasan</th><th>Status</th><th>Aksi / Notif</th></tr></thead>
+        <tbody>${genRows(state.cuti, true)}</tbody>
+      </table>
     `;
   }
 }
@@ -236,26 +346,39 @@ function renderCutiTables() {
 // ================= USER MANAGEMENT =================
 function renderUserTable() {
   const wrap = document.getElementById('userListWrap');
-  if(!wrap) return;
+  if (!wrap) return;
 
-  if(!state.users.length) {
-    wrap.innerHTML = '<p>Belum ada user terdaftar.</p>';
+  if (!state.users.length) {
+    wrap.innerHTML = '<p style="padding: 20px; color: var(--text-muted); text-align: center;">Belum ada user terdaftar.</p>';
     return;
   }
 
   wrap.innerHTML = `
     <table>
       <thead>
-        <tr><th>NIK</th><th>Nama</th><th>Divisi</th><th>Username</th><th>Role</th><th>Aksi</th></tr>
+        <tr>
+          <th>NIK</th>
+          <th>Nama</th>
+          <th>Divisi</th>
+          <th>Username</th>
+          <th>Password</th>
+          <th>Email</th>
+          <th>No. HP / WA</th>
+          <th>Role</th>
+          <th>Aksi</th>
+        </tr>
       </thead>
       <tbody>
         ${state.users.map(u => `
           <tr>
-            <td>${u.nik}</td>
+            <td><strong>${u.nik}</strong></td>
             <td>${u.nama}</td>
             <td>${u.divisi}</td>
-            <td>${u.username}</td>
-            <td>${u.role}</td>
+            <td><span class="mono-text">${u.username}</span></td>
+            <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${u.password || '-'}</span></td>
+            <td>${u.email ? `<span class="mono-text">${u.email}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>
+            <td>${u.noHp ? `<span class="mono-text">${u.noHp}</span>` : '<span style="color:var(--text-muted)">-</span>'}</td>
+            <td><span class="status ${u.role === 'admin' ? 'disetujui' : 'diajukan'}">${u.role}</span></td>
             <td class="action-cell">
               <button class="action-btn edit" onclick="editUser('${u.nik}')">Edit</button>
               <button class="action-btn delete" onclick="deleteUserRecord('${u.nik}')">Hapus</button>
@@ -274,7 +397,7 @@ window.closeModal = (modalId) => {
 
 window.openEditLembur = (id) => {
   const item = state.lembur.find(r => r.id === id);
-  if(!item) return;
+  if (!item) return;
   document.getElementById('editL_id').value = item.id;
   document.getElementById('editL_tanggal').value = item.tanggal || '';
   document.getElementById('editL_deskripsi').value = item.deskripsi || item.deskripsiPekerjaan || item.keterangan || item.pekerjaan || '';
@@ -303,7 +426,7 @@ document.getElementById('editLemburForm').addEventListener('submit', async (e) =
   };
 
   const res = await apiRequest('updateLembur', payload);
-  if(res) {
+  if (res) {
     showToast('Data lembur berhasil diperbarui!');
     closeModal('editLemburModal');
     loadLembur();
@@ -312,8 +435,9 @@ document.getElementById('editLemburForm').addEventListener('submit', async (e) =
 
 window.openEditCuti = (id) => {
   const item = state.cuti.find(r => r.id === id);
-  if(!item) return;
+  if (!item) return;
   document.getElementById('editC_id').value = item.id;
+  document.getElementById('editC_nik').value = item.nik || '';
   document.getElementById('editC_jenis').value = item.jenis || 'Cuti Tahunan';
   document.getElementById('editC_tglMulai').value = item.tanggalMulai || '';
   document.getElementById('editC_tglSelesai').value = item.tanggalSelesai || '';
@@ -326,6 +450,7 @@ document.getElementById('editCutiForm').addEventListener('submit', async (e) => 
   e.preventDefault();
   const payload = {
     id: document.getElementById('editC_id').value,
+    nik: document.getElementById('editC_nik').value,
     jenis: document.getElementById('editC_jenis').value,
     tanggalMulai: document.getElementById('editC_tglMulai').value,
     tanggalSelesai: document.getElementById('editC_tglSelesai').value,
@@ -335,41 +460,51 @@ document.getElementById('editCutiForm').addEventListener('submit', async (e) => 
   };
 
   const res = await apiRequest('updatePerijinan', payload);
-  if(res) {
-    showToast('Data perijinan berhasil diperbarui!');
+  if (res) {
+    showToast('Data perijinan diperbarui & notifikasi dikirim!');
     closeModal('editCutiModal');
     loadCuti();
   }
 });
 
 window.deleteLembur = async (id) => {
-  if(confirm('Hapus lembur ini?')) {
-    await apiRequest('deleteLembur', { id }); loadLembur();
+  if (confirm('Apakah Anda yakin ingin menghapus data lembur ini?')) {
+    await apiRequest('deleteLembur', { id }); 
+    loadLembur();
   }
 };
+
 window.deleteCuti = async (id) => {
-  if(confirm('Hapus perijinan ini?')) {
-    await apiRequest('deletePerijinan', { id }); loadCuti();
+  if (confirm('Apakah Anda yakin ingin menghapus data perijinan ini?')) {
+    await apiRequest('deletePerijinan', { id }); 
+    loadCuti();
   }
 };
 
 window.editUser = (nik) => {
   const u = state.users.find(x => x.nik === nik);
-  if(!u) return;
+  if (!u) return;
+  document.getElementById('userEditMode').value = "true";
   document.getElementById('userNIK').value = u.nik;
   document.getElementById('userName').value = u.nama;
   document.getElementById('userDivisi').value = u.divisi;
   document.getElementById('userUsername').value = u.username;
   document.getElementById('userPassword').value = u.password;
-  document.getElementById('userRole').value = u.role;
+  document.getElementById('userEmail').value = u.email || '';
+  document.getElementById('userNoHp').value = u.noHp || u.nohp || '';
+  document.getElementById('userRole').value = u.role || 'user';
+  
+  const formTitle = document.getElementById('userFormTitle');
+  if (formTitle) formTitle.textContent = `Edit User - ${u.nama} (${u.nik})`;
+  
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.deleteUserRecord = async (nik) => {
-  if(nik === state.currentUser.nik) return showToast('Tidak dapat menghapus akun sendiri!', 'error');
-  if(confirm(`Hapus user NIK ${nik}?`)) {
+  if (nik === state.currentUser.nik) return showToast('Tidak dapat menghapus akun sendiri!', 'error');
+  if (confirm(`Hapus user dengan NIK ${nik}?`)) {
     const res = await apiRequest('deleteUser', { nik });
-    if(res) {
+    if (res) {
       showToast('User berhasil dihapus');
       loadUsersData();
     }
@@ -384,19 +519,27 @@ document.getElementById('userForm').addEventListener('submit', async (e) => {
     divisi: document.getElementById('userDivisi').value.trim(),
     username: document.getElementById('userUsername').value.trim(),
     password: document.getElementById('userPassword').value.trim(),
+    email: document.getElementById('userEmail').value.trim(),
+    noHp: document.getElementById('userNoHp').value.trim(),
     role: document.getElementById('userRole').value
   };
 
   const res = await apiRequest('saveUser', payload);
-  if(res) {
+  if (res) {
     showToast('User berhasil disimpan!');
     document.getElementById('userForm').reset();
+    document.getElementById('userEditMode').value = "false";
+    const formTitle = document.getElementById('userFormTitle');
+    if (formTitle) formTitle.textContent = 'Tambah / Edit User';
     loadUsersData();
   }
 });
 
 document.getElementById('resetUserFormBtn').addEventListener('click', () => {
   document.getElementById('userForm').reset();
+  document.getElementById('userEditMode').value = "false";
+  const formTitle = document.getElementById('userFormTitle');
+  if (formTitle) formTitle.textContent = 'Tambah / Edit User';
 });
 
 // ================= PDF EXPORT =================
@@ -440,7 +583,7 @@ function exportPdf(isAdmin) {
     startY: 28,
     margin: { left: 14, right: 14 },
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [249, 115, 22] }
+    headStyles: { fillColor: [56, 189, 248], textColor: [13, 17, 23] }
   });
 
   doc.save(filename);
@@ -451,16 +594,30 @@ document.getElementById('downloadAdminPdfBtn').addEventListener('click', () => e
 
 // ================= DATA LOADERS =================
 async function loadLembur() {
-  const res = await apiRequest('getLembur', { nik: state.currentUser.role==='admin' ? '' : state.currentUser.nik, role: state.currentUser.role });
-  if(res) { state.lembur = res.data || []; renderLemburTables(); }
+  const res = await apiRequest('getLembur', { 
+    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
+    role: state.currentUser.role 
+  });
+  if (res) { 
+    state.lembur = res.data || []; 
+    renderLemburTables(); 
+  }
 }
+
 async function loadCuti() {
-  const res = await apiRequest('getPerijinan', { nik: state.currentUser.role==='admin' ? '' : state.currentUser.nik, role: state.currentUser.role });
-  if(res) { state.cuti = res.data || []; renderCutiTables(); }
+  const res = await apiRequest('getPerijinan', { 
+    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
+    role: state.currentUser.role 
+  });
+  if (res) { 
+    state.cuti = res.data || []; 
+    renderCutiTables(); 
+  }
 }
+
 async function loadUsersData() {
   const usrRes = await apiRequest('getUsers');
-  if(usrRes) {
+  if (usrRes) {
     state.users = usrRes.users || [];
     renderUserTable();
     syncUserFields('l_nik', 'l_nama', 'l_divisi');
@@ -470,8 +627,8 @@ async function loadUsersData() {
 
 function syncUserFields(selectId, namaId, divId) {
   const select = document.getElementById(selectId);
-  if(!select) return;
-  if(state.currentUser.role !== 'admin') {
+  if (!select) return;
+  if (state.currentUser.role !== 'admin') {
     select.innerHTML = `<option value="${state.currentUser.nik}">${state.currentUser.nik} - ${state.currentUser.nama}</option>`;
     select.disabled = true;
     document.getElementById(namaId).value = state.currentUser.nama;
@@ -481,54 +638,76 @@ function syncUserFields(selectId, namaId, divId) {
     select.innerHTML = state.users.map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
     select.onchange = () => {
       const u = state.users.find(x => x.nik === select.value);
-      if(u) { document.getElementById(namaId).value = u.nama; document.getElementById(divId).value = u.divisi; }
+      if (u) { 
+        document.getElementById(namaId).value = u.nama; 
+        document.getElementById(divId).value = u.divisi; 
+      }
     };
-    if(state.users.length && !select.value) select.dispatchEvent(new Event('change'));
+    if (state.users.length && !select.value) select.dispatchEvent(new Event('change'));
   }
 }
 
 async function startApp() {
   document.getElementById('loginPage').classList.add('hidden');
   document.getElementById('appPage').classList.remove('hidden');
-  document.getElementById('loggedUserLabel').textContent = `${state.currentUser.nama} (${state.currentUser.role})`;
   
+  // User Labels
+  document.getElementById('loggedUserLabel').textContent = `${state.currentUser.nama} (${state.currentUser.role})`;
+  const sidebarName = document.getElementById('sidebarUserName');
+  const sidebarRole = document.getElementById('sidebarUserRole');
+  if (sidebarName) sidebarName.textContent = state.currentUser.nama;
+  if (sidebarRole) sidebarRole.textContent = `${state.currentUser.divisi} • ${state.currentUser.role}`;
+  
+  // Role Access Admin Navigation Group
+  const adminGroup = document.getElementById('adminNavGroup');
   if (state.currentUser.role === 'admin') {
-    document.getElementById('adminLemburTabBtn').classList.remove('hidden');
-    document.getElementById('adminCutiTabBtn').classList.remove('hidden');
-    document.getElementById('settingTabBtn').classList.remove('hidden');
+    if (adminGroup) adminGroup.classList.remove('hidden');
+  } else {
+    if (adminGroup) adminGroup.classList.add('hidden');
   }
 
   await loadUsersData();
   
-  if(lemburContainer.children.length === 0) addLemburRow();
-  if(cutiContainer.children.length === 0) addCutiRow();
+  if (lemburContainer.children.length === 0) addLemburRow();
+  if (cutiContainer.children.length === 0) addCutiRow();
 
-  loadLembur(); loadCuti();
+  loadLembur(); 
+  loadCuti();
   switchTab('formLemburTab');
 }
 
+// ================= AUTH EVENTS =================
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const res = await apiRequest('login', { 
     username: document.getElementById('loginUsername').value, 
     password: document.getElementById('loginPassword').value 
   });
-  if(res && res.user) {
+  if (res && res.user) {
     state.currentUser = res.user;
     localStorage.setItem('currentUser', JSON.stringify(res.user));
     startApp();
   } else {
     const msg = document.getElementById('loginMessage');
-    msg.textContent = 'Kredensial atau password salah!';
+    msg.textContent = 'Username/NIK atau password salah!';
     msg.style.color = 'var(--error)';
   }
 });
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('currentUser'); location.reload();
+  localStorage.removeItem('currentUser'); 
+  location.reload();
 });
 
-tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+// Sidebar navigation clicks
+navItems.forEach(item => {
+  item.addEventListener('click', () => switchTab(item.dataset.tab));
+});
+
 initTheme();
+
 const savedUser = localStorage.getItem('currentUser');
-if(savedUser) { state.currentUser = JSON.parse(savedUser); startApp(); }
+if (savedUser) { 
+  state.currentUser = JSON.parse(savedUser); 
+  startApp(); 
+}
