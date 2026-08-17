@@ -1,108 +1,118 @@
 /* ==========================================================================
-   WAREHOUSE MANAGEMENT SYSTEM (WMS) - DESIGN SYSTEM
-   Typography: Inter (UI) + JetBrains Mono (Data/Code/Financial)
+   WAREHOUSE MANAGEMENT — DESIGN SYSTEM
+   Inspired by Hello Monday: Editorial, Minimal, Monochromatic
+   Typography: DM Sans (UI) + DM Serif Display (Display) + JetBrains Mono (Data)
    ========================================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  /* Typography */
+  --font-main:    'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans:    'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  /* DARK MODE — Hello Monday editorial black */
+  --bg-app:         #0e0e0e;
+  --bg-sidebar:     #111111;
+  --bg-panel:       #181818;
+  --bg-panel-hover: #1f1f1f;
+  --bg-card:        #161616;
+  --bg-input:       #0a0a0a;
+  --bg-subtle:      #242424;
 
-  /* Default Dark Mode (IDE Dark Graphite) */
-  --bg-app: #0d1117;
-  --bg-sidebar: #13171f;
-  --bg-panel: #161b22;
-  --bg-panel-hover: #1c212c;
-  --bg-card: #181d26;
-  --bg-input: #090d12;
-  --bg-subtle: #21262d;
-  
-  --border-color: #30363d;
-  --border-subtle: #21262d;
-  --border-active: #38bdf8;
+  --border-color:  rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-active: #b8ff45;
 
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  --text-muted: #6e7681;
+  --text-primary:   #f0ede8;
+  --text-secondary: #888888;
+  --text-muted:     #555555;
 
-  --accent-primary: #38bdf8;
-  --accent-primary-hover: #0ea5e9;
-  --accent-primary-glow: rgba(56, 189, 248, 0.15);
-  
-  --accent-indigo: #818cf8;
-  --accent-indigo-hover: #6366f1;
+  /* Electric Lime accent — selective, premium */
+  --accent-primary:       #b8ff45;
+  --accent-primary-hover: #ccff66;
+  --accent-primary-glow:  rgba(184, 255, 69, 0.12);
+  --accent-primary-text:  #0e0e0e;
 
-  --success: #3fb950;
-  --success-bg: rgba(63, 185, 80, 0.15);
-  --success-border: rgba(63, 185, 80, 0.35);
+  --accent-indigo:       #a5b4fc;
+  --accent-indigo-hover: #818cf8;
 
-  --warning: #d29922;
-  --warning-bg: rgba(210, 153, 34, 0.15);
-  --warning-border: rgba(210, 153, 34, 0.35);
+  --success:        #5dde74;
+  --success-bg:     rgba(93, 222, 116, 0.10);
+  --success-border: rgba(93, 222, 116, 0.25);
 
-  --error: #f85149;
-  --error-bg: rgba(248, 81, 73, 0.15);
-  --error-border: rgba(248, 81, 73, 0.35);
+  --warning:        #f0c040;
+  --warning-bg:     rgba(240, 192, 64, 0.10);
+  --warning-border: rgba(240, 192, 64, 0.25);
 
-  --wa-green: #25d366;
-  --wa-bg: rgba(37, 211, 102, 0.15);
-  --wa-border: rgba(37, 211, 102, 0.35);
+  --error:        #ff6b6b;
+  --error-bg:     rgba(255, 107, 107, 0.10);
+  --error-border: rgba(255, 107, 107, 0.25);
 
-  --sidebar-width: 260px;
+  --wa-green:  #25d366;
+  --wa-bg:     rgba(37, 211, 102, 0.10);
+  --wa-border: rgba(37, 211, 102, 0.25);
+
+  --sidebar-width:           256px;
   --sidebar-collapsed-width: 0px;
-  --header-height: 56px;
+  --header-height:           58px;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.8);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
-/* Light Mode (IDE Studio Light) */
+/* ── LIGHT MODE — Hello Monday Homepage (warm white editorial) ── */
 [data-theme="light"] {
-  --bg-app: #f6f8fa;
-  --bg-sidebar: #f0f3f6;
-  --bg-panel: #ffffff;
-  --bg-panel-hover: #f3f4f6;
-  --bg-card: #ffffff;
-  --bg-input: #f8fafc;
-  --bg-subtle: #eaeef2;
+  --bg-app:         #f5f4f2;
+  --bg-sidebar:     #eeede9;
+  --bg-panel:       #ffffff;
+  --bg-panel-hover: #f0efe9;
+  --bg-card:        #ffffff;
+  --bg-input:       #f8f7f3;
+  --bg-subtle:      #e8e6e0;
 
-  --border-color: #d0d7de;
-  --border-subtle: #e1e4e8;
-  --border-active: #0969da;
+  --border-color:  rgba(0, 0, 0, 0.10);
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-active: #111111;
 
-  --text-primary: #1f2328;
-  --text-secondary: #57606a;
-  --text-muted: #8c959f;
+  --text-primary:   #111111;
+  --text-secondary: #666666;
+  --text-muted:     #999999;
 
-  --accent-primary: #0969da;
-  --accent-primary-hover: #0854ad;
-  --accent-primary-glow: rgba(9, 105, 218, 0.15);
+  /* Light mode: accent is black (Hello Monday style) */
+  --accent-primary:       #111111;
+  --accent-primary-hover: #333333;
+  --accent-primary-glow:  rgba(0, 0, 0, 0.06);
+  --accent-primary-text:  #f5f4f2;
 
-  --accent-indigo: #4f46e5;
+  --accent-indigo:       #4f46e5;
   --accent-indigo-hover: #4338ca;
 
-  --success: #1a7f37;
-  --success-bg: rgba(26, 127, 55, 0.12);
-  --success-border: rgba(26, 127, 55, 0.3);
+  --success:        #1a7f37;
+  --success-bg:     rgba(26, 127, 55, 0.10);
+  --success-border: rgba(26, 127, 55, 0.25);
 
-  --warning: #9a6700;
-  --warning-bg: rgba(154, 103, 0, 0.12);
-  --warning-border: rgba(154, 103, 0, 0.3);
+  --warning:        #9a6700;
+  --warning-bg:     rgba(154, 103, 0, 0.10);
+  --warning-border: rgba(154, 103, 0, 0.25);
 
-  --error: #cf222e;
-  --error-bg: rgba(207, 34, 46, 0.12);
-  --error-border: rgba(207, 34, 46, 0.3);
+  --error:        #c92c2c;
+  --error-bg:     rgba(201, 44, 44, 0.10);
+  --error-border: rgba(201, 44, 44, 0.25);
 
-  --wa-green: #128c7e;
-  --wa-bg: rgba(18, 140, 126, 0.12);
-  --wa-border: rgba(18, 140, 126, 0.3);
+  --wa-green:  #128c7e;
+  --wa-bg:     rgba(18, 140, 126, 0.10);
+  --wa-border: rgba(18, 140, 126, 0.25);
 
-  --shadow-sm: 0 1px 3px rgba(31, 35, 40, 0.08);
-  --shadow-md: 0 4px 12px rgba(31, 35, 40, 0.1);
-  --shadow-lg: 0 12px 28px rgba(31, 35, 40, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
 }
 
 /* ================= Global Reset ================= */
@@ -1157,15 +1167,20 @@ td small {
   display: none !important;
 }
 
-/* ================= Responsive Mobile Drawer ================= */
+/* ================= Responsive Design (Tablet & Mobile) ================= */
+
+/* Medium Screens & Tablets (max-width: 900px) */
 @media (max-width: 900px) {
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
+    width: min(85vw, 280px);
+    min-width: unset;
     transform: translateX(-100%);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+    z-index: 100;
   }
 
   .app-layout.sidebar-mobile-open .sidebar {
@@ -1175,29 +1190,297 @@ td small {
   .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 85;
-    backdrop-filter: blur(3px);
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 95;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease-out;
   }
 
   .mobile-only {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .two-columns, .three-columns, .slip-grid, .slip-header-info {
     grid-template-columns: 1fr;
   }
 
-  .action-bar {
-    flex-direction: column;
-    gap: 12px;
+  .app-content {
+    padding: 16px 12px;
+  }
+}
+
+/* Mobile Screens (max-width: 768px) */
+@media (max-width: 768px) {
+  /* Topbar */
+  .topbar {
+    padding: 0 12px;
+    height: 52px;
   }
 
-  .action-bar button {
+  .topbar-left {
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .topbar-left h2 {
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  .sidebar-toggle-btn {
+    padding: 6px 8px;
+    font-size: 1.05rem;
+    flex-shrink: 0;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .user-badge {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-actions .icon-btn {
+    padding: 5px 8px;
+    font-size: 0.85rem;
+  }
+
+  .topbar-actions .small-btn {
+    padding: 5px 9px;
+    font-size: 0.75rem;
+  }
+
+  /* Content & Panels */
+  .app-content {
+    padding: 12px 8px;
+  }
+
+  .panel {
+    padding: 16px 12px;
+    border-radius: var(--radius-md);
+    margin-bottom: 14px;
+  }
+
+  .panel-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .panel-header-row > div:first-child {
     width: 100%;
   }
 
-  .app-content {
+  .panel-header-row .submit-row,
+  .panel-header-row .action-cell {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .panel-header-row .submit-row button,
+  .panel-header-row .submit-row input {
+    flex: 1 1 auto;
+  }
+
+  /* Quick Stats Grid */
+  .quick-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .stat-box {
+    padding: 12px 10px;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.2px;
+  }
+
+  .stat-value {
+    font-size: 1.1rem;
+  }
+
+  /* Roster Timeline Carousel on Mobile */
+  .roster-timeline-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  .roster-day-card {
+    flex: 0 0 105px;
+    scroll-snap-align: start;
+    padding: 10px 8px;
+  }
+
+  .roster-day-date {
+    font-size: 0.7rem;
+  }
+
+  .roster-day-name {
+    font-size: 0.8rem;
+  }
+
+  .roster-shift-pill {
+    font-size: 0.7rem;
+    padding: 3px 4px;
+  }
+
+  /* Attendance Card */
+  .clock-display {
+    font-size: 2rem;
+    letter-spacing: 1px;
+    margin: 8px 0 14px;
+  }
+
+  .attendance-controls .grid.two-columns {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .attendance-controls button {
+    padding: 12px 8px !important;
+    font-size: 0.82rem;
+  }
+
+  /* Forms & Touch Targets (Prevent iOS Safari auto-zoom by ensuring >=16px) */
+  input, textarea, select {
+    font-size: 16px;
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+
+  input[type="date"], input[type="time"], input[type="month"], input[type="number"] {
+    font-size: 15px;
+  }
+
+  .user-info-box {
+    padding: 12px 10px;
+  }
+
+  .dynamic-row {
     padding: 16px 12px;
+  }
+
+  .action-bar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .action-bar button,
+  .submit-row button {
+    width: 100%;
+  }
+
+  /* Tables on Mobile */
+  .table-wrap {
+    margin: 0 -2px;
+    border-radius: var(--radius-sm);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 320px;
+    font-size: 0.78rem;
+  }
+
+  th, td {
+    padding: 8px 10px;
+    white-space: normal;
+  }
+
+  .action-cell {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    padding: 5px 8px;
+    font-size: 0.72rem;
+  }
+
+  /* Modals on Mobile */
+  .modal {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    padding: 20px 16px;
+    border-radius: 16px 16px 0 0;
+    max-height: 88vh;
+    width: 100%;
+    margin-bottom: 0;
+  }
+
+  .modal-content h3 {
+    font-size: 1rem;
+    margin-bottom: 14px;
+  }
+
+  /* Toast Notification */
+  .toast {
+    left: 12px;
+    right: 12px;
+    bottom: 16px;
+    justify-content: center;
+    width: auto;
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  /* Login / Auth Card */
+  .auth-wrap {
+    padding: 16px;
+  }
+
+  .auth-card {
+    padding: 24px 18px;
+  }
+
+  .brand-title {
+    font-size: 1.25rem;
+  }
+}
+
+/* Extra Small Phones (max-width: 480px) */
+@media (max-width: 480px) {
+  .topbar-left h2 {
+    font-size: 0.85rem;
+    max-width: 120px;
+  }
+
+  .user-badge {
+    max-width: 90px;
+    font-size: 0.68rem;
+    padding: 3px 6px;
+  }
+
+  .attendance-controls .grid.two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-stats-grid {
+    grid-template-columns: 1fr;
   }
 }
