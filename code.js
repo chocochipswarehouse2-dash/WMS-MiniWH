@@ -213,24 +213,24 @@ function normalizeAndFixKaryawanSheet(sheet) {
     if (!password) password = '12345';
 
     let email = String(obj.email || row[6] || '').trim();
-    let noHp = String(obj.nohp || obj.noHp || obj.telepon || obj.hp || row[7] || '').trim();
+    let noHp = String(obj.noHp || obj.noHP || obj.nohp || obj.telepon || obj.hp || row[7] || '').trim();
 
     // Jika email berisi angka murni (>10000), kemungkinan itu adalah gaji pokok yang bergeser
-    let gajiPokok = Number(obj.gajipokok || obj.gajpokok || obj.gapok || obj.gaji || row[8] || 0);
+    let gajiPokok = Number(obj.gajiPokok || obj.gajipokok || obj.gajpokok || obj.gapok || obj.gaji || row[8] || 0);
     if ((!gajiPokok || gajiPokok === 0) && !isNaN(Number(email)) && Number(email) > 100000) {
       gajiPokok = Number(email);
       email = '';
     }
 
     let tunjangan = Number(obj.tunjangan || row[9] || 0);
-    let rateLembur = Number(obj.ratelembur || obj.rate || obj.lembur || row[10] || 0);
+    let rateLembur = Number(obj.rateLembur || obj.ratelembur || obj.rate || obj.lembur || row[10] || 0);
     if (!rateLembur || rateLembur === 0) {
       rateLembur = 10000; // default jika 0
     }
 
-    let saldoKasbon = Number(obj.saldokasbon || obj.kasbon || row[11] || 0);
+    let saldoKasbon = Number(obj.saldoKasbon || obj.saldokasbon || obj.kasbon || row[11] || 0);
     let status = String(obj.status || row[12] || 'Aktif').trim();
-    let createdAt = formatCellVal(obj.createdat || row[13]) || new Date().toISOString();
+    let createdAt = formatCellVal(obj.createdAt || obj.createdat || row[13]) || new Date().toISOString();
 
     cleanedRows.push([
       nik, nama, divisi, username, password, role,
@@ -260,11 +260,20 @@ function jsonResponse(data) {
 }
 
 function normalizeHeaderName(header) {
-  return String(header)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase())
-    .replace(/[^a-zA-Z0-9]/g, '');
+  const s = String(header || '').trim();
+  if (!s) return '';
+  // Split on non-alphanumeric separators (space, underscore, etc.)
+  const parts = s.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  return parts.map((part, i) => {
+    if (!part) return '';
+    if (i === 0) {
+      // All-uppercase token (NIK, ID) → all lowercase; others → first char lowercase
+      return (part.length > 1 && part === part.toUpperCase())
+        ? part.toLowerCase()
+        : part.charAt(0).toLowerCase() + part.slice(1);
+    }
+    return part.charAt(0).toUpperCase() + part.slice(1);
+  }).join('');
 }
 
 function formatCellVal(val) {
@@ -761,10 +770,17 @@ function generateMonthlyPayroll(periode, adminUsername) {
   const results = [];
 
   users.forEach(user => {
+    // Periode: 26 bulan lalu s/d 25 bulan ini
+    const [pYear, pMonth] = periode.split('-').map(Number);
+    const prevMonth = pMonth === 1 ? 12 : pMonth - 1;
+    const prevYear = pMonth === 1 ? pYear - 1 : pYear;
+    const startDate = `${prevYear}-${String(prevMonth).padStart(2,'0')}-26`;
+    const endDate   = `${pYear}-${String(pMonth).padStart(2,'0')}-25`;
+
     const userLembur = lemburRows.filter(l => {
       if (String(l.nik).trim() !== String(user.nik).trim()) return false;
       const tgl = String(l.tanggal || '');
-      return tgl.startsWith(periode);
+      return tgl >= startDate && tgl <= endDate;
     });
 
     let totalJamLembur = 0;

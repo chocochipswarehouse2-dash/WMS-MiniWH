@@ -575,10 +575,19 @@ function downloadCsv(filename, text) {
 
 document.getElementById('btnDownloadShiftTemplate').addEventListener('click', () => {
   const header = 'NIK,Nama,Tanggal,Shift,JamMasuk,JamPulang,Keterangan\n';
-  const sample1 = 'WH0001,Admin Warehouse,2026-08-18,Shift 1,08:00,17:00,Reguler\n';
-  const sample2 = 'WH0002,Budi Santoso,2026-08-18,Shift 2,09:00,18:00,Inbound\n';
-  const sample3 = 'WH0003,Siti Rahma,2026-08-18,Shift 3,12:00,21:00,Outbound\n';
-  downloadCsv('template_jadwal_shift_warehouse.csv', header + sample1 + sample2 + sample3);
+  const rows = [
+    'WH0002,Sasi Novita,2026-08-26,Shift 1,08:00,17:00,',
+    'WH0002,Sasi Novita,2026-08-27,Shift 1,08:00,17:00,',
+    'WH0002,Sasi Novita,2026-08-28,Shift 2,09:00,18:00,',
+    'WH0002,Sasi Novita,2026-08-30,Shift 1,08:00,17:00,',
+    'WH0002,Sasi Novita,2026-08-31,Libur,,,Minggu',
+    'WH0003,Irma,2026-08-26,Shift 2,09:00,18:00,',
+    'WH0003,Irma,2026-08-27,Shift 3,12:00,21:00,',
+    'WH0003,Irma,2026-08-28,Shift 3,12:00,21:00,',
+    'WH0003,Irma,2026-08-30,Shift 2,09:00,18:00,',
+    'WH0003,Irma,2026-08-31,Libur,,,Minggu',
+  ].join('\n');
+  downloadCsv('template_jadwal_shift_warehouse.csv', header + rows);
 });
 
 document.getElementById('btnExportShiftCsv').addEventListener('click', () => {
@@ -937,6 +946,14 @@ document.getElementById('btnGeneratePayroll').addEventListener('click', async ()
   const period = document.getElementById('payrollMonthPicker').value;
   if (!period) return showToast('Pilih bulan payroll terlebih dahulu!', 'error');
 
+  // Hitung range tanggal: 26 bulan lalu s/d 25 bulan ini
+  const [pYear, pMonth] = period.split('-').map(Number);
+  const prevMonth = pMonth === 1 ? 12 : pMonth - 1;
+  const prevYear  = pMonth === 1 ? pYear - 1 : pYear;
+  const startLabel = `26 ${new Date(prevYear, prevMonth - 1).toLocaleString('id-ID', {month:'long', year:'numeric'})}`;
+  const endLabel   = `25 ${new Date(pYear, pMonth - 1).toLocaleString('id-ID', {month:'long', year:'numeric'})}`;
+  const rangeLabel = `${startLabel} – ${endLabel}`;
+
   const btn = document.getElementById('btnGeneratePayroll');
   setButtonLoading(btn, true, 'Menghitung...');
 
@@ -946,7 +963,7 @@ document.getElementById('btnGeneratePayroll').addEventListener('click', async ()
   });
   setButtonLoading(btn, false);
   if (res) {
-    showToast(`Payroll periode ${period} berhasil di-generate!`);
+    showToast(`Payroll periode ${rangeLabel} berhasil di-generate!`);
     loadPayroll();
   }
 });

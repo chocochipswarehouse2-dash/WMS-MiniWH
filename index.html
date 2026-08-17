@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Warehouse Management - Operations & HR</title>
+  <title>Warehouse Management</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -39,7 +39,6 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-brand">
-          <span class="brand-icon">📦</span>
           <span class="brand-text">Warehouse Management</span>
         </div>
         <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu">✕</button>
@@ -50,27 +49,21 @@
         <div class="sidebar-section-title">Management Karyawan</div>
         <nav class="sidebar-nav">
           <button class="nav-item active" data-tab="presensiTab">
-            <span class="nav-icon">🕒</span>
             <span class="nav-label">Presensi & Dashboard Shift</span>
           </button>
           <button class="nav-item" data-tab="formLemburTab">
-            <span class="nav-icon">📝</span>
             <span class="nav-label">Input Lembur</span>
           </button>
           <button class="nav-item" data-tab="statusLemburTab">
-            <span class="nav-icon">📊</span>
             <span class="nav-label">Status Lembur Saya</span>
           </button>
           <button class="nav-item" data-tab="formCutiTab">
-            <span class="nav-icon">🏖️</span>
             <span class="nav-label">Input Ijin / Cuti</span>
           </button>
           <button class="nav-item" data-tab="statusCutiTab">
-            <span class="nav-icon">📋</span>
             <span class="nav-label">Info Cuti Warehouse</span>
           </button>
           <button class="nav-item" data-tab="slipGajiTab">
-            <span class="nav-icon">💵</span>
             <span class="nav-label">Slip Gaji Saya</span>
           </button>
         </nav>
@@ -80,27 +73,21 @@
           <div class="sidebar-section-title">Admin HR & Payroll</div>
           <nav class="sidebar-nav">
             <button id="adminPayrollTabBtn" class="nav-item" data-tab="adminPayrollTab">
-              <span class="nav-icon">💰</span>
               <span class="nav-label">Payroll & Gaji Bulanan</span>
             </button>
             <button id="adminKasbonTabBtn" class="nav-item" data-tab="adminKasbonTab">
-              <span class="nav-icon">💳</span>
               <span class="nav-label">Kasbon Karyawan</span>
             </button>
             <button id="adminShiftAbsensiTabBtn" class="nav-item" data-tab="adminShiftAbsensiTab">
-              <span class="nav-icon">⏱️</span>
               <span class="nav-label">Master Shift & Roster</span>
             </button>
             <button id="adminLemburTabBtn" class="nav-item" data-tab="adminLemburTab">
-              <span class="nav-icon">📑</span>
               <span class="nav-label">Admin Rekap Lembur</span>
             </button>
             <button id="adminCutiTabBtn" class="nav-item" data-tab="adminCutiTab">
-              <span class="nav-icon">✅</span>
               <span class="nav-label">Approval Ijin / Cuti</span>
             </button>
             <button id="settingTabBtn" class="nav-item" data-tab="settingTab">
-              <span class="nav-icon">👥</span>
               <span class="nav-label">Kelola Data Karyawan</span>
             </button>
           </nav>
@@ -110,15 +97,12 @@
         <div class="sidebar-section-title">Management Inventory</div>
         <nav class="sidebar-nav">
           <button class="nav-item" data-tab="inventoryTab">
-            <span class="nav-icon">📦</span>
             <span class="nav-label">Stok & Katalog Gudang</span>
           </button>
           <button class="nav-item" data-tab="inboundTab">
-            <span class="nav-icon">📥</span>
             <span class="nav-label">Inbound & Staging</span>
           </button>
           <button class="nav-item" data-tab="outboundTab">
-            <span class="nav-icon">📤</span>
             <span class="nav-label">Outbound & Dispatch</span>
           </button>
         </nav>
@@ -127,11 +111,9 @@
         <div class="sidebar-section-title">Task & Report Performa</div>
         <nav class="sidebar-nav">
           <button class="nav-item" data-tab="taskTab">
-            <span class="nav-icon">📋</span>
             <span class="nav-label">Task Picking & Packing</span>
           </button>
           <button class="nav-item" data-tab="reportTab">
-            <span class="nav-icon">📈</span>
             <span class="nav-label">KPI & Report Performa</span>
           </button>
         </nav>
@@ -139,7 +121,6 @@
 
       <div class="sidebar-footer">
         <div class="sidebar-user-info">
-          <span class="user-avatar">👤</span>
           <div class="user-meta">
             <span id="sidebarUserName" class="user-name">User</span>
             <span id="sidebarUserRole" class="user-role">Role</span>
