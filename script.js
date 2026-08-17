@@ -42,7 +42,7 @@ async function apiRequest(action, payload = {}) {
 
 // ================= THEME =================
 function initTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'light';
+  const savedTheme = localStorage.getItem('theme') || 'dark';
   htmlEl.setAttribute('data-theme', savedTheme);
   themeToggleBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 }
