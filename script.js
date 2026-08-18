@@ -28,23 +28,46 @@ const panels = document.querySelectorAll('.tab-panel');
 const topbarPageTitle = document.getElementById('topbarPageTitle');
 
 const tabTitles = {
-  presensiTab: 'Presensi & Dashboard Shift',
-  formLemburTab: 'Input Pengajuan Lembur',
+  dashboardTab: 'Dashboard Overview',
+  inventoryTab: 'Warehouse Section & Racks',
+  taskTab: 'Task & Work Order Board',
+  reportTab: 'KPI & Performance Analytics',
+  presensiTab: 'Presensi Harian Warehouse',
+  formLemburTab: 'Form Pengajuan Lembur',
   statusLemburTab: 'Status Lembur Saya',
-  formCutiTab: 'Input Ijin / Cuti',
-  statusCutiTab: 'Info Cuti Tim Warehouse',
+  formCutiTab: 'Form Pengajuan Ijin / Cuti',
+  statusCutiTab: 'Info Ijin & Cuti Tim',
   slipGajiTab: 'Slip Gaji Bulanan Saya',
-  adminPayrollTab: 'Payroll & Rekap Gaji Finance',
+  adminPayrollTab: 'Payroll Bulanan & Finance',
   adminKasbonTab: 'Manajemen Kasbon Karyawan',
-  adminShiftAbsensiTab: 'Master Shift & Roster Karyawan',
+  adminShiftAbsensiTab: 'Master Shift & Jadwal Roster',
   adminLemburTab: 'Admin Rekap Semua Lembur',
-  adminCutiTab: 'Approval & Kelola Ijin / Cuti',
-  settingTab: 'Kelola Data Karyawan & Gaji',
-  inventoryTab: 'Stok & Katalog Gudang Warehouse',
-  inboundTab: 'Inbound & Staging Area',
-  outboundTab: 'Outbound & Dispatch Area',
-  taskTab: 'Task Picking & Packing Gudang',
-  reportTab: 'KPI & Report Performa Warehouse'
+  adminCutiTab: 'Approval Ijin & Cuti Karyawan',
+  settingTab: 'Kelola Data Karyawan & Gaji'
+};
+
+// ================= WAREHOUSE & TASK INTERACTIVE HELPERS =================
+window.switchWarehouseView = (whId) => {
+  const btns = document.querySelectorAll('.wh-tab-btn');
+  btns.forEach((b, idx) => b.classList.toggle('active', idx + 1 === whId));
+  showToast(`Beralih ke Warehouse ${whId}`);
+};
+
+window.openRackDetails = (rackId) => {
+  showToast(`📍 Rak ${rackId}: Kapasitas 12 Slot • Status Aktif`, 'info');
+};
+
+window.toggleTaskCheck = (el) => {
+  el.classList.toggle('checked');
+  const isDone = el.classList.contains('checked');
+  showToast(isDone ? '✅ Tugas berhasil diselesaikan!' : 'Tugas dikembalikan ke antrian.');
+};
+
+window.setTimeframeFilter = (filter) => {
+  const pills = document.querySelectorAll('.timeframe-pill');
+  pills.forEach(p => p.classList.remove('active'));
+  if (event && event.target) event.target.classList.add('active');
+  showToast(`Filter rentang waktu: ${filter.toUpperCase()}`);
 };
 
 // ================= UI HELPERS & LOADING STATE =================
@@ -70,16 +93,23 @@ function setButtonLoading(btn, isLoading, loadingText = 'Memproses...') {
 }
 
 function switchTab(tabId) {
-  navItems.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
-  panels.forEach(p => p.classList.toggle('active', p.id === tabId));
-  panels.forEach(p => p.classList.toggle('hidden', p.id !== tabId));
+  const allNavs = document.querySelectorAll('.nav-item');
+  const allPanels = document.querySelectorAll('.tab-panel');
+  allNavs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+  allPanels.forEach(p => {
+    p.classList.toggle('active', p.id === tabId);
+    p.classList.toggle('hidden', p.id !== tabId);
+  });
   
   if (topbarPageTitle && tabTitles[tabId]) {
     topbarPageTitle.textContent = tabTitles[tabId];
   }
 
-  if (window.innerWidth <= 900) {
-    closeMobileSidebar();
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar && overlay && window.innerWidth <= 768) {
+    sidebar.classList.remove('open');
+    overlay.classList.add('hidden');
   }
 }
 
@@ -2836,10 +2866,19 @@ async function startApp() {
     const picker = document.getElementById('payrollMonthPicker');
     if (picker && !picker.value) picker.value = currentMonthStr;
 
-    // User Labels
+    // User Labels & Badges
     if (state.currentUser) {
+      const initials = (state.currentUser.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const sAvatar = document.getElementById('sidebarAvatarInitial');
+      const tAvatar = document.getElementById('topbarAvatarInitial');
+      if (sAvatar) sAvatar.textContent = initials;
+      if (tAvatar) tAvatar.textContent = initials;
+
       const userLabel = document.getElementById('loggedUserLabel');
-      if (userLabel) userLabel.textContent = `${state.currentUser.nama || ''} (${state.currentUser.role || ''})`;
+      if (userLabel) userLabel.textContent = state.currentUser.nama || 'Pengguna';
+
+      const userRoleLabel = document.getElementById('loggedUserRole');
+      if (userRoleLabel) userRoleLabel.textContent = state.currentUser.role === 'admin' ? 'Administrator' : 'Warehouse Staff';
       
       const sidebarName = document.getElementById('sidebarUserName');
       const sidebarRole = document.getElementById('sidebarUserRole');
@@ -2848,17 +2887,13 @@ async function startApp() {
       
       // Role-Based Navigation Groups (Admin Only Modules)
       const adminGroup = document.getElementById('adminNavGroup');
-      const invGroup = document.getElementById('inventoryNavGroup');
-      const taskGroup = document.getElementById('taskNavGroup');
       const isAdmin = state.currentUser.role === 'admin';
 
       if (adminGroup) adminGroup.classList.toggle('hidden', !isAdmin);
-      if (invGroup) invGroup.classList.toggle('hidden', !isAdmin);
-      if (taskGroup) taskGroup.classList.toggle('hidden', !isAdmin);
     }
 
     startLiveClock();
-    switchTab('presensiTab');
+    switchTab('dashboardTab');
 
     // Load data in parallel for maximum speed
     await Promise.allSettled([
@@ -2876,45 +2911,78 @@ async function startApp() {
   }
 }
 
-// ================= AUTH EVENTS =================
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('loginSubmitBtn');
-  const msg = document.getElementById('loginMessage');
-  if (msg) {
-    msg.textContent = '';
-  }
-  setButtonLoading(btn, true, 'Memverifikasi...');
+// ================= SIDEBAR & NAVIGATION BINDINGS =================
+const toggleBtn = document.getElementById('toggleSidebarBtn');
+const closeBtn = document.getElementById('closeSidebarMobileBtn');
+const overlayEl = document.getElementById('sidebarOverlay');
+const sidebarEl = document.getElementById('sidebar');
 
-  const usernameInput = document.getElementById('loginUsername');
-  const passwordInput = document.getElementById('loginPassword');
-
-  const res = await apiRequest('login', { 
-    username: usernameInput ? usernameInput.value.trim() : '', 
-    password: passwordInput ? passwordInput.value.trim() : '' 
+if (toggleBtn) {
+  toggleBtn.addEventListener('click', () => {
+    if (sidebarEl) sidebarEl.classList.toggle('open');
+    if (overlayEl) overlayEl.classList.toggle('hidden');
   });
-  
-  setButtonLoading(btn, false);
-  if (res && res.success && res.user) {
-    state.currentUser = res.user;
-    localStorage.setItem('currentUser', JSON.stringify(res.user));
-    await startApp();
-  } else {
-    if (msg) {
-      msg.textContent = (res && res.message) ? res.message : 'Username/NIK atau password salah!';
-      msg.style.color = 'var(--error)';
-    }
-  }
-});
+}
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  localStorage.removeItem('currentUser'); 
-  location.reload();
-});
+if (closeBtn) {
+  closeBtn.addEventListener('click', () => {
+    if (sidebarEl) sidebarEl.classList.remove('open');
+    if (overlayEl) overlayEl.classList.add('hidden');
+  });
+}
 
-navItems.forEach(item => {
+if (overlayEl) {
+  overlayEl.addEventListener('click', () => {
+    if (sidebarEl) sidebarEl.classList.remove('open');
+    overlayEl.classList.add('hidden');
+  });
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => switchTab(item.dataset.tab));
 });
+
+// ================= AUTH EVENTS =================
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginSubmitBtn');
+    const msg = document.getElementById('loginMessage');
+    if (msg) {
+      msg.textContent = '';
+    }
+    setButtonLoading(btn, true, 'Memverifikasi...');
+
+    const usernameInput = document.getElementById('loginUsername');
+    const passwordInput = document.getElementById('loginPassword');
+
+    const res = await apiRequest('login', { 
+      username: usernameInput ? usernameInput.value.trim() : '', 
+      password: passwordInput ? passwordInput.value.trim() : '' 
+    });
+    
+    setButtonLoading(btn, false);
+    if (res && res.success && res.user) {
+      state.currentUser = res.user;
+      localStorage.setItem('currentUser', JSON.stringify(res.user));
+      await startApp();
+    } else {
+      if (msg) {
+        msg.textContent = (res && res.message) ? res.message : 'Username/NIK atau password salah!';
+        msg.style.color = 'var(--error)';
+      }
+    }
+  });
+}
+
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('currentUser'); 
+    location.reload();
+  });
+}
 
 initTheme();
 

@@ -1,123 +1,133 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Warehouse Management</title>
+  <title>IronNest — Warehouse Management System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.3" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3.0" />
 </head>
 <body>
   <!-- Halaman Login -->
   <div id="loginPage" class="auth-wrap">
     <div class="auth-card">
-      <div class="brand-title">Warehouse Management</div>
-      <p class="auth-subtitle">Portal Operasional & Manajemen Karyawan Warehouse</p>
+      <div class="brand-logo-wrap" style="justify-content: center; margin-bottom: 12px;">
+        <div class="brand-icon-box" style="width: 44px; height: 44px; font-size: 1.5rem;">◰</div>
+        <div class="brand-title" style="color: #112E3B; font-size: 1.6rem;">Iron<span>Nest</span></div>
+      </div>
+      <p class="auth-subtitle">Warehouse & Operational Management Portal</p>
       <form id="loginForm">
-        <label>
+        <label style="text-align: left;">
           <span>Username / NIK</span>
-          <input id="loginUsername" type="text" placeholder="Masukkan NIK atau admin" required />
+          <input id="loginUsername" type="text" placeholder="Masukkan NIK (misal: WH0001) atau admin" required />
         </label>
-        <label>
+        <label style="text-align: left; margin-top: 10px;">
           <span>Password</span>
           <input id="loginPassword" type="password" placeholder="Masukkan password" required />
         </label>
-        <button type="submit" id="loginSubmitBtn" class="primary-btn">
+        <button type="submit" id="loginSubmitBtn" class="primary-btn" style="width: 100%; margin-top: 20px; padding: 13px;">
           <span class="btn-text">Masuk ke Sistem</span>
         </button>
       </form>
-      <div id="loginMessage" class="message-box"></div>
+      <div id="loginMessage" class="message-box" style="margin-top: 12px;"></div>
     </div>
   </div>
 
-  <!-- Halaman Aplikasi -->
+  <!-- Halaman Aplikasi (Main WMS Layout) -->
   <div id="appPage" class="app-layout hidden">
     
-    <!-- SIDEBAR NAVIGASI -->
+    <!-- SIDEBAR NAVIGASI (IronNest Dark Slate Style) -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-brand">
-          <span class="brand-text">Warehouse Management</span>
+        <div class="brand-logo-wrap">
+          <div class="brand-icon-box">◰</div>
+          <div>
+            <div class="brand-title">Iron<span>Nest</span></div>
+            <div class="brand-subtitle">Warehouse WMS</div>
+          </div>
         </div>
-        <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu">✕</button>
+        <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu" style="margin-left: auto; color:#fff; border:none; background:transparent;">✕</button>
       </div>
 
       <div class="sidebar-content">
-        <!-- 1. MANAGEMENT KARYAWAN -->
-        <div class="sidebar-section-title">Management Karyawan</div>
+        <!-- 1. DASHBOARD OVERVIEW -->
         <nav class="sidebar-nav">
-          <button class="nav-item active" data-tab="presensiTab">
-            <span class="nav-label">Presensi & Dashboard Shift</span>
+          <button class="nav-item active" data-tab="dashboardTab">
+            <span class="nav-icon">⊞</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+          <button class="nav-item" data-tab="inventoryTab">
+            <span class="nav-icon">🏬</span>
+            <span class="nav-label">Warehouses</span>
+          </button>
+          <button class="nav-item" data-tab="taskTab">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Task Management</span>
+          </button>
+          <button class="nav-item" data-tab="reportTab">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">KPI & Performance</span>
+          </button>
+        </nav>
+
+        <!-- 2. PEOPLE MANAGEMENT (Presensi & Employee HR) -->
+        <div class="sidebar-section-title">People & Attendance</div>
+        <nav class="sidebar-nav">
+          <button class="nav-item" data-tab="presensiTab">
+            <span class="nav-icon">⏱️</span>
+            <span class="nav-label">Presensi Harian</span>
           </button>
           <button class="nav-item" data-tab="formLemburTab">
+            <span class="nav-icon">⚡</span>
             <span class="nav-label">Input Lembur</span>
           </button>
           <button class="nav-item" data-tab="statusLemburTab">
+            <span class="nav-icon">📑</span>
             <span class="nav-label">Status Lembur Saya</span>
           </button>
           <button class="nav-item" data-tab="formCutiTab">
+            <span class="nav-icon">🏖️</span>
             <span class="nav-label">Input Ijin / Cuti</span>
           </button>
           <button class="nav-item" data-tab="statusCutiTab">
-            <span class="nav-label">Info Cuti Warehouse</span>
+            <span class="nav-icon">👥</span>
+            <span class="nav-label">Info Cuti Tim</span>
           </button>
           <button class="nav-item" data-tab="slipGajiTab">
+            <span class="nav-icon">💰</span>
             <span class="nav-label">Slip Gaji Saya</span>
           </button>
         </nav>
 
-        <!-- ADMIN MENU -->
+        <!-- 3. ADMIN MANAGEMENT (ADMIN ONLY) -->
         <div id="adminNavGroup" class="hidden">
           <div class="sidebar-section-title">Admin HR & Payroll</div>
           <nav class="sidebar-nav">
             <button id="adminPayrollTabBtn" class="nav-item" data-tab="adminPayrollTab">
-              <span class="nav-label">Payroll & Gaji Bulanan</span>
+              <span class="nav-icon">💵</span>
+              <span class="nav-label">Payroll Bulanan</span>
             </button>
             <button id="adminKasbonTabBtn" class="nav-item" data-tab="adminKasbonTab">
+              <span class="nav-icon">💳</span>
               <span class="nav-label">Kasbon Karyawan</span>
             </button>
             <button id="adminShiftAbsensiTabBtn" class="nav-item" data-tab="adminShiftAbsensiTab">
+              <span class="nav-icon">🔄</span>
               <span class="nav-label">Master Shift & Roster</span>
             </button>
             <button id="adminLemburTabBtn" class="nav-item" data-tab="adminLemburTab">
-              <span class="nav-label">Admin Rekap Lembur</span>
+              <span class="nav-icon">📋</span>
+              <span class="nav-label">Rekap Semua Lembur</span>
             </button>
             <button id="adminCutiTabBtn" class="nav-item" data-tab="adminCutiTab">
+              <span class="nav-icon">✅</span>
               <span class="nav-label">Approval Ijin / Cuti</span>
             </button>
             <button id="settingTabBtn" class="nav-item" data-tab="settingTab">
-              <span class="nav-label">Kelola Data Karyawan</span>
-            </button>
-          </nav>
-        </div>
-
-        <!-- 2. MANAGEMENT INVENTORY (ADMIN ONLY) -->
-        <div id="inventoryNavGroup" class="hidden">
-          <div class="sidebar-section-title">Management Inventory</div>
-          <nav class="sidebar-nav">
-            <button class="nav-item" data-tab="inventoryTab">
-              <span class="nav-label">Stok & Katalog Gudang</span>
-            </button>
-            <button class="nav-item" data-tab="inboundTab">
-              <span class="nav-label">Inbound & Staging</span>
-            </button>
-            <button class="nav-item" data-tab="outboundTab">
-              <span class="nav-label">Outbound & Dispatch</span>
-            </button>
-          </nav>
-        </div>
-
-        <!-- 3. MANAGEMENT TASK & REPORT (ADMIN ONLY) -->
-        <div id="taskNavGroup" class="hidden">
-          <div class="sidebar-section-title">Task & Report Performa</div>
-          <nav class="sidebar-nav">
-            <button class="nav-item" data-tab="taskTab">
-              <span class="nav-label">Task Picking & Packing</span>
-            </button>
-            <button class="nav-item" data-tab="reportTab">
-              <span class="nav-label">KPI & Report Performa</span>
+              <span class="nav-icon">⚙️</span>
+              <span class="nav-label">Kelola Karyawan</span>
             </button>
           </nav>
         </div>
@@ -125,9 +135,10 @@
 
       <div class="sidebar-footer">
         <div class="sidebar-user-info">
+          <div class="sidebar-user-avatar" id="sidebarAvatarInitial">WH</div>
           <div class="user-meta">
             <span id="sidebarUserName" class="user-name">User</span>
-            <span id="sidebarUserRole" class="user-role">Role</span>
+            <span id="sidebarUserRole" class="user-role">Warehouse Staff</span>
           </div>
         </div>
       </div>
@@ -138,22 +149,499 @@
 
     <!-- MAIN CONTAINER -->
     <div class="main-wrapper">
+      
+      <!-- TOPBAR (IronNest Search & Actions) -->
       <header class="topbar">
         <div class="topbar-left">
           <button id="toggleSidebarBtn" class="icon-btn sidebar-toggle-btn" title="Toggle Sidebar">☰</button>
-          <h2 id="topbarPageTitle">Presensi & Dashboard Shift</h2>
+          <div class="topbar-page-info">
+            <h2 id="topbarPageTitle">Dashboard</h2>
+          </div>
+          <div class="topbar-search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="globalSearchInput" placeholder="Find inventory, orders, staff or reports..." />
+          </div>
         </div>
+
         <div class="topbar-actions">
-          <span id="loggedUserLabel" class="user-badge">User</span>
-          <button id="themeToggleBtn" class="icon-btn" title="Toggle Dark/Light Mode">🌙</button>
+          <div class="timeframe-pill-group mobile-hide" style="margin-right: 8px;">
+            <button class="timeframe-pill active" onclick="setTimeframeFilter('today')">Today</button>
+            <button class="timeframe-pill" onclick="setTimeframeFilter('week')">This Week</button>
+            <button class="timeframe-pill" onclick="setTimeframeFilter('month')">This Month</button>
+          </div>
+          <button id="themeToggleBtn" class="icon-btn theme-toggle-btn" title="Toggle Mode">☀️</button>
+          <div class="user-profile-badge" id="userProfileDropdownBtn">
+            <div class="avatar" id="topbarAvatarInitial">WH</div>
+            <div class="profile-text">
+              <span id="loggedUserLabel" class="name">User Name</span>
+              <span id="loggedUserRole" class="role">Warehouse</span>
+            </div>
+            <span style="font-size: 0.7rem; color: var(--text-muted);">▼</span>
+          </div>
           <button id="logoutBtn" class="secondary-btn small-btn">Logout</button>
         </div>
       </header>
 
       <main class="app-content">
-        
-        <!-- TAB: PRESENSI & DASHBOARD SHIFT -->
-        <section id="presensiTab" class="tab-panel active">
+
+        <!-- ================= PILAR 1: EXECUTIVE DASHBOARD (IronNest Image 4) ================= -->
+        <section id="dashboardTab" class="tab-panel active">
+          
+          <div class="panel-header-row" style="margin-bottom: 16px;">
+            <div>
+              <h3>Warehouse Executive Overview</h3>
+              <small style="color: var(--text-muted);">Real-time monitoring of operational activities, orders, inventory movement & KPIs.</small>
+            </div>
+            <div class="submit-row" style="gap: 8px;">
+              <button class="secondary-btn small-btn">⇅ Sort by</button>
+              <button class="secondary-btn small-btn">⚙ Filter by</button>
+            </div>
+          </div>
+
+          <!-- HERO 3-CARD STATS (Image 4 Top Row) -->
+          <div class="dashboard-grid-hero">
+            <!-- 1. Orders This Month Hero Banner -->
+            <div class="hero-stats-banner">
+              <div>
+                <div class="title">Orders This Month</div>
+                <div class="amount" id="dashOrdersAmount">Rp 128.450.000</div>
+                <span class="hero-pill-badge">📈 26% Growth</span>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <span class="status disetujui" style="background: rgba(255,255,255,0.85); color:#112E3B;">58% Inbound</span>
+                <span class="status diajukan" style="background: rgba(255,255,255,0.85); color:#112E3B;">42% Outbound</span>
+              </div>
+            </div>
+
+            <!-- 2. Dual Bar Chart (Order Statistics) -->
+            <div class="bar-chart-card">
+              <div class="panel-header-row" style="margin-bottom: 0;">
+                <strong style="font-size: 0.95rem;">Order Statistics</strong>
+                <div style="display: flex; gap: 8px; font-size: 0.72rem;">
+                  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; background: #112E3B; border-radius: 2px;"></span> Inbound</span>
+                  <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; background: #F4C430; border-radius: 2px;"></span> Outbound</span>
+                </div>
+              </div>
+              <div class="dual-bars-container">
+                <div class="bar-col"><div class="bar-pair"><div class="bar navy" style="height: 55%;"></div><div class="bar gold" style="height: 35%;"></div></div><span class="bar-label">25</span></div>
+                <div class="bar-col"><div class="bar-pair"><div class="bar navy" style="height: 80%;"></div><div class="bar gold" style="height: 50%;"></div></div><span class="bar-label">26</span></div>
+                <div class="bar-col"><div class="bar-pair"><div class="bar navy" style="height: 60%;"></div><div class="bar gold" style="height: 90%;"></div></div><span class="bar-label">27</span></div>
+                <div class="bar-col"><div class="bar-pair"><div class="bar navy" style="height: 45%;"></div><div class="bar gold" style="height: 30%;"></div></div><span class="bar-label">28</span></div>
+                <div class="bar-col"><div class="bar-pair"><div class="bar navy" style="height: 95%;"></div><div class="bar gold" style="height: 70%;"></div></div><span class="bar-label">29</span></div>
+                <div class="bar-col"><div class="bar-pair"><div class="bar navy" style="height: 75%;"></div><div class="bar gold" style="height: 60%;"></div></div><span class="bar-label">30</span></div>
+              </div>
+            </div>
+
+            <!-- 3. Radial Summary Card -->
+            <div class="radial-summary-card">
+              <strong style="font-size: 0.95rem; margin-bottom: 4px;">Fulfillment Summary</strong>
+              <div class="semi-circle-gauge"></div>
+              <div style="font-size: 1.45rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-primary); margin-top: -10px;">88.4%</div>
+              <small style="color: var(--text-secondary);">Orders Completed On-Time</small>
+            </div>
+          </div>
+
+          <!-- BOTTOM ROW: 4 QUAD INVENTORY STATS & FAST MOVING PRODUCTS -->
+          <div class="grid two-columns" style="align-items: start;">
+            <!-- Left: 4 Metric Cards -->
+            <div class="inventory-stats-quad">
+              <div class="quad-card">
+                <div class="quad-top">
+                  <span class="quad-icon">📦</span>
+                  <span class="quad-badge up">+26% ↗</span>
+                </div>
+                <div class="quad-val">4,236</div>
+                <div class="quad-lbl">Orders Received</div>
+              </div>
+
+              <div class="quad-card">
+                <div class="quad-top">
+                  <span class="quad-icon">🚚</span>
+                  <span class="quad-badge down">-20% ↘</span>
+                </div>
+                <div class="quad-val">2,778</div>
+                <div class="quad-lbl">Orders Shipped</div>
+              </div>
+
+              <div class="quad-card">
+                <div class="quad-top">
+                  <span class="quad-icon">🔄</span>
+                  <span class="quad-badge down">-8% ↘</span>
+                </div>
+                <div class="quad-val">147</div>
+                <div class="quad-lbl">Orders Returned</div>
+              </div>
+
+              <div class="quad-card">
+                <div class="quad-top">
+                  <span class="quad-icon">🎁</span>
+                  <span class="quad-badge up">+6% ↗</span>
+                </div>
+                <div class="quad-val">537</div>
+                <div class="quad-lbl">Orders Staged</div>
+              </div>
+            </div>
+
+            <!-- Right: Top Moving Products -->
+            <div class="panel" style="margin-bottom: 0;">
+              <div class="panel-header-row">
+                <h3>Top Moving Warehouse Products</h3>
+                <button class="secondary-btn small-btn">View All</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Item</th><th>Status</th><th>Qty</th><th>Value</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Wireless Earbuds Gen 2</strong><br><small class="mono-text">SKU-45236852</small></td>
+                      <td><span class="status disetujui">Shipped</span></td>
+                      <td><span class="mono-text">x6</span></td>
+                      <td><strong class="mono-text">Rp 1.890.000</strong></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Smart Projector HD WiFi</strong><br><small class="mono-text">SKU-45236847</small></td>
+                      <td><span class="status disetujui">Shipped</span></td>
+                      <td><span class="mono-text">x2</span></td>
+                      <td><strong class="mono-text">Rp 2.550.000</strong></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Temperature Smart Mug</strong><br><small class="mono-text">SKU-45236823</small></td>
+                      <td><span class="status diajukan">Staging</span></td>
+                      <td><span class="mono-text">x4</span></td>
+                      <td><strong class="mono-text">Rp 1.200.000</strong></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Electric Pressure Cooker 6L</strong><br><small class="mono-text">SKU-45236828</small></td>
+                      <td><span class="status disetujui">Shipped</span></td>
+                      <td><span class="mono-text">x2</span></td>
+                      <td><strong class="mono-text">Rp 1.950.000</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PILAR 2: WAREHOUSES & INVENTORY RACKS (IronNest Image 3) ================= -->
+        <section id="inventoryTab" class="tab-panel">
+          <div class="warehouse-section-wrapper">
+            <div class="panel-header-row">
+              <div>
+                <h2>Warehouse Section Overview (8)</h2>
+                <small style="color: var(--text-muted);">Peta visual layout rak seksional dan kapasitas penempatan barang di gudang.</small>
+              </div>
+              <div class="submit-row" style="gap: 8px;">
+                <button class="primary-btn small-btn">+ Add Request</button>
+                <button class="secondary-btn small-btn">✏️ Edit Section</button>
+                <button class="secondary-btn small-btn">🗑️ Delete Section</button>
+              </div>
+            </div>
+
+            <!-- Warehouse Tabs -->
+            <div class="warehouse-tabs-nav">
+              <button class="wh-tab-btn active" onclick="switchWarehouseView(1)">Warehouse 1 (Main Hub)</button>
+              <button class="wh-tab-btn" onclick="switchWarehouseView(2)">Warehouse 2 (Staging)</button>
+              <button class="wh-tab-btn" onclick="switchWarehouseView(3)">Warehouse 3 (Cold Storage)</button>
+              <button class="wh-tab-btn" onclick="switchWarehouseView(4)">Warehouse 4 (Returns)</button>
+            </div>
+
+            <!-- Visual Rack Layout Grid (Image 3) -->
+            <div class="warehouse-grid-layout">
+              <!-- Left: Section Columns A, B, C, D -->
+              <div class="sections-container">
+                <!-- Section A -->
+                <div class="section-column">
+                  <div class="section-col-header">
+                    <strong>A - Electronics</strong>
+                    <span>5/12</span>
+                  </div>
+                  <div class="shelf-bin-grid">
+                    <div class="shelf-bin empty" onclick="openRackDetails('A1')">A1</div>
+                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A2')">A2</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('A3')">A3</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('A4')">A4</div>
+                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A5')">A5</div>
+                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A6')">A6</div>
+                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A7')">A7</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('A8')">A8</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('A9')">A9</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('A10')">A10</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('A11')">A11</div>
+                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A12')">A12</div>
+                  </div>
+                </div>
+
+                <!-- Section B (Highlighted) -->
+                <div class="section-column highlighted">
+                  <div class="section-col-header">
+                    <strong style="color: var(--accent-navy);">B - Appliances</strong>
+                    <span style="font-weight: 700; color: var(--accent-navy);">7/12</span>
+                  </div>
+                  <div class="shelf-bin-grid">
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B1')">B1</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('B2')">B2</div>
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B3')">B3</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('B4')">B4</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('B5')">B5</div>
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B6')">B6</div>
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B7')">B7</div>
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B8')">B8</div>
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B9')">B9</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('B10')">B10</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('B11')">B11</div>
+                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B12')">B12</div>
+                  </div>
+                </div>
+
+                <!-- Section C -->
+                <div class="section-column">
+                  <div class="section-col-header">
+                    <strong>C - Home Decor</strong>
+                    <span>8/12</span>
+                  </div>
+                  <div class="shelf-bin-grid">
+                    <div class="shelf-bin empty" onclick="openRackDetails('C1')">C1</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C2')">C2</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C3')">C3</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('C4')">C4</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C5')">C5</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C6')">C6</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C7')">C7</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('C8')">C8</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('C9')">C9</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C10')">C10</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C11')">C11</div>
+                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C12')">C12</div>
+                  </div>
+                </div>
+
+                <!-- Section D -->
+                <div class="section-column">
+                  <div class="section-col-header">
+                    <strong>D - Sports</strong>
+                    <span>7/12</span>
+                  </div>
+                  <div class="shelf-bin-grid">
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D1')">D1</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('D2')">D2</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('D3')">D3</div>
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D4')">D4</div>
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D5')">D5</div>
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D6')">D6</div>
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D7')">D7</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('D8')">D8</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('D9')">D9</div>
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D10')">D10</div>
+                    <div class="shelf-bin empty" onclick="openRackDetails('D11')">D11</div>
+                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D12')">D12</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Usage Gauge & Metrics (Image 3) -->
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div class="usage-gauge-card">
+                  <strong style="font-size: 1rem;">B-Section Usage</strong>
+                  <div class="gauge-circle-wrap">
+                    <div class="circle-gauge">
+                      <span class="gauge-percent-text">56%</span>
+                    </div>
+                    <div>
+                      <strong style="font-size: 0.95rem; display: block;">Location Used</strong>
+                      <small style="color: var(--text-secondary);">Optimal shelf balance</small>
+                    </div>
+                  </div>
+                  <div class="gauge-metric-grid">
+                    <div class="gauge-metric-item">
+                      <span class="val">240</span>
+                      <span class="lbl">Total Shelves</span>
+                    </div>
+                    <div class="gauge-metric-item">
+                      <span class="val">136</span>
+                      <span class="lbl">Empty Shelves</span>
+                    </div>
+                    <div class="gauge-metric-item">
+                      <span class="val">84</span>
+                      <span class="lbl">Full Shelves</span>
+                    </div>
+                    <div class="gauge-metric-item">
+                      <span class="val">20</span>
+                      <span class="lbl">Newly Added</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="panel" style="margin-bottom: 0; padding: 18px;">
+                  <strong style="font-size: 0.9rem; display: block; margin-bottom: 8px;">🎨 Color Legend</strong>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.76rem;">
+                    <span class="status disetujui">🟢 Electronics (A)</span>
+                    <span class="status diajukan">🟡 Appliances (B)</span>
+                    <span class="status" style="background: #F5F3FF; color: #6D28D9;">🟣 Home Decor (C)</span>
+                    <span class="status" style="background: #EFF6FF; color: #1D4ED8;">🔵 Sports (D)</span>
+                    <span class="status" style="background: #F3F4EE; color: #8E9EA7;">⚪ Empty Slot</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PILAR 3: TASK MANAGEMENT (Panze Images 1 & 2) ================= -->
+        <section id="taskTab" class="tab-panel">
+          <div class="panel-header-row">
+            <div>
+              <h3>Manage and track operational tasks</h3>
+              <h2>Warehouse Task Board</h2>
+            </div>
+            <div class="submit-row" style="gap: 8px;">
+              <button class="primary-btn small-btn">+ Add New Task</button>
+              <button class="secondary-btn small-btn">Filter Tasks</button>
+            </div>
+          </div>
+
+          <div class="task-board-grid">
+            <!-- Left Column: My Tasks List (Panze Image 1) -->
+            <div class="task-list-column">
+              <div class="panel-header-row" style="margin-bottom: 12px;">
+                <strong>My Tasks</strong>
+                <button class="icon-btn" style="width: 28px; height: 28px; font-size: 0.8rem;">+</button>
+              </div>
+              <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                <button class="timeframe-pill active" style="font-size: 0.72rem; padding: 4px 10px;">Today</button>
+                <button class="timeframe-pill" style="font-size: 0.72rem; padding: 4px 10px;">Tomorrow</button>
+              </div>
+
+              <!-- Task 1 (Peach) -->
+              <div class="task-card-item peach">
+                <div class="task-card-content">
+                  <h4>Inbound QC - Batch #8812</h4>
+                  <p>Quality inspect 500 pcs incoming electronics staging.</p>
+                </div>
+                <div class="task-check-circle" onclick="toggleTaskCheck(this)">✓</div>
+              </div>
+
+              <!-- Task 2 (Sky) -->
+              <div class="task-card-item sky">
+                <div class="task-card-content">
+                  <h4>Rack Binning - Shelf B7..B12</h4>
+                  <p>Transfer small home appliances to high-bay racks.</p>
+                </div>
+                <div class="task-check-circle checked" onclick="toggleTaskCheck(this)">✓</div>
+              </div>
+
+              <!-- Task 3 (Pink) -->
+              <div class="task-card-item pink">
+                <div class="task-card-content">
+                  <h4>Batch Picking - Order Wave #104</h4>
+                  <p>Pick items for priority express delivery batch.</p>
+                </div>
+                <div class="task-check-circle" onclick="toggleTaskCheck(this)">✓</div>
+              </div>
+
+              <!-- Task 4 (Mint) -->
+              <div class="task-card-item mint">
+                <div class="task-card-content">
+                  <h4>Weekly Cycle Count Stock Audit</h4>
+                  <p>Audit discrepancies on Zone C (Home Decor).</p>
+                </div>
+                <div class="task-check-circle" onclick="toggleTaskCheck(this)">✓</div>
+              </div>
+            </div>
+
+            <!-- Middle Column: Task Status Progress (Panze Image 2) -->
+            <div class="panel" style="margin-bottom: 0;">
+              <div class="panel-header-row">
+                <h3>Task & Work Order Progress</h3>
+                <small style="color: var(--text-muted);">Real-time completion status</small>
+              </div>
+              <div class="progress-bars-container">
+                <div class="progress-bar-row">
+                  <span class="p-label">Overdue</span>
+                  <div class="progress-track"><div class="progress-fill purple" style="width: 35%;"></div></div>
+                  <span class="p-meta">4 Tasks</span>
+                </div>
+                <div class="progress-bar-row">
+                  <span class="p-label">In Progress</span>
+                  <div class="progress-track"><div class="progress-fill red" style="width: 65%;"></div></div>
+                  <span class="p-meta">14 Tasks</span>
+                </div>
+                <div class="progress-bar-row">
+                  <span class="p-label">Awaiting QC</span>
+                  <div class="progress-track"><div class="progress-fill blue" style="width: 45%;"></div></div>
+                  <span class="p-meta">8 Tasks</span>
+                </div>
+                <div class="progress-bar-row">
+                  <span class="p-label">Completed</span>
+                  <div class="progress-track"><div class="progress-fill green" style="width: 82%;"></div></div>
+                  <span class="p-meta">32 Tasks</span>
+                </div>
+                <div class="progress-bar-row">
+                  <span class="p-label">Draft / Plan</span>
+                  <div class="progress-track"><div class="progress-fill amber" style="width: 25%;"></div></div>
+                  <span class="p-meta">5 Tasks</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: PIC & Shift Briefing -->
+            <div class="panel" style="margin-bottom: 0;">
+              <div class="panel-header-row">
+                <h3>Daily Shift Briefing</h3>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="task-card-item" style="background: var(--bg-app); border: 1px solid var(--border-color);">
+                  <div class="task-card-content">
+                    <h4>Morning Operational Briefing</h4>
+                    <p><span class="mono-text">08:00 AM</span> • Staging Area 1</p>
+                  </div>
+                </div>
+                <div class="task-card-item" style="background: var(--bg-app); border: 1px solid var(--border-color);">
+                  <div class="task-card-content">
+                    <h4>Mid-Day Logistics Sync</h4>
+                    <p><span class="mono-text">01:30 PM</span> • Warehouse Office</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PILAR 4: KPI & REPORT PERFORMA ================= -->
+        <section id="reportTab" class="tab-panel">
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3>KPI & Performance Analytics Warehouse</h3>
+                <small style="color: var(--text-muted);">Evaluasi produktivitas harian, kecepatan fulfillment, dan efisiensi jam lembur.</small>
+              </div>
+              <button class="secondary-btn small-btn">📥 Export PDF Report</button>
+            </div>
+
+            <div class="grid three-columns" style="margin-bottom: 24px;">
+              <div class="stat-box" style="border-left: 4px solid var(--success);">
+                <span class="stat-label">Picking Accuracy Rate</span>
+                <span class="stat-value" style="color: var(--success);">99.4%</span>
+                <small style="color: var(--text-muted);">Target: >99.0% (Passed)</small>
+              </div>
+              <div class="stat-box" style="border-left: 4px solid var(--accent-primary);">
+                <span class="stat-label">Avg. Fulfillment Speed</span>
+                <span class="stat-value">18.2 Min</span>
+                <small style="color: var(--text-muted);">From order print to staging</small>
+              </div>
+              <div class="stat-box" style="border-left: 4px solid var(--warning);">
+                <span class="stat-label">Overtime Ratio vs Output</span>
+                <span class="stat-value" style="color: var(--warning);">1.12 Jam/100 Order</span>
+                <small style="color: var(--text-muted);">Efisiensi jam lembur optimal</small>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PEOPLE MANAGEMENT: PRESENSI & SHIFT ================= -->
+        <section id="presensiTab" class="tab-panel">
           <!-- DASHBOARD JADWAL SHIFT KARYAWAN -->
           <div class="panel highlight-panel" style="margin-bottom: 24px;">
             <div class="panel-header-row">
@@ -178,7 +666,7 @@
               <div class="stat-box" style="border-left: 4px solid var(--warning);">
                 <span class="stat-label">Sisa Saldo Kasbon</span>
                 <span id="userActiveKasbonAmount" class="stat-value" style="color: var(--warning);">Rp 0</span>
-                <small style="color: var(--text-muted);">Dipoptong cicilan payroll</small>
+                <small style="color: var(--text-muted);">Dipotong cicilan payroll</small>
               </div>
             </div>
 
@@ -327,7 +815,7 @@
           </div>
         </section>
 
-        <!-- TAB: STATUS IJIN/CUTI WAREHOUSE (TRANSPARAN) -->
+        <!-- TAB: STATUS IJIN/CUTI WAREHOUSE -->
         <section id="statusCutiTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
@@ -355,7 +843,7 @@
         <!-- ================= ADMIN TABS ================= -->
 
         <!-- TAB: ADMIN PAYROLL & REKAP GAJI FINANCE -->
-        <section id="adminPayrollTab" class="tab-panel hidden">
+        <section id="adminPayrollTab" class="tab-panel">
           <div class="panel" style="margin-bottom: 24px;">
             <div class="panel-header-row">
               <h3>Kalkulasi & Audit Payroll Bulanan Warehouse</h3>
@@ -373,7 +861,7 @@
             </div>
 
             <!-- METRIC STATS -->
-            <div class="quick-stats-grid" style="margin-bottom: 20px;">
+            <div class="grid four-columns" style="margin-bottom: 20px;">
               <div class="stat-box">
                 <span class="stat-label">Total Pengeluaran Gaji Bersih</span>
                 <span id="sumGajiBersih" class="stat-value" style="color: var(--accent-primary);">Rp 0</span>
@@ -401,7 +889,7 @@
         </section>
 
         <!-- TAB: ADMIN KASBON KARYAWAN -->
-        <section id="adminKasbonTab" class="tab-panel hidden">
+        <section id="adminKasbonTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
               <h3>Manajemen Kasbon & Pinjaman Karyawan</h3>
@@ -415,7 +903,7 @@
         </section>
 
         <!-- TAB: ADMIN MASTER SHIFT & ROSTER -->
-        <section id="adminShiftAbsensiTab" class="tab-panel hidden">
+        <section id="adminShiftAbsensiTab" class="tab-panel">
           <div class="panel" style="margin-bottom: 24px;">
             <div class="panel-header-row">
               <div>
@@ -455,7 +943,7 @@
         </section>
 
         <!-- TAB: ADMIN REKAP LEMBUR -->
-        <section id="adminLemburTab" class="tab-panel hidden">
+        <section id="adminLemburTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
                <h3>Admin Rekap Semua Lembur</h3>
@@ -469,7 +957,7 @@
         </section>
 
         <!-- TAB: ADMIN APPROVAL IJIN/CUTI -->
-        <section id="adminCutiTab" class="tab-panel hidden">
+        <section id="adminCutiTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
               <div>
@@ -483,7 +971,7 @@
         </section>
 
         <!-- TAB: SETTING / DATA KARYAWAN & GAJI -->
-        <section id="settingTab" class="tab-panel hidden">
+        <section id="settingTab" class="tab-panel">
           <div class="panel">
             <div class="panel-header-row">
               <h3 id="userFormTitle">Tambah / Edit Data Karyawan & Gaji</h3>
@@ -503,124 +991,37 @@
                 <span>Password</span>
                 <div class="input-password-wrapper">
                   <input id="userPassword" type="text" placeholder="Password login..." required/>
+                  <button type="button" id="btnGenPassword" class="small-btn secondary-btn" title="Generate Password Acak">🎲 Buat Acak</button>
                 </div>
               </label>
-              <label><span>Role Akses</span><select id="userRole"><option value="user">User / Karyawan</option><option value="admin">Admin Warehouse</option></select></label>
-              
-              <!-- GAJI & RATE LEMBUR -->
-              <label><span>Gaji Pokok (Rp)</span><input id="userGajiPokok" type="number" placeholder="4500000" required/></label>
-              <label><span>Tunjangan Bulanan (Rp)</span><input id="userTunjangan" type="number" placeholder="500000"/></label>
-              <label><span>Rate Lembur per Jam (Rp)</span><input id="userRateLembur" type="number" placeholder="25000" required/></label>
-              <label><span>Saldo Kasbon (Rp)</span><input id="userSaldoKasbon" type="number" placeholder="0" readonly/></label>
-
-              <!-- KONTAK -->
-              <label><span>Email Aktif (Notifikasi)</span><input id="userEmail" type="email" placeholder="karyawan@warehouse.com"/></label>
-              <label><span>No. HP / WhatsApp</span><input id="userNoHp" type="tel" placeholder="Contoh: 081234567890"/></label>
-              
-              <div class="submit-row" style="grid-column: 1 / -1; margin-top: 8px;">
+              <label><span>Email Notifikasi</span><input id="userEmail" type="email" placeholder="email@perusahaan.com"/></label>
+              <label><span>No. WhatsApp (Aktif)</span><input id="userNoHp" placeholder="08123456789"/></label>
+              <label><span>Gaji Pokok (Rp)</span><input id="userGajiPokok" type="number" placeholder="Contoh: 3500000"/></label>
+              <label><span>Tunjangan Tetap (Rp)</span><input id="userTunjangan" type="number" placeholder="Contoh: 500000"/></label>
+              <label><span>Rate Lembur / Jam (Rp)</span><input id="userRateLembur" type="number" value="25000"/></label>
+              <label><span>Saldo Awal Kasbon (Rp)</span><input id="userSaldoKasbon" type="number" value="0"/></label>
+              <label>
+                <span>Role Akses</span>
+                <select id="userRole">
+                  <option value="user">User / Karyawan Reguler</option>
+                  <option value="admin">Admin Warehouse (Akses Penuh)</option>
+                </select>
+              </label>
+              <div class="submit-row action-bar" style="grid-column: 1 / -1;">
                 <button type="submit" id="btnSaveUser" class="primary-btn">
-                  <span class="btn-text">Simpan Karyawan</span>
+                  <span class="btn-text">Simpan Data Karyawan</span>
                 </button>
-                <button type="button" id="resetUserFormBtn" class="secondary-btn">Batal / Reset</button>
+                <button type="button" id="btnCancelEditUser" class="secondary-btn">Batal / Reset</button>
               </div>
             </form>
-            <hr class="divider"/>
+            <div id="userFormMessage" class="message-box"></div>
+          </div>
+
+          <div class="panel">
             <div class="panel-header-row">
-              <h3>Daftar Karyawan Warehouse Terdaftar</h3>
+              <h3>Daftar Seluruh Karyawan & Master Gaji</h3>
             </div>
             <div id="userListWrap" class="table-wrap"></div>
-          </div>
-        </section>
-
-        <!-- ================= MANAGEMENT INVENTORY TABS ================= -->
-        <section id="inventoryTab" class="tab-panel hidden">
-          <div class="panel">
-            <div class="panel-header-row">
-              <div>
-                <h3>📦 Stok & Katalog Gudang Warehouse</h3>
-                <small style="color: var(--text-muted);">Pencatatan SKU, kategori, lokasi rak/bin, dan jumlah stok barang.</small>
-              </div>
-            </div>
-            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
-              <span style="font-size: 2.5rem;">📦</span>
-              <h4 style="margin: 12px 0 6px;">Modul Management Inventory Siap Diintegrasikan</h4>
-              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
-                Struktur katalog barang, bin rack location, dan real-time inventory tracking warehouse.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section id="inboundTab" class="tab-panel hidden">
-          <div class="panel">
-            <div class="panel-header-row">
-              <div>
-                <h3>📥 Inbound & Staging Area</h3>
-                <small style="color: var(--text-muted);">Penerimaan barang masuk dari supplier / vendor dan proses QC inspeksi.</small>
-              </div>
-            </div>
-            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
-              <span style="font-size: 2.5rem;">📥</span>
-              <h4 style="margin: 12px 0 6px;">Modul Inbound & Receiving</h4>
-              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
-                Pencatatan Surat Jalan (PO Receiving), Staging Quality Control, dan Put-away barang ke rak.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section id="outboundTab" class="tab-panel hidden">
-          <div class="panel">
-            <div class="panel-header-row">
-              <div>
-                <h3>📤 Outbound & Dispatch Area</h3>
-                <small style="color: var(--text-muted);">Pengeluaran barang, verifikasi resi pengiriman, dan serah terima kurir ekspedisi.</small>
-              </div>
-            </div>
-            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
-              <span style="font-size: 2.5rem;">📤</span>
-              <h4 style="margin: 12px 0 6px;">Modul Outbound & Dispatching</h4>
-              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
-                Manifest pengiriman barang keluar, DO/Surat Jalan, dan serah terima kurir logistik.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <!-- ================= MANAGEMENT TASK & REPORT TABS ================= -->
-        <section id="taskTab" class="tab-panel hidden">
-          <div class="panel">
-            <div class="panel-header-row">
-              <div>
-                <h3>📋 Task Picking & Packing Gudang</h3>
-                <small style="color: var(--text-muted);">Daftar penugasan harian staf warehouse untuk proses picking order dan packing barang.</small>
-              </div>
-            </div>
-            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
-              <span style="font-size: 2.5rem;">📋</span>
-              <h4 style="margin: 12px 0 6px;">Modul Task Picking & Packing</h4>
-              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
-                Antrian pesanan yang harus di-pick dari rak dan di-packing oleh staf warehouse.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section id="reportTab" class="tab-panel hidden">
-          <div class="panel">
-            <div class="panel-header-row">
-              <div>
-                <h3>📈 KPI & Report Performa Warehouse</h3>
-                <small style="color: var(--text-muted);">Laporan produktivitas tim, akurasi order fulfillment, dan metrik operasional.</small>
-              </div>
-            </div>
-            <div class="user-info-box" style="text-align: center; padding: 40px 20px;">
-              <span style="font-size: 2.5rem;">📈</span>
-              <h4 style="margin: 12px 0 6px;">Modul KPI & Performa Tim</h4>
-              <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 16px;">
-                Analisis produktivitas kerja harian, SLA packing, dan efisiensi penanganan order.
-              </p>
-            </div>
           </div>
         </section>
 
@@ -628,30 +1029,23 @@
     </div>
   </div>
 
-  <!-- MODAL DOWNLOAD TEMPLATE SHIFT ROSTER (WITH DATE RANGE) -->
+  <!-- ================= MODALS ================= -->
+
+  <!-- MODAL DOWNLOAD TEMPLATE SHIFT RANGE TANGGAL -->
   <div id="downloadShiftTemplateModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 500px;">
-      <h3>📥 Download Template CSV Shift Roster</h3>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-        Pilih rentang tanggal roster yang ingin dibuat. File CSV akan otomatis memuat nama & NIK seluruh karyawan serta kolom tanggal yang dipilih.
+    <div class="modal-content">
+      <h3>Download Template CSV Roster Shift</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">
+        Pilih rentang tanggal untuk generate format tabel matriks otomatis berisi data seluruh karyawan.
       </p>
-      <form id="downloadShiftTemplateForm" onsubmit="event.preventDefault(); executeDownloadShiftTemplate();">
+      <form id="downloadShiftTemplateForm">
         <div class="grid two-columns">
-          <label>
-            <span>Dari Tanggal</span>
-            <input type="date" id="tpl_shift_start_date" required />
-          </label>
-          <label>
-            <span>Sampai Tanggal</span>
-            <input type="date" id="tpl_shift_end_date" required />
-          </label>
+          <label><span>Dari Tanggal</span><input type="date" id="tpl_shift_start" required></label>
+          <label><span>Sampai Tanggal</span><input type="date" id="tpl_shift_end" required></label>
         </div>
-        <div class="user-info-box" style="margin-top: 14px; font-size: 0.8rem; color: var(--text-secondary);">
-          💡 <strong>Format Baru (Matrix):</strong> Anda cukup mengisi nama shift (misal: <em>Shift 1, Shift 2, Shift 3, Libur</em>). Jam masuk & pulang otomatis mengikuti Master Shift standar!
-        </div>
-        <div class="submit-row" style="margin-top: 16px;">
-          <button type="submit" class="primary-btn">
-            <span class="btn-text">📥 Unduh CSV Template</span>
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnExecuteDownloadShiftTemplate" class="primary-btn">
+            <span class="btn-text">📥 Unduh Template CSV</span>
           </button>
           <button type="button" class="secondary-btn" onclick="closeModal('downloadShiftTemplateModal')">Batal</button>
         </div>
@@ -659,18 +1053,26 @@
     </div>
   </div>
 
-  <!-- MODAL IMPORT CSV SHIFT ROSTER -->
+  <!-- MODAL IMPORT CSV ROSTER -->
   <div id="importShiftModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 650px;">
-      <h3>📥 Import Jadwal Roster Shift Karyawan (CSV)</h3>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
-        Mendukung format Matrix (<code>Nama, NIK, Tgl1, Tgl2, ...</code>) maupun format baris standar (<code>NIK, Nama, Tanggal, Shift</code>). Jam otomatis diambil dari Master Shift!
-      </p>
-      <input type="file" id="shiftCsvFileInput" accept=".csv" style="margin-bottom: 14px;" />
-      <div id="shiftImportPreviewWrap" class="table-wrap" style="max-height: 240px; margin-bottom: 16px; display: none;"></div>
-      <div class="submit-row">
+    <div class="modal-content">
+      <h3>Import Jadwal Roster Shift Karyawan</h3>
+      <div class="file-drop-zone" id="shiftDropZone">
+        <p>Pilih atau drag file CSV roster shift ke sini</p>
+        <input type="file" id="shiftCsvFileInput" accept=".csv" />
+      </div>
+      <div id="shiftImportPreviewWrap" style="display: none; margin-top: 16px;">
+        <h4>Preview Data Import (<span id="shiftImportCount">0</span> baris):</h4>
+        <div class="table-wrap" style="max-height: 200px;">
+          <table id="shiftImportPreviewTable">
+            <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Pulang</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="submit-row" style="margin-top: 16px;">
         <button type="button" id="btnExecuteImportShift" class="primary-btn" disabled>
-          <span class="btn-text">Proses Import Jadwal</span>
+          <span class="btn-text">Import ke Database</span>
         </button>
         <button type="button" class="secondary-btn" onclick="closeModal('importShiftModal')">Batal</button>
       </div>
@@ -679,45 +1081,54 @@
 
   <!-- MODAL IMPORT CSV KARYAWAN -->
   <div id="importUserModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 600px;">
-      <h3>📥 Import Data Karyawan (CSV)</h3>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-        Format kolom CSV: <code>NIK, Nama, Divisi, Username, Password, Role, Email, NoHP, GajiPokok, Tunjangan, RateLembur</code>
-      </p>
-      <input type="file" id="userCsvFileInput" accept=".csv" style="margin-bottom: 14px;" />
-      <div id="userImportPreviewWrap" class="table-wrap" style="max-height: 220px; margin-bottom: 16px; display: none;"></div>
-      <div class="submit-row">
+    <div class="modal-content">
+      <h3>Import Data Karyawan (CSV)</h3>
+      <div class="file-drop-zone" id="userDropZone">
+        <p>Pilih file CSV karyawan untuk diimport</p>
+        <input type="file" id="userCsvFileInput" accept=".csv" />
+      </div>
+      <div id="userImportPreviewWrap" style="display: none; margin-top: 16px;">
+        <h4>Preview Data (<span id="userImportCount">0</span> karyawan):</h4>
+        <div class="table-wrap" style="max-height: 200px;">
+          <table id="userImportPreviewTable">
+            <thead><tr><th>NIK</th><th>Nama</th><th>Divisi</th><th>Role</th><th>Gaji Pokok</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="submit-row" style="margin-top: 16px;">
         <button type="button" id="btnExecuteImportUser" class="primary-btn" disabled>
-          <span class="btn-text">Proses Import Karyawan</span>
+          <span class="btn-text">Simpan Karyawan ke Database</span>
         </button>
         <button type="button" class="secondary-btn" onclick="closeModal('importUserModal')">Batal</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL AUDIT / EDIT PAYROLL ADJUSTMENT -->
+  <!-- MODAL AUDIT / EDIT PAYROLL -->
   <div id="editPayrollModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 600px;">
-      <h3>Audit / Koreksi Gaji Karyawan</h3>
+    <div class="modal-content">
+      <h3>Audit & Penyesuaian Gaji Karyawan</h3>
       <form id="editPayrollForm">
         <input type="hidden" id="adj_id">
-        <div class="user-info-box grid two-columns" style="margin-bottom: 12px;">
-          <div><strong id="adj_nama">-</strong><br><small id="adj_nik" class="mono-text">-</small></div>
-          <div style="text-align: right;"><span id="adj_periode" class="status diajukan">-</span></div>
+        <div class="user-info-box" style="margin-bottom: 12px;">
+          <strong id="adj_nama" style="font-size: 1.05rem; display: block;">-</strong>
+          <small id="adj_nik" class="mono-text" style="color: var(--text-muted);">-</small> •
+          <span id="adj_periode" class="status diajukan">2026-08</span>
         </div>
         <div class="grid two-columns">
           <label><span>Gaji Pokok (Rp)</span><input type="number" id="adj_gajiPokok" required></label>
-          <label><span>Tunjangan (Rp)</span><input type="number" id="adj_tunjangan" required></label>
+          <label><span>Tunjangan Tetap (Rp)</span><input type="number" id="adj_tunjangan" required></label>
           <label><span>Total Jam Lembur</span><input type="number" step="0.01" id="adj_totalJamLembur" required></label>
-          <label><span>Rate Lembur / Jam (Rp)</span><input type="number" id="adj_rateLembur" required></label>
+          <label><span>Rate Lembur per Jam (Rp)</span><input type="number" id="adj_rateLembur" required></label>
           <label><span>Potongan Kasbon (Rp)</span><input type="number" id="adj_potonganKasbon" required></label>
-          <label><span>Potongan Absensi/Alpha (Rp)</span><input type="number" id="adj_potonganAbsensi" required></label>
-          <label><span>Potongan Lain / Denda (Rp)</span><input type="number" id="adj_potonganLain" required></label>
-          <label><span>Catatan Koreksi</span><input type="text" id="adj_catatan" placeholder="Alasan koreksi..."></label>
+          <label><span>Potongan Absensi / Alpha (Rp)</span><input type="number" id="adj_potonganAbsensi" value="0"></label>
+          <label><span>Potongan Lainnya (Rp)</span><input type="number" id="adj_potonganLain" value="0"></label>
+          <label><span>Catatan Khusus Finance</span><input type="text" id="adj_catatan" placeholder="Catatan bonus / penyesuaian..."></label>
         </div>
-        <div class="submit-row" style="margin-top: 20px;">
+        <div class="submit-row" style="margin-top: 16px;">
           <button type="submit" id="btnSavePayrollAdjustment" class="primary-btn">
-            <span class="btn-text">Simpan Penyesuaian</span>
+            <span class="btn-text">Simpan Koreksi Gaji</span>
           </button>
           <button type="button" class="secondary-btn" onclick="closeModal('editPayrollModal')">Batal</button>
         </div>
@@ -725,26 +1136,53 @@
     </div>
   </div>
 
-  <!-- MODAL VIEW & PRINT SLIP GAJI -->
-  <div id="viewSlipGajiModal" class="modal hidden">
-    <div class="modal-content" style="max-width: 650px;">
-      <div class="panel-header-row" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 1.3rem;">⚡</span>
-          <div>
-            <h3 style="margin: 0; font-size: 1.1rem;">SLIP GAJI KARYAWAN</h3>
-            <small style="color: var(--text-muted);">WAREHOUSE MANAGEMENT SYSTEM</small>
-          </div>
+  <!-- MODAL SLIP GAJI KARYAWAN -->
+  <div id="slipGajiModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 540px;">
+      <div id="slipGajiPrintArea" class="slip-gaji-card">
+        <div style="text-align: center; border-bottom: 2px dashed var(--border-color); padding-bottom: 12px; margin-bottom: 12px;">
+          <h3 style="margin-bottom: 2px;">SLIP GAJI KARYAWAN</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">Warehouse Management System</p>
+          <span id="slip_periode" class="status disetujui" style="margin-top: 4px;">Periode: -</span>
         </div>
-        <button type="button" id="btnPrintSlipPdf" class="primary-btn small-btn">📄 Download PDF</button>
+        <div class="grid two-columns" style="font-size: 0.85rem; margin-bottom: 12px;">
+          <div><span>NIK:</span> <strong id="slip_nik" class="mono-text">-</strong></div>
+          <div><span>Nama:</span> <strong id="slip_nama">-</strong></div>
+          <div><span>Divisi:</span> <span id="slip_divisi">-</span></div>
+          <div><span>Status:</span> <span id="slip_status" class="status disetujui">Lunas</span></div>
+        </div>
+        <hr class="divider"/>
+        <h4 style="margin-bottom: 6px; font-size: 0.88rem;">PENGHASILAN:</h4>
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+          <span>Gaji Pokok:</span>
+          <strong id="slip_gapok" class="mono-text">Rp 0</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+          <span>Tunjangan:</span>
+          <strong id="slip_tunjangan" class="mono-text">Rp 0</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+          <span>Uang Lembur (<span id="slip_jamLembur">0</span> jam):</span>
+          <strong id="slip_uangLembur" class="mono-text" style="color: var(--success);">Rp 0</strong>
+        </div>
+        <hr class="divider"/>
+        <h4 style="margin-bottom: 6px; font-size: 0.88rem;">POTONGAN:</h4>
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+          <span>Cicilan Kasbon:</span>
+          <strong id="slip_potKasbon" class="mono-text" style="color: var(--warning);">Rp 0</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+          <span>Potongan Absensi / Lainnya:</span>
+          <strong id="slip_potLain" class="mono-text" style="color: var(--error);">Rp 0</strong>
+        </div>
+        <div style="background: var(--bg-app); padding: 12px; border-radius: var(--radius-sm); margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700;">TOTAL GAJI BERSIH:</span>
+          <span id="slip_gajiBersih" class="mono-text" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-primary);">Rp 0</span>
+        </div>
       </div>
-
-      <div id="slipGajiContentArea" class="slip-gaji-preview" style="padding: 16px 0;">
-        <!-- Dynamically rendered -->
-      </div>
-
-      <div class="submit-row" style="justify-content: flex-end; margin-top: 16px;">
-        <button type="button" class="secondary-btn" onclick="closeModal('viewSlipGajiModal')">Tutup</button>
+      <div class="submit-row" style="margin-top: 16px;">
+        <button type="button" id="btnPrintSlipGaji" class="primary-btn">🖨️ Cetak / Download PDF</button>
+        <button type="button" class="secondary-btn" onclick="closeModal('slipGajiModal')">Tutup</button>
       </div>
     </div>
   </div>
@@ -865,6 +1303,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=2.3"></script>
+  <script src="script.js?v=3.0"></script>
 </body>
 </html>
