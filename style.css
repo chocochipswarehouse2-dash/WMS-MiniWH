@@ -2078,7 +2078,7 @@ label {
   top: 0;
   z-index: 10;
   background: var(--bg-sidebar);
-  color: var(--text-primary);
+  color: #FFFFFF;
   font-weight: 700;
   font-size: 0.72rem;
   text-transform: uppercase;
