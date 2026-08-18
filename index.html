@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.0" />
+  <link rel="stylesheet" href="style.css?v=7.0" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -59,8 +59,13 @@
       <div class="sidebar-content">
         <!-- 1. EXECUTIVE & OPERATIONAL (ADMIN ONLY) -->
         <div id="executiveNavGroup" class="hidden">
-          
-          
+          <div class="sidebar-section-title">Stock &amp; Inventory</div>
+          <nav class="sidebar-nav">
+            <button id="invTabBtn" class="nav-item" data-tab="inventoryTab">
+              <span class="nav-icon">📦</span>
+              <span class="nav-label">Inventory Matrix</span>
+            </button>
+          </nav>
         </div>
 
         <!-- 2. PEOPLE MANAGEMENT (Presensi & Employee HR - AKSES USER & ADMIN) -->
@@ -557,6 +562,99 @@
               <h3>Daftar Seluruh Karyawan & Master Gaji</h3>
             </div>
             <div id="userListWrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- ================= INVENTORY MATRIX TAB ================= -->
+        <section id="inventoryTab" class="tab-panel">
+          <!-- DASHBOARD SUMMARY CARDS -->
+          <div class="inv-summary-cards" id="invSummaryCards">
+            <div class="inv-card" id="invCardTotal">
+              <div class="inv-card-icon">📦</div>
+              <div class="inv-card-body">
+                <div class="inv-card-val" id="invTotalSku">–</div>
+                <div class="inv-card-label">Total SKU</div>
+              </div>
+            </div>
+            <div class="inv-card" id="invCardActive">
+              <div class="inv-card-icon">✅</div>
+              <div class="inv-card-body">
+                <div class="inv-card-val" id="invActiveSku">–</div>
+                <div class="inv-card-label">SKU Ada Stok</div>
+              </div>
+            </div>
+            <div class="inv-card" id="invCardRetail">
+              <div class="inv-card-icon">🏪</div>
+              <div class="inv-card-body">
+                <div class="inv-card-val" id="invRetailTotal">–</div>
+                <div class="inv-card-label">Stok Retail</div>
+              </div>
+            </div>
+            <div class="inv-card" id="invCardOnline">
+              <div class="inv-card-icon">🛍️</div>
+              <div class="inv-card-body">
+                <div class="inv-card-val" id="invOnlineTotal">–</div>
+                <div class="inv-card-label">Stok Online</div>
+              </div>
+            </div>
+            <div class="inv-card" id="invCardWarehouse">
+              <div class="inv-card-icon">🏭</div>
+              <div class="inv-card-body">
+                <div class="inv-card-val" id="invWhTotal">–</div>
+                <div class="inv-card-label">Stok Gudang</div>
+              </div>
+            </div>
+            <div class="inv-card inv-card-danger" id="invCardZero">
+              <div class="inv-card-icon">⚠️</div>
+              <div class="inv-card-body">
+                <div class="inv-card-val" id="invZeroSku">–</div>
+                <div class="inv-card-label">SKU Stok Nol</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FILTER BAR -->
+          <div class="panel" style="margin-bottom: 16px; padding: 14px 18px;">
+            <div class="inv-filter-bar">
+              <div class="topbar-search-wrap" style="flex: 1; min-width: 200px;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="invSearchInput" placeholder="Cari nama produk atau SKU..." oninput="filterInventoryTable()" />
+              </div>
+              <select id="invCategoryFilter" onchange="filterInventoryTable()" style="min-width: 160px;">
+                <option value="">Semua Kategori</option>
+              </select>
+              <select id="invGroupFilter" onchange="filterInventoryTable()" style="min-width: 140px;">
+                <option value="">Semua Outlet</option>
+                <option value="retail">Retail</option>
+                <option value="online">Online</option>
+                <option value="gudang">Gudang/Internal</option>
+              </select>
+              <label class="inv-toggle-label">
+                <input type="checkbox" id="invOnlyStockFilter" onchange="filterInventoryTable()" />
+                <span>Hanya ada stok</span>
+              </label>
+              <button class="primary-btn small-btn" onclick="openModal('modalImportInv')">📥 Import CSV</button>
+              <button class="secondary-btn small-btn" onclick="loadInventoryData(true)">🔄 Refresh</button>
+            </div>
+          </div>
+
+          <!-- MATRIX TABLE -->
+          <div class="panel" style="padding: 0; overflow: hidden;">
+            <div id="invTableWrap" class="inv-table-wrap">
+              <div id="invLoadingState" style="padding: 48px; text-align: center; color: var(--text-muted);">
+                <div style="font-size: 2rem; margin-bottom: 12px;">📦</div>
+                <div>Memuat data inventory...</div>
+                <div style="margin-top: 8px; font-size: 0.82rem;">Belum ada data? Klik <strong>Import CSV</strong> untuk upload data DealPOS.</div>
+              </div>
+              <table id="invMatrixTable" class="inv-matrix-table hidden">
+                <thead id="invMatrixThead"></thead>
+                <tbody id="invMatrixTbody"></tbody>
+              </table>
+            </div>
+            <div class="panel-header-row" style="padding: 10px 16px; border-top: 1px solid var(--border-subtle); font-size: 0.78rem; color: var(--text-muted);">
+              <span id="invRowCount">0 produk ditampilkan</span>
+              <span>Scroll kanan → untuk lihat semua outlet</span>
+            </div>
           </div>
         </section>
 
@@ -1125,6 +1223,34 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <!-- ================= MODAL IMPORT INVENTORY CSV ================= -->
+  <div id="modalImportInv" class="modal hidden">
+    <div class="modal-content" style="max-width: 580px;">
+      <div class="panel-header-row" style="margin-bottom: 14px;">
+        <div>
+          <h3 style="margin: 0;">📥 Import Data Inventory DealPOS</h3>
+          <small style="color: var(--text-muted);">Pilih file CSV export DealPOS (Page1 &amp; Page2). Data akan di-upload ke Supabase.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalImportInv')">✕</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <label><span>File CSV (bisa multiple: Page1 + Page2)</span>
+          <input type="file" id="invImportFileInput" accept=".csv" multiple />
+        </label>
+        <div id="invImportStatusWrap" style="display:none; background: var(--bg-subtle); border-radius:8px; padding:12px; font-size:0.82rem;">
+          <div id="invImportStatusText" style="margin-bottom:8px;">Memproses...</div>
+          <div style="background: var(--border-subtle); border-radius:4px; height:6px; overflow:hidden;">
+            <div id="invImportProgressBar" style="width:0%; height:100%; background: var(--primary); transition: width 0.2s;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="submit-row" style="margin-top:18px;">
+        <button id="btnStartImportInv" class="primary-btn" onclick="startInventoryImport()">🚀 Mulai Import</button>
+        <button type="button" class="secondary-btn" onclick="closeModal('modalImportInv')">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- jsPDF & AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.0/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -1132,6 +1258,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=6.0"></script>
+  <script src="script.js?v=7.0"></script>
 </body>
 </html>

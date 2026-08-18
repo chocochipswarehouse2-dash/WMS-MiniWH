@@ -28,6 +28,7 @@ const panels = document.querySelectorAll('.tab-panel');
 const topbarPageTitle = document.getElementById('topbarPageTitle');
 
 const tabTitles = {
+  inventoryTab: 'Inventory Matrix – Stock Semua Outlet',
   presensiTab: 'Presensi Harian Warehouse',
   formLemburTab: 'Form Pengajuan Lembur',
   statusLemburTab: 'Status Lembur Saya',
@@ -119,16 +120,18 @@ function setButtonLoading(btn, isLoading, loadingText = 'Memproses...') {
 }
 
 function switchTab(tabId) {
-  const allNavs = document.querySelectorAll('.nav-item');
-  const allPanels = document.querySelectorAll('.tab-panel');
-  allNavs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
-  allPanels.forEach(p => {
-    p.classList.toggle('active', p.id === tabId);
-    p.classList.toggle('hidden', p.id !== tabId);
-  });
-  
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  const panel = document.getElementById(tabId);
+  if (panel) panel.classList.add('active');
+  const navItem = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+  if (navItem) navItem.classList.add('active');
   if (topbarPageTitle && tabTitles[tabId]) {
     topbarPageTitle.textContent = tabTitles[tabId];
+  }
+  // Auto-load inventory data when switching to inventoryTab
+  if (tabId === 'inventoryTab' && invAllData.length === 0) {
+    loadInventoryData();
   }
 
   const sidebar = document.getElementById('sidebar');
@@ -3250,7 +3253,388 @@ async function startApp() {
   }
 }
 
+
+// ================= INVENTORY MODULE =================
+
+const INV_OUTLET_MAP = [
+  // RETAIL
+  { col: 'cpj',  label: 'CPJ',  name: 'Central Park Jakarta',         group: 'retail' },
+  { col: 'gst',  label: 'GST',  name: 'Gading Serpong Tangerang',     group: 'retail' },
+  { col: 'lmp',  label: 'LMP',  name: 'Lippo Mall Puri',              group: 'retail' },
+  { col: 'bts',  label: 'BTS',  name: 'By The Sea PIK',               group: 'retail' },
+  { col: 'cws',  label: 'CWS',  name: 'Ciputra World Surabaya',       group: 'retail' },
+  { col: 'dpm',  label: 'DPM',  name: 'Deli Park Medan',              group: 'retail' },
+  { col: 'phb',  label: 'PHB',  name: 'Paskal Hyper Square Bandung',  group: 'retail' },
+  { col: 'pms',  label: 'PMS',  name: 'Pakuwon Mall Surabaya',        group: 'retail' },
+  { col: 'mkg',  label: 'MKG',  name: 'Mall Kelapa Gading',           group: 'retail' },
+  { col: 'lwt',  label: 'LWT',  name: 'Living World Tangerang',       group: 'retail' },
+  { col: 'kyt',  label: 'KYT',  name: 'KYTE',                         group: 'retail' },
+  { col: 'nsj',  label: 'NSJ',  name: 'Neo Soho Jakarta',             group: 'retail' },
+  { col: 'bcpj', label: 'BCPJ', name: 'Bazaar Central Park',          group: 'retail' },
+  { col: 'blmp', label: 'BLMP', name: 'Bazaar Lippo Mall Puri',       group: 'retail' },
+  { col: 'pim',  label: 'PIM',  name: 'Puri Indah Mall',              group: 'retail' },
+  { col: 'lvt',  label: 'LVT',  name: 'La Vela Tangerang',            group: 'retail' },
+  { col: 'gaia', label: 'GAIA', name: 'Gaia Pontianak',               group: 'retail' },
+  { col: 'spm',  label: 'SPM',  name: 'Sun Plaza Medan',              group: 'retail' },
+  // ONLINE
+  { col: 'web',  label: 'WEB',  name: 'Website',                      group: 'online' },
+  { col: 'map_', label: 'MAP',  name: 'Marketplace',                  group: 'online' },
+  { col: 'shp',  label: 'SHP',  name: 'Shopee',                       group: 'online' },
+  { col: 'tpd',  label: 'TPD',  name: 'Tokopedia',                    group: 'online' },
+  { col: 'ttk',  label: 'TTK',  name: 'TikTok',                       group: 'online' },
+  { col: 'lzd',  label: 'LZD',  name: 'Lazada',                       group: 'online' },
+  { col: 'woo',  label: 'WOO',  name: 'Woocommerce',                  group: 'online' },
+  { col: 'cshp', label: 'CSHP', name: 'ChicShopee',                   group: 'online' },
+  { col: 'sdpm', label: 'SDPM', name: 'Shopee - Deli Park Medan',     group: 'online' },
+  { col: 'scws', label: 'SCWS', name: 'Shopee - Ciputra World Sby',   group: 'online' },
+  // GUDANG/INTERNAL
+  { col: 'wh',   label: 'WH',   name: 'Warehouse Utama',              group: 'gudang' },
+  { col: 'buy',  label: 'BUY',  name: 'Buying Staff',                 group: 'gudang' },
+  { col: 'dd',   label: 'DD',   name: 'Diskon Defect',                group: 'gudang' },
+  { col: 'endr', label: 'END',  name: 'Endorsement',                  group: 'gudang' },
+  { col: 'std',  label: 'STD',  name: 'Sample Studio',                group: 'gudang' },
+  { col: 'lnd',  label: 'LND',  name: 'Loss/Damage',                  group: 'gudang' },
+  { col: 'ga',   label: 'GA',   name: 'Gudang Awal',                  group: 'gudang' },
+  { col: 'qc',   label: 'QC',   name: 'Gudang QC',                    group: 'gudang' },
+  { col: 'pmk',  label: 'PMK',  name: 'Gudang Permak',                group: 'gudang' },
+  { col: 'ret',  label: 'RET',  name: 'Gudang Retur',                 group: 'gudang' },
+  { col: 'logx', label: 'LOG',  name: 'Gudang Logistik',              group: 'gudang' },
+  { col: 'live', label: 'LIVE', name: 'Sample Live',                  group: 'gudang' },
+];
+
+// CSV header → Supabase column mapping
+const CSV_COL_MAP = {
+  'Inventory_Central Park Jakarta':           'cpj',
+  'Inventory_Gading Serpong Tangerang':       'gst',
+  'Inventory_Lippo Mall Puri':               'lmp',
+  'Inventory_By The Sea PIK':               'bts',
+  'Inventory_Ciputra World Surabaya':        'cws',
+  'Inventory_Deli Park Medan':              'dpm',
+  'Inventory_Paskal Hyper Square Bandung':  'phb',
+  'Inventory_Pakuwon Mall Surabaya':        'pms',
+  'Inventory_Mall Kelapa Gading':           'mkg',
+  'Inventory_Living World Tangerang':       'lwt',
+  'Inventory_KYTE':                         'kyt',
+  'Inventory_Neo Soho Jakarta':             'nsj',
+  'Inventory_Bazaar Central Park':          'bcpj',
+  'Inventory_Bazaar Lippo Mall Puri':       'blmp',
+  'Inventory_Puri Indah Mall':              'pim',
+  'Inventory_La Vela Tangerang':            'lvt',
+  'Inventory_Gaia Pontianak':               'gaia',
+  'Inventory_Sun Plaza Medan':              'spm',
+  'Inventory_Website':                      'web',
+  'Inventory_Marketplace':                  'map_',
+  'Inventory_Shopee':                       'shp',
+  'Inventory_Tokopedia':                    'tpd',
+  'Inventory_TikTok':                       'ttk',
+  'Inventory_Lazada':                       'lzd',
+  'Inventory_Woocommerce':                  'woo',
+  'Inventory_ChicShopee':                   'cshp',
+  'Inventory_Shopee - Deli Park Medan':     'sdpm',
+  'Inventory_Shopee - Ciputra World Surabaya': 'scws',
+  'Inventory_Warehouse':                    'wh',
+  'Inventory_Buying Staff':                 'buy',
+  'Inventory_Diskon Defect':               'dd',
+  'Inventory_Endorsement':                 'endr',
+  'Inventory_Sample Studio':               'std',
+  'Inventory_Loss/Damage':                 'lnd',
+  'Inventory_Gudang Awal':                 'ga',
+  'Inventory_Gudang QC':                   'qc',
+  'Inventory_Gudang Permak':               'pmk',
+  'Inventory_Gudang Retur':               'ret',
+  'Inventory_Gudang Logistik':             'logx',
+  'Inventory_Sample Live':                 'live',
+};
+
+let invAllData = [];
+let invFilteredData = [];
+
+// Parse a CSV text string (handles quoted commas)
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const cells = [];
+    let inQ = false, cell = '';
+    for (let j = 0; j < line.length; j++) {
+      const c = line[j];
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === ',' && !inQ) { cells.push(cell.trim()); cell = ''; continue; }
+      cell += c;
+    }
+    cells.push(cell.trim());
+    rows.push(cells);
+  }
+  return rows;
+}
+
+// Load inventory from Supabase
+async function loadInventoryData(forceRefresh = false) {
+  const loadingEl = document.getElementById('invLoadingState');
+  const tableEl   = document.getElementById('invMatrixTable');
+  if (loadingEl) { loadingEl.style.display = 'block'; loadingEl.innerHTML = '<div style="padding:48px; text-align:center; color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:12px;">⏳</div><div>Memuat data dari Supabase...</div></div>'; }
+  if (tableEl) tableEl.classList.add('hidden');
+
+  try {
+    // Load in pages (Supabase max 1000/request)
+    let all = [], from = 0, pageSize = 1000;
+    while (true) {
+      const batch = await supabaseFetch(`inv_products?select=*&order=category.asc,product.asc,variant.asc&limit=${pageSize}&offset=${from}`);
+      if (!batch || batch.length === 0) break;
+      all = all.concat(batch);
+      if (batch.length < pageSize) break;
+      from += pageSize;
+    }
+    invAllData = all;
+    populateCategoryFilter();
+    updateInvSummaryCards();
+    filterInventoryTable();
+    if (all.length === 0 && loadingEl) {
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = '<div style="padding:48px; text-align:center; color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:12px;">📦</div><div>Belum ada data inventory.</div><div style="margin-top:8px;font-size:0.82rem;">Klik <strong>Import CSV</strong> untuk upload data DealPOS.</div></div>';
+    }
+  } catch(e) {
+    console.error('loadInventoryData error:', e);
+    if (loadingEl) loadingEl.innerHTML = '<div style="padding:48px; text-align:center; color:var(--error);">❌ Gagal memuat data. Periksa koneksi Supabase.</div>';
+  }
+}
+
+function populateCategoryFilter() {
+  const sel = document.getElementById('invCategoryFilter');
+  if (!sel) return;
+  const cats = [...new Set(invAllData.map(r => r.category).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Semua Kategori</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function updateInvSummaryCards() {
+  const d = invAllData;
+  const retailCols = INV_OUTLET_MAP.filter(o => o.group === 'retail').map(o => o.col);
+  const onlineCols = INV_OUTLET_MAP.filter(o => o.group === 'online').map(o => o.col);
+  const gudangCols = INV_OUTLET_MAP.filter(o => o.group === 'gudang').map(o => o.col);
+  const allCols    = INV_OUTLET_MAP.map(o => o.col);
+  const totalQty   = row => allCols.reduce((s, c) => s + (Number(row[c]) || 0), 0);
+  const sumCols    = (rows, cols) => cols.reduce((s, c) => s + rows.reduce((ss, r) => ss + (Number(r[c]) || 0), 0), 0);
+
+  const el = id => document.getElementById(id);
+  if (el('invTotalSku'))   el('invTotalSku').textContent   = d.length.toLocaleString('id-ID');
+  if (el('invActiveSku'))  el('invActiveSku').textContent  = d.filter(r => totalQty(r) > 0).length.toLocaleString('id-ID');
+  if (el('invRetailTotal')) el('invRetailTotal').textContent = sumCols(d, retailCols).toLocaleString('id-ID');
+  if (el('invOnlineTotal')) el('invOnlineTotal').textContent = sumCols(d, onlineCols).toLocaleString('id-ID');
+  if (el('invWhTotal'))    el('invWhTotal').textContent    = sumCols(d, gudangCols).toLocaleString('id-ID');
+  if (el('invZeroSku'))    el('invZeroSku').textContent    = d.filter(r => totalQty(r) === 0).length.toLocaleString('id-ID');
+}
+
+function filterInventoryTable() {
+  const search  = (document.getElementById('invSearchInput')?.value || '').toLowerCase();
+  const cat     = document.getElementById('invCategoryFilter')?.value || '';
+  const group   = document.getElementById('invGroupFilter')?.value   || '';
+  const onlyStk = document.getElementById('invOnlyStockFilter')?.checked || false;
+
+  const activeCols = group ? INV_OUTLET_MAP.filter(o => o.group === group) : INV_OUTLET_MAP;
+  const allCols    = INV_OUTLET_MAP.map(o => o.col);
+  const totalQty   = row => allCols.reduce((s, c) => s + (Number(row[c]) || 0), 0);
+
+  invFilteredData = invAllData.filter(row => {
+    if (cat && row.category !== cat) return false;
+    if (onlyStk && totalQty(row) === 0) return false;
+    if (search && !((row.product || '').toLowerCase().includes(search) || (row.sku || '').toLowerCase().includes(search))) return false;
+    return true;
+  });
+
+  renderInventoryTable(invFilteredData, activeCols);
+  const cnt = document.getElementById('invRowCount');
+  if (cnt) cnt.textContent = `${invFilteredData.length.toLocaleString('id-ID')} produk ditampilkan`;
+}
+
+function renderInventoryTable(data, outlets) {
+  const thead = document.getElementById('invMatrixThead');
+  const tbody = document.getElementById('invMatrixTbody');
+  const table = document.getElementById('invMatrixTable');
+  const loading = document.getElementById('invLoadingState');
+  if (!thead || !tbody || !table) return;
+
+  const retailOutlets  = outlets.filter(o => o.group === 'retail');
+  const onlineOutlets  = outlets.filter(o => o.group === 'online');
+  const gudangOutlets  = outlets.filter(o => o.group === 'gudang');
+
+  // Build group header row
+  const fixedCols = 6; // No, Kategori, Produk, Varian, SKU, Harga
+  const rSpan = `<th colspan="${fixedCols}" class="sticky-col grp-sticky" style="left:0; z-index:12; background:var(--bg-sidebar); border-right:2px solid var(--border-subtle);"></th>`;
+  let groupRow = `<tr class="group-row">${rSpan}`;
+  if (retailOutlets.length)  groupRow += `<th colspan="${retailOutlets.length}"  class="grp-retail">🏪 RETAIL (${retailOutlets.length})</th>`;
+  if (onlineOutlets.length)  groupRow += `<th colspan="${onlineOutlets.length}"  class="grp-online">🛍️ ONLINE (${onlineOutlets.length})</th>`;
+  if (gudangOutlets.length)  groupRow += `<th colspan="${gudangOutlets.length}" class="grp-gudang">🏭 GUDANG (${gudangOutlets.length})</th>`;
+  groupRow += '</tr>';
+
+  // Build column header row
+  let colRow = `<tr>
+    <th class="sticky-col col-no">#</th>
+    <th class="sticky-col col-cat">Kategori</th>
+    <th class="sticky-col col-prod">Produk</th>
+    <th class="sticky-col col-var">Varian</th>
+    <th class="sticky-col col-sku">SKU</th>
+    <th class="sticky-col col-price">Harga</th>
+  `;
+  outlets.forEach(o => { colRow += `<th class="qty-cell" title="${o.name}">${o.label}</th>`; });
+  colRow += '</tr>';
+  thead.innerHTML = groupRow + colRow;
+
+  // Build body rows (render in chunks to avoid UI freeze on large datasets)
+  if (data.length === 0) {
+    loading.style.display = 'block';
+    loading.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);">Tidak ada data yang cocok dengan filter.</div>';
+    table.classList.add('hidden');
+    return;
+  }
+
+  loading.style.display = 'none';
+  table.classList.remove('hidden');
+
+  const CHUNK = 500;
+  let html = '';
+  for (let i = 0; i < Math.min(data.length, CHUNK); i++) {
+    const r = data[i];
+    html += `<tr>
+      <td class="sticky-col col-no">${i + 1}</td>
+      <td class="sticky-col col-cat">${r.category || ''}</td>
+      <td class="sticky-col col-prod" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
+      <td class="sticky-col col-var">${r.variant || ''}</td>
+      <td class="sticky-col col-sku">${r.sku || ''}</td>
+      <td class="sticky-col col-price">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
+    `;
+    outlets.forEach(o => {
+      const qty = Number(r[o.col]) || 0;
+      const cls = qty > 0 ? 'qty-pos' : 'qty-zero';
+      html += `<td class="qty-cell ${cls}">${qty > 0 ? qty : '–'}</td>`;
+    });
+    html += '</tr>';
+  }
+  tbody.innerHTML = html;
+
+  // Render remaining rows async if more than CHUNK
+  if (data.length > CHUNK) {
+    const renderRest = (start) => {
+      let chunk = '';
+      const end = Math.min(start + CHUNK, data.length);
+      for (let i = start; i < end; i++) {
+        const r = data[i];
+        chunk += `<tr>
+          <td class="sticky-col col-no">${i + 1}</td>
+          <td class="sticky-col col-cat">${r.category || ''}</td>
+          <td class="sticky-col col-prod" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
+          <td class="sticky-col col-var">${r.variant || ''}</td>
+          <td class="sticky-col col-sku">${r.sku || ''}</td>
+          <td class="sticky-col col-price">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
+        `;
+        outlets.forEach(o => {
+          const qty = Number(r[o.col]) || 0;
+          const cls = qty > 0 ? 'qty-pos' : 'qty-zero';
+          chunk += `<td class="qty-cell ${cls}">${qty > 0 ? qty : '–'}</td>`;
+        });
+        chunk += '</tr>';
+      }
+      tbody.insertAdjacentHTML('beforeend', chunk);
+      if (end < data.length) requestAnimationFrame(() => renderRest(end));
+    };
+    requestAnimationFrame(() => renderRest(CHUNK));
+  }
+}
+
+// ── CSV IMPORT ──────────────────────────────────────────────────────────────
+
+async function startInventoryImport() {
+  const input  = document.getElementById('invImportFileInput');
+  const wrap   = document.getElementById('invImportStatusWrap');
+  const status = document.getElementById('invImportStatusText');
+  const bar    = document.getElementById('invImportProgressBar');
+  const btn    = document.getElementById('btnStartImportInv');
+
+  if (!input || !input.files || input.files.length === 0) {
+    return showToast('Pilih setidaknya 1 file CSV terlebih dahulu.', 'error');
+  }
+
+  wrap.style.display = 'block';
+  btn.disabled = true;
+  let allRecords = [];
+
+  // Parse all selected files
+  for (let fi = 0; fi < input.files.length; fi++) {
+    const file = input.files[fi];
+    if (status) status.textContent = `Membaca file ${fi + 1}/${input.files.length}: ${file.name}...`;
+    const text = await file.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) continue;
+    const headers = rows[0];
+
+    for (let ri = 1; ri < rows.length; ri++) {
+      const cells = rows[ri];
+      if (cells.length < 5) continue;
+      const get = (name) => {
+        const idx = headers.indexOf(name);
+        return idx >= 0 ? (cells[idx] || '').trim() : '';
+      };
+      const record = {
+        category: get('Category'),
+        product:  get('Product'),
+        sku:      get('Code'),
+        variant:  get('Variant'),
+        brand:    get('Brand') || get('Supplier'),
+        price:    parseFloat(get('UnitPrice')) || 0,
+      };
+      if (!record.sku) continue;
+      // Map outlet columns
+      Object.entries(CSV_COL_MAP).forEach(([csvHeader, dbCol]) => {
+        record[dbCol] = parseFloat(get(csvHeader)) || 0;
+      });
+      allRecords.push(record);
+    }
+  }
+
+  if (allRecords.length === 0) {
+    if (status) status.textContent = 'Tidak ada data valid ditemukan di file CSV.';
+    btn.disabled = false;
+    return;
+  }
+
+  // Batch upsert to Supabase
+  const BATCH = 500;
+  let uploaded = 0;
+  for (let i = 0; i < allRecords.length; i += BATCH) {
+    const batch = allRecords.slice(i, i + BATCH);
+    const pct   = Math.round(((i + batch.length) / allRecords.length) * 100);
+    if (status) status.textContent = `Menyimpan ke Supabase: ${i + batch.length}/${allRecords.length} SKU (${pct}%)...`;
+    if (bar)    bar.style.width = pct + '%';
+    try {
+      await supabaseFetch('inv_products?on_conflict=sku', {
+        method:  'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body:    batch,
+      });
+    } catch(e) {
+      console.error('Batch upload error:', e);
+    }
+    uploaded += batch.length;
+  }
+
+  if (status) status.textContent = `✅ Selesai! ${uploaded.toLocaleString('id-ID')} SKU berhasil diupload ke Supabase.`;
+  if (bar)    bar.style.width = '100%';
+  btn.disabled = false;
+  showToast(`✅ ${uploaded.toLocaleString('id-ID')} SKU berhasil diimport!`);
+  setTimeout(() => {
+    closeModal('modalImportInv');
+    loadInventoryData(true);
+  }, 1500);
+}
+
+// Expose to window for onclick
+window.loadInventoryData   = loadInventoryData;
+window.filterInventoryTable = filterInventoryTable;
+window.startInventoryImport = startInventoryImport;
+
 // ================= TAB NAVIGATION BINDINGS =================
+
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => switchTab(item.dataset.tab));
 });

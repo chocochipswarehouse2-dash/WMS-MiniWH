@@ -2131,3 +2131,139 @@ label {
   background: #FEE2E2;
   color: #991B1B;
 }
+
+/* =====================================================
+   INVENTORY MATRIX MODULE
+   ===================================================== */
+
+/* Summary Cards Row */
+.inv-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+@media (max-width: 1200px) { .inv-summary-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px)  { .inv-summary-cards { grid-template-columns: repeat(2, 1fr); } }
+
+.inv-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.inv-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); transform: translateY(-2px); }
+.inv-card-danger { border-left: 4px solid var(--error); }
+
+.inv-card-icon { font-size: 1.8rem; line-height: 1; flex-shrink: 0; }
+.inv-card-val  { font-size: 1.6rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-primary); }
+.inv-card-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+/* Filter Bar */
+.inv-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.inv-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.inv-toggle-label input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+/* Table Wrapper — enables both X and Y scroll with sticky header/left cols */
+.inv-table-wrap {
+  overflow: auto;
+  max-height: 68vh;
+  position: relative;
+}
+
+/* The main matrix table */
+.inv-matrix-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.8rem;
+}
+
+/* Sticky header row */
+.inv-matrix-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 8px;
+  border-bottom: 2px solid var(--border-subtle);
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Sticky left columns (No, Kategori, Produk, Varian, SKU, Harga) */
+.inv-matrix-table th.sticky-col,
+.inv-matrix-table td.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  background: var(--bg-card);
+}
+.inv-matrix-table thead th.sticky-col {
+  z-index: 11;
+  background: var(--bg-sidebar);
+}
+
+/* Sticky column offsets */
+.inv-matrix-table .col-no   { left: 0;   min-width: 40px; max-width: 40px; }
+.inv-matrix-table .col-cat  { left: 40px; min-width: 110px; max-width: 110px; }
+.inv-matrix-table .col-prod { left: 150px; min-width: 180px; max-width: 180px; }
+.inv-matrix-table .col-var  { left: 330px; min-width: 60px; max-width: 60px; }
+.inv-matrix-table .col-sku  { left: 390px; min-width: 110px; max-width: 110px; }
+.inv-matrix-table .col-price{ left: 500px; min-width: 90px; max-width: 90px; border-right: 2px solid var(--border-subtle); }
+
+/* Body cells */
+.inv-matrix-table tbody tr { transition: background 0.12s; }
+.inv-matrix-table tbody tr:hover td { background: var(--bg-subtle) !important; }
+
+.inv-matrix-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.inv-matrix-table td.sticky-col { text-align: left; }
+.inv-matrix-table td.col-prod { font-weight: 600; }
+.inv-matrix-table td.col-sku  { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+.inv-matrix-table td.col-price{ font-family: var(--font-mono); color: var(--text-secondary); }
+
+/* Qty cell coloring */
+.inv-matrix-table td.qty-cell { min-width: 44px; }
+.inv-matrix-table td.qty-pos  { background: rgba(34,197,94,0.12); color: #166534; font-weight: 700; }
+.inv-matrix-table td.qty-zero { color: var(--border-subtle); }
+
+/* Group header in thead */
+.inv-matrix-table thead tr.group-row th {
+  font-size: 0.68rem;
+  padding: 4px 8px;
+  background: var(--primary);
+  color: #fff;
+  letter-spacing: 0.06em;
+}
+.inv-matrix-table thead tr.group-row th.grp-online  { background: #0891b2; }
+.inv-matrix-table thead tr.group-row th.grp-gudang  { background: #7c3aed; }
+.inv-matrix-table thead tr.group-row th.grp-sticky  { background: var(--bg-sidebar); }
