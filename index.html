@@ -399,9 +399,10 @@
                     <option value="PERBAIKAN">Area Perbaikan (Permak, Defect)</option>
                     <option value="OFFLINE">Area Offline (WH, QC, GA)</option>
                   </select>
-                  <select id="invFilterSelisih" class="filter-select">
-                    <option value="">Semua Status Selisih</option>
-                    <option value="match">Match (Cocok 0)</option>
+                  <select id="invFilterSelisih" class="filter-select" onchange="filterStockMatrix()">
+                    <option value="">Semua Produk (28.356 SKU)</option>
+                    <option value="active">Hanya Stok Aktif (DealPOS / Fisik > 0)</option>
+                    <option value="match">Match / Cocok (Selisih 0)</option>
                     <option value="minus">Selisih Kurang (-)</option>
                     <option value="plus">Selisih Lebih (+)</option>
                   </select>

@@ -3786,7 +3786,7 @@ function filterStockMatrix() {
       isSearchingDatabase = true;
       try {
         const queryTerm = encodeURIComponent(search);
-        let url = `inv_stock?or=(sku.ilike.*${queryTerm}*,nama_produk.ilike.*${queryTerm}*,lokasi_rak.ilike.*${queryTerm}*)&order=qty_fisik.desc&limit=250`;
+        let url = `inv_stock?or=(sku.ilike.*${queryTerm}*,nama_produk.ilike.*${queryTerm}*,lokasi_rak.ilike.*${queryTerm}*)&order=qty_dealpos.desc,qty_fisik.desc&limit=300`;
         if (areaFilter) {
           url += `&kategori_area=eq.${encodeURIComponent(areaFilter)}`;
         }
@@ -3795,7 +3795,10 @@ function filterStockMatrix() {
 
         if (selisihFilter) {
           items = items.filter(item => {
-            const diff = (Number(item.qty_fisik) || 0) - (Number(item.qty_dealpos) || 0);
+            const fisik = Number(item.qty_fisik) || 0;
+            const dp = Number(item.qty_dealpos) || 0;
+            const diff = fisik - dp;
+            if (selisihFilter === 'active') return dp > 0 || fisik > 0;
             if (selisihFilter === 'match') return diff === 0;
             if (selisihFilter === 'minus') return diff < 0;
             if (selisihFilter === 'plus') return diff > 0;
@@ -3817,9 +3820,12 @@ function filterStockMatrix() {
   const filtered = currentInventoryStock.filter(item => {
     const matchArea = !areaFilter || item.kategori_area === areaFilter;
 
-    const diff = (Number(item.qty_fisik) || 0) - (Number(item.qty_dealpos) || 0);
+    const fisik = Number(item.qty_fisik) || 0;
+    const dp = Number(item.qty_dealpos) || 0;
+    const diff = fisik - dp;
     let matchSelisih = true;
-    if (selisihFilter === 'match') matchSelisih = diff === 0;
+    if (selisihFilter === 'active') matchSelisih = dp > 0 || fisik > 0;
+    else if (selisihFilter === 'match') matchSelisih = diff === 0;
     else if (selisihFilter === 'minus') matchSelisih = diff < 0;
     else if (selisihFilter === 'plus') matchSelisih = diff > 0;
 
