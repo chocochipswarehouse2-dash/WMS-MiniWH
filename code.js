@@ -99,6 +99,10 @@ function doPost(e) {
       case 'deletePayroll':
         return jsonResponse({ success: true, ok: deleteRowById('Data Payroll', payload.id) });
 
+      // INVENTORY MULTI-SPREADSHEET INSPECTOR & INTEGRATOR
+      case 'inspectInventorySpreadsheet':
+        return jsonResponse({ success: true, data: inspectInventorySpreadsheet(payload.spreadsheetId || '1kkjkKiqU39PnIWQhED1sLfH5uX349_vgqcs2qTpYixQ') });
+
       default:
         return jsonResponse({ success: false, message: 'Action tidak valid.' });
     }
@@ -971,5 +975,29 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
     });
   } catch (err) {
     Logger.log('Gagal mengirim email ke karyawan: ' + err.message);
+  }
+}
+
+// ================= INVENTORY SPREADSHEET CONNECTOR =================
+function inspectInventorySpreadsheet(spreadsheetId) {
+  try {
+    const ss = SpreadsheetApp.openById(spreadsheetId);
+    const sheets = ss.getSheets();
+    const result = [];
+    sheets.forEach(sh => {
+      const name = sh.getName();
+      const values = sh.getDataRange().getValues();
+      const headers = values.length > 0 ? values[0] : [];
+      const sampleRow = values.length > 1 ? values[1] : [];
+      result.push({
+        sheetName: name,
+        rowCount: values.length,
+        headers: headers,
+        sampleRow: sampleRow
+      });
+    });
+    return { success: true, spreadsheetTitle: ss.getName(), sheets: result };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }

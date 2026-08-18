@@ -333,163 +333,314 @@
           </div>
         </section>
 
-        <!-- ================= PILAR 2: WAREHOUSES & INVENTORY RACKS (IronNest Image 3) ================= -->
+        <!-- ================= PILAR 2: WAREHOUSES & INVENTORY HUB ================= -->
         <section id="inventoryTab" class="tab-panel">
-          <div class="warehouse-section-wrapper">
-            <div class="panel-header-row">
-              <div>
-                <h2>Warehouse Section Overview (8)</h2>
-                <small style="color: var(--text-muted);">Peta visual layout rak seksional dan kapasitas penempatan barang di gudang.</small>
+          
+          <!-- INVENTORY HEADER & STATS (Panze Studio Style) -->
+          <div class="panel-header-row" style="margin-bottom: 18px;">
+            <div>
+              <h2>Warehouse Inventory & Stock Management</h2>
+              <small style="color: var(--text-muted);">Monitoring perbandingan stok Fisik vs DealPOS, Form Peminjaman (SPS), dan Permintaan Refill.</small>
+            </div>
+            <div class="submit-row" style="gap: 8px;">
+              <button class="primary-btn small-btn" onclick="openModal('modalPeminjaman')">📝 + Peminjaman (SPS)</button>
+              <button class="primary-btn small-btn" style="background: var(--accent-navy);" onclick="openModal('modalRefill')">📦 + Permintaan Refill</button>
+              <button class="secondary-btn small-btn" onclick="syncInventoryDatabase()">🔄 Sync Database</button>
+            </div>
+          </div>
+
+          <!-- 4 HERO SUMMARY CARDS -->
+          <div class="grid four-columns" style="margin-bottom: 20px;">
+            <div class="stat-box">
+              <span class="stat-label">Total SKU Terdaftar</span>
+              <span class="stat-value" id="invStatTotalSku">0 SKU</span>
+              <small style="color: var(--text-muted); font-size: 0.72rem;">Master Produk Aktif</small>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Ready Fisik (Online)</span>
+              <span class="stat-value" id="invStatReadyOnline" style="color: var(--success);">0 Pcs</span>
+              <small style="color: var(--text-muted); font-size: 0.72rem;">Area MAP, Live & Studio</small>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Area Perbaikan</span>
+              <span class="stat-value" id="invStatPerbaikan" style="color: var(--accent-primary-hover);">0 Pcs</span>
+              <small style="color: var(--text-muted); font-size: 0.72rem;">Permak, Cuci & Defect</small>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Selisih Fisik vs DealPOS</span>
+              <span class="stat-value" id="invStatSelisih" style="color: var(--error);">0 Pcs</span>
+              <small style="color: var(--text-muted); font-size: 0.72rem;">Discrepancy Stock</small>
+            </div>
+          </div>
+
+          <!-- SUB-NAVIGASI MODUL INVENTORY -->
+          <div class="inv-subnav-bar">
+            <button class="inv-subnav-btn active" data-invtab="invStockSubTab">📊 Live Stock (Fisik vs DealPOS)</button>
+            <button class="inv-subnav-btn" data-invtab="invPeminjamanSubTab">📝 Peminjaman (SPS)</button>
+            <button class="inv-subnav-btn" data-invtab="invRefillSubTab">📦 Fulfillment & Refill</button>
+            <button class="inv-subnav-btn" data-invtab="invMutasiSubTab">📑 Log Mutasi & Riwayat</button>
+            <button class="inv-subnav-btn" data-invtab="invRackSubTab">🏬 Visual Layout Rak</button>
+          </div>
+
+          <!-- SUB-TAB 1: LIVE STOCK MATRIX (FISIK VS DEALPOS) -->
+          <div id="invStockSubTab" class="inv-subtab-panel active">
+            <div class="panel">
+              <div class="panel-header-row" style="margin-bottom: 14px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex: 1;">
+                  <div class="topbar-search-wrap" style="display: flex; flex: 1; min-width: 240px; max-width: 380px;">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="invStockSearchInput" placeholder="Cari SKU, Nama Produk, atau Lokasi Rak..." />
+                  </div>
+                  <select id="invFilterArea" class="filter-select">
+                    <option value="">Semua Area</option>
+                    <option value="ONLINE">Area Online (MAP, Live, Studio)</option>
+                    <option value="PERBAIKAN">Area Perbaikan (Permak, Defect)</option>
+                    <option value="OFFLINE">Area Offline (WH, QC, GA)</option>
+                  </select>
+                  <select id="invFilterSelisih" class="filter-select">
+                    <option value="">Semua Status Selisih</option>
+                    <option value="match">Match (Cocok 0)</option>
+                    <option value="minus">Selisih Kurang (-)</option>
+                    <option value="plus">Selisih Lebih (+)</option>
+                  </select>
+                </div>
+                <div class="submit-row" style="gap: 8px;">
+                  <button type="button" class="secondary-btn small-btn" onclick="exportStockMatrixCsv()">📤 Export CSV Stok</button>
+                </div>
               </div>
-              <div class="submit-row" style="gap: 8px;">
-                <button class="primary-btn small-btn">+ Add Request</button>
-                <button class="secondary-btn small-btn">✏️ Edit Section</button>
-                <button class="secondary-btn small-btn">🗑️ Delete Section</button>
+
+              <div class="table-container" id="invStockTableWrap">
+                <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat data stok inventory...</p>
               </div>
             </div>
+          </div>
 
-            <!-- Warehouse Tabs -->
-            <div class="warehouse-tabs-nav">
-              <button class="wh-tab-btn active" onclick="switchWarehouseView(1)">Warehouse 1 (Main Hub)</button>
-              <button class="wh-tab-btn" onclick="switchWarehouseView(2)">Warehouse 2 (Staging)</button>
-              <button class="wh-tab-btn" onclick="switchWarehouseView(3)">Warehouse 3 (Cold Storage)</button>
-              <button class="wh-tab-btn" onclick="switchWarehouseView(4)">Warehouse 4 (Returns)</button>
-            </div>
-
-            <!-- Visual Rack Layout Grid (Image 3) -->
-            <div class="warehouse-grid-layout">
-              <!-- Left: Section Columns A, B, C, D -->
-              <div class="sections-container">
-                <!-- Section A -->
-                <div class="section-column">
-                  <div class="section-col-header">
-                    <strong>A - Electronics</strong>
-                    <span>5/12</span>
-                  </div>
-                  <div class="shelf-bin-grid">
-                    <div class="shelf-bin empty" onclick="openRackDetails('A1')">A1</div>
-                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A2')">A2</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('A3')">A3</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('A4')">A4</div>
-                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A5')">A5</div>
-                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A6')">A6</div>
-                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A7')">A7</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('A8')">A8</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('A9')">A9</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('A10')">A10</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('A11')">A11</div>
-                    <div class="shelf-bin occupied-green" onclick="openRackDetails('A12')">A12</div>
-                  </div>
+          <!-- SUB-TAB 2: PEMINJAMAN SEMENTARA (SPS) -->
+          <div id="invPeminjamanSubTab" class="inv-subtab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-row" style="margin-bottom: 14px;">
+                <div>
+                  <strong style="font-size: 1.05rem;">Daftar Surat Peminjaman Sementara (SPS)</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Peminjaman sampel barang untuk keperluan photoshoot studio, live streaming, atau keperluan divisi.</p>
                 </div>
-
-                <!-- Section B (Highlighted) -->
-                <div class="section-column highlighted">
-                  <div class="section-col-header">
-                    <strong style="color: var(--accent-navy);">B - Appliances</strong>
-                    <span style="font-weight: 700; color: var(--accent-navy);">7/12</span>
-                  </div>
-                  <div class="shelf-bin-grid">
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B1')">B1</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('B2')">B2</div>
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B3')">B3</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('B4')">B4</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('B5')">B5</div>
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B6')">B6</div>
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B7')">B7</div>
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B8')">B8</div>
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B9')">B9</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('B10')">B10</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('B11')">B11</div>
-                    <div class="shelf-bin occupied-amber" onclick="openRackDetails('B12')">B12</div>
-                  </div>
-                </div>
-
-                <!-- Section C -->
-                <div class="section-column">
-                  <div class="section-col-header">
-                    <strong>C - Home Decor</strong>
-                    <span>8/12</span>
-                  </div>
-                  <div class="shelf-bin-grid">
-                    <div class="shelf-bin empty" onclick="openRackDetails('C1')">C1</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C2')">C2</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C3')">C3</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('C4')">C4</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C5')">C5</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C6')">C6</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C7')">C7</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('C8')">C8</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('C9')">C9</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C10')">C10</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C11')">C11</div>
-                    <div class="shelf-bin occupied-purple" onclick="openRackDetails('C12')">C12</div>
-                  </div>
-                </div>
-
-                <!-- Section D -->
-                <div class="section-column">
-                  <div class="section-col-header">
-                    <strong>D - Sports</strong>
-                    <span>7/12</span>
-                  </div>
-                  <div class="shelf-bin-grid">
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D1')">D1</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('D2')">D2</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('D3')">D3</div>
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D4')">D4</div>
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D5')">D5</div>
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D6')">D6</div>
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D7')">D7</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('D8')">D8</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('D9')">D9</div>
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D10')">D10</div>
-                    <div class="shelf-bin empty" onclick="openRackDetails('D11')">D11</div>
-                    <div class="shelf-bin occupied-teal" onclick="openRackDetails('D12')">D12</div>
-                  </div>
+                <div class="submit-row" style="gap: 8px;">
+                  <select id="invFilterSpsStatus" class="filter-select">
+                    <option value="">Semua Status</option>
+                    <option value="Dipinjam">Dipinjam (Aktif)</option>
+                    <option value="Dikembalikan">Dikembalikan (Selesai)</option>
+                  </select>
+                  <button type="button" class="primary-btn small-btn" onclick="openModal('modalPeminjaman')">+ Peminjaman Baru</button>
                 </div>
               </div>
 
-              <!-- Right: Usage Gauge & Metrics (Image 3) -->
-              <div style="display: flex; flex-direction: column; gap: 16px;">
-                <div class="usage-gauge-card">
-                  <strong style="font-size: 1rem;">B-Section Usage</strong>
-                  <div class="gauge-circle-wrap">
-                    <div class="circle-gauge">
-                      <span class="gauge-percent-text">56%</span>
+              <div class="table-container" id="invPeminjamanTableWrap">
+                <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat riwayat peminjaman SPS...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 3: FULFILLMENT & REFILL -->
+          <div id="invRefillSubTab" class="inv-subtab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-row" style="margin-bottom: 14px;">
+                <div>
+                  <strong style="font-size: 1.05rem;">Monitoring Permintaan & Alokasi Refill</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Alokasi stok perpindahan dari rak gudang utama ke staging channel penjualan.</p>
+                </div>
+                <div class="submit-row" style="gap: 8px;">
+                  <select id="invFilterRefillStatus" class="filter-select">
+                    <option value="">Semua Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Dialokasi">Proses Dialokasi</option>
+                    <option value="Selesai">Selesai</option>
+                  </select>
+                  <button type="button" class="primary-btn small-btn" onclick="openModal('modalRefill')">+ Buat Refill Baru</button>
+                </div>
+              </div>
+
+              <div class="table-container" id="invRefillTableWrap">
+                <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat data permintaan refill...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 4: LOG MUTASI & PERGERAKAN PRODUK -->
+          <div id="invMutasiSubTab" class="inv-subtab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-row" style="margin-bottom: 14px;">
+                <div>
+                  <strong style="font-size: 1.05rem;">Riwayat Mutasi & Pergerakan Barang</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Log penerimaan (IN), pengeluaran (OUT), stock opname (SO), dan penyesuaian (ADJ).</p>
+                </div>
+                <div class="submit-row" style="gap: 8px;">
+                  <select id="invFilterMutasiType" class="filter-select">
+                    <option value="">Semua Tipe</option>
+                    <option value="IN">IN (Masuk)</option>
+                    <option value="OUT">OUT (Keluar)</option>
+                    <option value="SO">SO (Stock Opname)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-container" id="invMutasiTableWrap">
+                <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat log pergerakan produk...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 5: VISUAL LAYOUT RAK -->
+          <div id="invRackSubTab" class="inv-subtab-panel hidden">
+            <div class="warehouse-section-wrapper">
+              <div class="panel-header-row">
+                <div>
+                  <h2>Warehouse Section & Rack Map (8)</h2>
+                  <small style="color: var(--text-muted);">Peta visual layout rak seksional dan kapasitas penempatan barang di gudang.</small>
+                </div>
+              </div>
+
+              <!-- Warehouse Tabs -->
+              <div class="warehouse-tabs-nav">
+                <button class="wh-tab-btn active" onclick="switchWarehouseView(1)">Warehouse 1 (Main Hub)</button>
+                <button class="wh-tab-btn" onclick="switchWarehouseView(2)">Warehouse 2 (Staging)</button>
+                <button class="wh-tab-btn" onclick="switchWarehouseView(3)">Warehouse 3 (Cold Storage)</button>
+                <button class="wh-tab-btn" onclick="switchWarehouseView(4)">Warehouse 4 (Returns)</button>
+              </div>
+
+              <!-- Visual Rack Layout Grid -->
+              <div class="warehouse-grid-layout">
+                <!-- Left: Section Columns A, B, C, D -->
+                <div class="sections-container">
+                  <!-- Section A -->
+                  <div class="section-column">
+                    <div class="section-col-header">
+                      <strong>A - Electronics</strong>
+                      <span>5/12</span>
                     </div>
-                    <div>
-                      <strong style="font-size: 0.95rem; display: block;">Location Used</strong>
-                      <small style="color: var(--text-secondary);">Optimal shelf balance</small>
+                    <div class="shelf-bin-grid">
+                      <div class="shelf-bin empty" onclick="openRackDetails('A1')">A1</div>
+                      <div class="shelf-bin occupied-green" onclick="openRackDetails('A2')">A2</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('A3')">A3</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('A4')">A4</div>
+                      <div class="shelf-bin occupied-green" onclick="openRackDetails('A5')">A5</div>
+                      <div class="shelf-bin occupied-green" onclick="openRackDetails('A6')">A6</div>
+                      <div class="shelf-bin occupied-green" onclick="openRackDetails('A7')">A7</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('A8')">A8</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('A9')">A9</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('A10')">A10</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('A11')">A11</div>
+                      <div class="shelf-bin occupied-green" onclick="openRackDetails('A12')">A12</div>
                     </div>
                   </div>
-                  <div class="gauge-metric-grid">
-                    <div class="gauge-metric-item">
-                      <span class="val">240</span>
-                      <span class="lbl">Total Shelves</span>
+
+                  <!-- Section B -->
+                  <div class="section-column highlighted">
+                    <div class="section-col-header">
+                      <strong style="color: var(--accent-navy);">B - Appliances</strong>
+                      <span style="font-weight: 700; color: var(--accent-navy);">7/12</span>
                     </div>
-                    <div class="gauge-metric-item">
-                      <span class="val">136</span>
-                      <span class="lbl">Empty Shelves</span>
+                    <div class="shelf-bin-grid">
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B1')">B1</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('B2')">B2</div>
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B3')">B3</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('B4')">B4</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('B5')">B5</div>
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B6')">B6</div>
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B7')">B7</div>
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B8')">B8</div>
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B9')">B9</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('B10')">B10</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('B11')">B11</div>
+                      <div class="shelf-bin occupied-amber" onclick="openRackDetails('B12')">B12</div>
                     </div>
-                    <div class="gauge-metric-item">
-                      <span class="val">84</span>
-                      <span class="lbl">Full Shelves</span>
+                  </div>
+
+                  <!-- Section C -->
+                  <div class="section-column">
+                    <div class="section-col-header">
+                      <strong>C - Home Decor</strong>
+                      <span>8/12</span>
                     </div>
-                    <div class="gauge-metric-item">
-                      <span class="val">20</span>
-                      <span class="lbl">Newly Added</span>
+                    <div class="shelf-bin-grid">
+                      <div class="shelf-bin empty" onclick="openRackDetails('C1')">C1</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C2')">C2</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C3')">C3</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('C4')">C4</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C5')">C5</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C6')">C6</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C7')">C7</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('C8')">C8</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('C9')">C9</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C10')">C10</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C11')">C11</div>
+                      <div class="shelf-bin occupied-purple" onclick="openRackDetails('C12')">C12</div>
+                    </div>
+                  </div>
+
+                  <!-- Section D -->
+                  <div class="section-column">
+                    <div class="section-col-header">
+                      <strong>D - Sports</strong>
+                      <span>7/12</span>
+                    </div>
+                    <div class="shelf-bin-grid">
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D1')">D1</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('D2')">D2</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('D3')">D3</div>
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D4')">D4</div>
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D5')">D5</div>
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D6')">D6</div>
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D7')">D7</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('D8')">D8</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('D9')">D9</div>
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D10')">D10</div>
+                      <div class="shelf-bin empty" onclick="openRackDetails('D11')">D11</div>
+                      <div class="shelf-bin occupied-teal" onclick="openRackDetails('D12')">D12</div>
                     </div>
                   </div>
                 </div>
 
-                <div class="panel" style="margin-bottom: 0; padding: 18px;">
-                  <strong style="font-size: 0.9rem; display: block; margin-bottom: 8px;">🎨 Color Legend</strong>
-                  <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.76rem;">
-                    <span class="status disetujui">🟢 Electronics (A)</span>
-                    <span class="status diajukan">🟡 Appliances (B)</span>
-                    <span class="status" style="background: #F5F3FF; color: #6D28D9;">🟣 Home Decor (C)</span>
-                    <span class="status" style="background: #EFF6FF; color: #1D4ED8;">🔵 Sports (D)</span>
-                    <span class="status" style="background: #F3F4EE; color: #8E9EA7;">⚪ Empty Slot</span>
+                <!-- Right: Usage Gauge & Metrics -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <div class="usage-gauge-card">
+                    <strong style="font-size: 1rem;">B-Section Usage</strong>
+                    <div class="gauge-circle-wrap">
+                      <div class="circle-gauge">
+                        <span class="gauge-percent-text">56%</span>
+                      </div>
+                      <div>
+                        <strong style="font-size: 0.95rem; display: block;">Location Used</strong>
+                        <small style="color: var(--text-secondary);">Optimal shelf balance</small>
+                      </div>
+                    </div>
+                    <div class="gauge-metric-grid">
+                      <div class="gauge-metric-item">
+                        <span class="val">240</span>
+                        <span class="lbl">Total Shelves</span>
+                      </div>
+                      <div class="gauge-metric-item">
+                        <span class="val">136</span>
+                        <span class="lbl">Empty Shelves</span>
+                      </div>
+                      <div class="gauge-metric-item">
+                        <span class="val">84</span>
+                        <span class="lbl">Full Shelves</span>
+                      </div>
+                      <div class="gauge-metric-item">
+                        <span class="val">20</span>
+                        <span class="lbl">Newly Added</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="panel" style="margin-bottom: 0; padding: 18px;">
+                    <strong style="font-size: 0.9rem; display: block; margin-bottom: 8px;">🎨 Color Legend</strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.76rem;">
+                      <span class="status disetujui">🟢 Electronics (A)</span>
+                      <span class="status diajukan">🟡 Appliances (B)</span>
+                      <span class="status" style="background: #F5F3FF; color: #6D28D9;">🟣 Home Decor (C)</span>
+                      <span class="status" style="background: #EFF6FF; color: #1D4ED8;">🔵 Sports (D)</span>
+                      <span class="status" style="background: #F3F4EE; color: #8E9EA7;">⚪ Empty Slot</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1296,9 +1447,123 @@
           <button type="submit" id="btnSaveEditCuti" class="primary-btn">
             <span class="btn-text">Simpan & Beritahu Karyawan</span>
           </button>
-          <button type="button" class="secondary-btn" onclick="closeModal('editCutiModal')">Batal</button>
+  <!-- MODAL PEMINJAMAN SEMENTARA (SPS) -->
+  <div id="modalPeminjaman" class="modal hidden">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Form Surat Peminjaman Sementara (SPS)</h3>
+          <small style="color: var(--text-muted);">Peminjaman sampel produk untuk photoshoot, live streaming promo, atau keperluan divisi.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalPeminjaman')">✕</button>
+      </div>
+
+      <form id="peminjamanForm">
+        <div class="grid two-columns">
+          <label><span>Nama Peminjam</span><input type="text" id="spsPeminjam" placeholder="Nama staf peminjam..." required></label>
+          <label><span>Divisi</span>
+            <select id="spsDivisi" required>
+              <option value="Live Streaming / TikTok">Live Streaming / TikTok</option>
+              <option value="Studio Photoshoot">Studio Photoshoot</option>
+              <option value="Marketing & Brand">Marketing & Brand</option>
+              <option value="Katalog & Creative">Katalog & Creative</option>
+              <option value="Warehouse / QA">Warehouse / QA</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid two-columns">
+          <label><span>Tanggal Pinjam</span><input type="date" id="spsTglPinjam" required></label>
+          <label><span>Estimasi Tanggal Kembali</span><input type="date" id="spsTglKembali" required></label>
+        </div>
+
+        <label><span>Keperluan / Kegiatan</span><input type="text" id="spsKeperluan" placeholder="Contoh: Photoshoot katalog produk new release..." required></label>
+
+        <!-- Dynamic Items Table -->
+        <div style="margin: 16px 0; background: var(--bg-main); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="font-size: 0.88rem;">Daftar Item / SKU yang Dipinjam</strong>
+            <button type="button" class="secondary-btn small-btn" onclick="addPeminjamanItemRow()">+ Tambah Item</button>
+          </div>
+          <div id="spsItemsListWrap" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Dynamic rows inserted by JS -->
+          </div>
+        </div>
+
+        <label><span>Catatan Tambahan</span><input type="text" id="spsCatatan" placeholder="Kondisi barang saat dipinjam, instruksi khusus..."></label>
+
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitPeminjaman" class="primary-btn">
+            <span class="btn-text">💾 Terbitkan SPS Peminjaman</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalPeminjaman')">Batal</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL PERMINTAAN REFILL -->
+  <div id="modalRefill" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Form Permintaan Refill Stok</h3>
+          <small style="color: var(--text-muted);">Permintaan perpindahan stok dari Gudang Utama ke staging channel penjualan.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalRefill')">✕</button>
+      </div>
+
+      <form id="refillForm">
+        <label><span>Pilih Produk / SKU</span>
+          <select id="refillSkuSelect" required onchange="onRefillSkuChanged()">
+            <option value="">-- Pilih SKU yang Akan Direfill --</option>
+          </select>
+        </label>
+
+        <div class="grid two-columns">
+          <label><span>Dari Lokasi Rak Asal</span><input type="text" id="refillDariLokasi" placeholder="RAK-A1-02..." required></label>
+          <label><span>Ke Channel / Lokasi Tujuan</span>
+            <select id="refillChannel" required>
+              <option value="Shopee Mall">Shopee Mall (Staging MAP)</option>
+              <option value="TikTok Live">TikTok Live</option>
+              <option value="Sample Studio">Sample Studio</option>
+              <option value="Tokopedia Official">Tokopedia Official</option>
+              <option value="Lazada">Lazada</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid two-columns">
+          <label><span>Jumlah Qty Refill</span><input type="number" id="refillQty" min="1" value="5" required></label>
+          <label><span>Nama Pemohon</span><input type="text" id="refillPemohon" placeholder="Nama staf pemohon..." required></label>
+        </div>
+
+        <label><span>Catatan / Keperluan Refill</span><input type="text" id="refillCatatan" placeholder="Contoh: Kebutuhan Campaign Mega Sale 9.9..."></label>
+
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitRefill" class="primary-btn">
+            <span class="btn-text">📦 Kirim Permintaan Refill</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalRefill')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL & CETAK SPS -->
+  <div id="modalDetailSps" class="modal hidden">
+    <div class="modal-content" style="max-width: 620px;">
+      <div class="panel-header-row" style="margin-bottom: 14px;">
+        <h3 style="margin: 0;" id="detailSpsTitle">Surat Peminjaman Sementara (SPS)</h3>
+        <button type="button" class="icon-btn" onclick="closeModal('modalDetailSps')">✕</button>
+      </div>
+      <div id="detailSpsBody" style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.86rem;">
+        <!-- Filled by JS -->
+      </div>
+      <div class="submit-row" style="margin-top: 16px; gap: 8px;">
+        <button type="button" class="primary-btn" id="btnPrintSpsPdf" onclick="printSpsPdf()">🖨️ Cetak Slip / PDF</button>
+        <button type="button" class="secondary-btn" onclick="closeModal('modalDetailSps')">Tutup</button>
+      </div>
     </div>
   </div>
 
@@ -1311,6 +1576,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=3.4"></script>
+  <script src="script.js?v=3.5"></script>
 </body>
 </html>

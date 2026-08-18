@@ -1743,3 +1743,131 @@ label {
     justify-content: center;
   }
 }
+
+/* ================= INVENTORY & STOCK MODULE STYLING ================= */
+.inv-subnav-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.inv-subnav-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.inv-subnav-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-navy);
+}
+
+.inv-subnav-btn.active {
+  background: var(--accent-navy);
+  color: #FFFFFF;
+  border-color: var(--accent-navy);
+  box-shadow: 0 2px 8px rgba(17, 46, 59, 0.15);
+}
+
+.inv-subtab-panel {
+  display: block;
+}
+
+.inv-subtab-panel.hidden {
+  display: none !important;
+}
+
+/* Discrepancy & Area Badges */
+.badge-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: #EBFBF3;
+  color: #15803D;
+}
+
+.badge-minus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.badge-plus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.badge-area-online {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.badge-area-perbaikan {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+.badge-area-offline {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #F3F4EE;
+  color: #475569;
+}
+
+.sps-item-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.5fr 36px;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .sps-item-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .sps-item-row .btn-remove-item {
+    grid-column: span 2;
+  }
+}
