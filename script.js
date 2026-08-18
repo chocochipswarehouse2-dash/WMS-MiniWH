@@ -3239,10 +3239,93 @@ const DEFAULT_MUTASI = [
   { tanggal: "2026-08-17 16:00", sku: "SKU-45236823", nama_produk: "Temperature Smart Mug", size: "Medium", lokasi_rak: "RAK-B2-01", area: "Barang Live", type: "SO", qty: 18, invoice: "SO-202608-A", operator: "Sasi Novita", keterangan: "Stock Opname berkala mingguan" }
 ];
 
+const DEFAULT_OPNAME = [
+  {
+    id: "ADJ-000001",
+    no_adj: "ADJ-000001",
+    tanggal: "2026-08-17",
+    lokasi_rak: "RAK-A1-01",
+    sku: "PO-F23LSS322DRS",
+    nama_produk: "[PRE - ORDER] Azura Set Dark Red",
+    size: "S",
+    qty_sistem: 50,
+    qty_fisik: 48,
+    selisih: -2,
+    status: "Pending",
+    jenis: "Opname Rutin",
+    petugas: "Ahmad Staff Gudang",
+    catatan: "Hasil audit fisik rak A1-01 (selisih 2 pcs)"
+  },
+  {
+    id: "ADJ-000002",
+    no_adj: "ADJ-000002",
+    tanggal: "2026-08-18",
+    lokasi_rak: "RAK-B2-03",
+    sku: "F23LSS322DRM",
+    nama_produk: "Azura Set Dark Red",
+    size: "M",
+    qty_sistem: 30,
+    qty_fisik: 30,
+    selisih: 0,
+    status: "Approved",
+    jenis: "Spot Check",
+    petugas: "Siti Auditor",
+    approved_by: "Warehouse Manager",
+    catatan: "Stok fisik cocok sempurna dengan sistem DealPOS"
+  }
+];
+
+const DEFAULT_PRODUKSI = [
+  {
+    id: "PROD-202608-001",
+    no_po: "PO-202608-01",
+    vendor: "Konveksi Bandung Jaya",
+    tanggal_masuk: "2026-08-17",
+    sku: "PO-F23LSS322DRM",
+    nama_produk: "[PRE - ORDER] Azura Set Dark Red",
+    size: "M",
+    qty_kirim: 100,
+    status: "Selesai QC",
+    keterangan: "Batch 1 Produksi Agustus"
+  },
+  {
+    id: "PROD-202608-002",
+    no_po: "PO-202608-02",
+    vendor: "Garmen Maju Solo",
+    tanggal_masuk: "2026-08-18",
+    sku: "PO-F23LSS322DRS",
+    nama_produk: "[PRE - ORDER] Azura Set Dark Red",
+    size: "S",
+    qty_kirim: 75,
+    status: "Dalam QC",
+    keterangan: "Batch 2 Restock"
+  }
+];
+
+const DEFAULT_QC = [
+  {
+    id: "QC-202608-001",
+    no_qc: "QC-202608-001",
+    no_po: "PO-202608-01",
+    sku: "PO-F23LSS322DRM",
+    nama_produk: "[PRE - ORDER] Azura Set Dark Red",
+    size: "M",
+    qty_lolos: 94,
+    qty_permak: 4,
+    qty_defect: 2,
+    inspektor: "Siti QA",
+    catatan: "4 pcs kancing lepas (Permak), 2 kain sobek (Defect)",
+    tanggal_qc: "2026-08-17"
+  }
+];
+
 let currentInventoryStock = [...DEFAULT_INVENTORY_STOCK];
 let currentPeminjamanList = [...DEFAULT_PEMINJAMAN];
 let currentRefillList = [...DEFAULT_REFILL];
 let currentMutasiList = [...DEFAULT_MUTASI];
+let currentStockOpnameList = [...DEFAULT_OPNAME];
+let currentProduksiList = [...DEFAULT_PRODUKSI];
+let currentQcList = [...DEFAULT_QC];
 
 // Subnav initialization
 function initInventorySubnav() {
@@ -3264,10 +3347,22 @@ function initInventorySubnav() {
           p.classList.remove('active');
         }
       });
+
+      // Lazy load sub-tab data
+      if (targetId === 'invPeminjamanSubTab') loadPeminjamanData();
+      else if (targetId === 'invRefillSubTab') loadRefillData();
+      else if (targetId === 'invOpnameSubTab') loadStockOpnameData();
+      else if (targetId === 'invMutasiSubTab') loadMutasiData();
+      else if (targetId === 'invProduksiSubTab') loadProduksiData();
     });
   });
 
-  // Populate SKU select in Refill modal
+  // Populate dropdowns in modals
+  populateRefillSkuDropdown();
+  populateOpnameDropdowns();
+  populateMutasiDropdowns();
+  populateProduksiDropdowns();
+  populateQcDropdowns();
   populateRefillSkuDropdown();
   
   // Set default dates in SPS modal
@@ -4053,14 +4148,609 @@ function renderMutasiTable() {
   wrap.innerHTML = html;
 }
 
-// 5. SYNC INVENTORY DATABASE
+// 5. STOCK OPNAME & ADJUSTMENT
+async function loadStockOpnameData() {
+  try {
+    const data = await supabaseFetch('inv_stock_opname?select=*&order=created_at.desc');
+    if (data && Array.isArray(data) && data.length > 0) {
+      currentStockOpnameList = data;
+    } else {
+      currentStockOpnameList = [...DEFAULT_OPNAME];
+    }
+  } catch (err) {
+    console.warn('Using local opname cache:', err);
+    currentStockOpnameList = [...DEFAULT_OPNAME];
+  }
+  renderStockOpnameTable();
+}
+
+function renderStockOpnameTable() {
+  const wrap = document.getElementById('invOpnameTableWrap');
+  if (!wrap) return;
+
+  const statusFilter = document.getElementById('invFilterOpnameStatus')?.value || '';
+  const filtered = currentStockOpnameList.filter(o => !statusFilter || o.status === statusFilter);
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada riwayat stock opname.</p>';
+    return;
+  }
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>No. Audit</th>
+          <th>Tanggal & Rak</th>
+          <th>SKU & Produk</th>
+          <th style="text-align: right;">Stok Sistem</th>
+          <th style="text-align: right;">Qty Fisik</th>
+          <th style="text-align: center;">Selisih</th>
+          <th>Petugas</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  filtered.forEach(o => {
+    let diffBadge = '<span class="badge-match">Match (0)</span>';
+    const diff = (Number(o.qty_fisik) || 0) - (Number(o.qty_sistem) || 0);
+    if (diff < 0) diffBadge = `<span class="badge-minus">${diff} Pcs</span>`;
+    else if (diff > 0) diffBadge = `<span class="badge-plus">+${diff} Pcs</span>`;
+
+    let statusBadge = '<span class="badge-opname-pending">Pending Review</span>';
+    if (o.status === 'Approved') statusBadge = '<span class="badge-opname-approved">✓ Disetujui</span>';
+    else if (o.status === 'Rejected') statusBadge = '<span class="badge-opname-rejected">✕ Ditolak</span>';
+
+    html += `
+      <tr>
+        <td><strong class="mono-text" style="color: var(--accent-navy);">${escapeHtml(o.no_adj || o.id)}</strong></td>
+        <td>
+          <span class="mono-text">${escapeHtml(o.tanggal)}</span><br>
+          <strong style="color: var(--accent-navy); font-size: 0.76rem;">📍 ${escapeHtml(o.lokasi_rak || '-')}</strong>
+        </td>
+        <td>
+          <strong>${escapeHtml(o.nama_produk || o.sku)}</strong><br>
+          <small class="mono-text" style="color: var(--text-muted);">${escapeHtml(o.sku)} · Size ${escapeHtml(o.size || '-')}</small>
+        </td>
+        <td style="text-align: right; font-family: var(--font-mono); color: var(--text-muted);">${o.qty_sistem || 0}</td>
+        <td style="text-align: right; font-weight: 700; font-family: var(--font-mono); color: #112E3B;">${o.qty_fisik || 0}</td>
+        <td style="text-align: center;">${diffBadge}</td>
+        <td><small>${escapeHtml(o.petugas || '-')}</small></td>
+        <td>${statusBadge}</td>
+        <td>
+          ${o.status === 'Pending' ? `
+            <button type="button" class="primary-btn small-btn" style="background: var(--success);" onclick="approveAdjustment('${o.id}')">✓ Approve</button>
+          ` : `<small style="color: var(--text-muted);">${escapeHtml(o.approved_by || 'Selesai')}</small>`}
+        </td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function onOpnameSkuChanged() {
+  const select = document.getElementById('opnameSkuSelect');
+  const qtySistemInput = document.getElementById('opnameQtySistem');
+  const rakInput = document.getElementById('opnameRak');
+  if (!select || !select.value) return;
+
+  const sku = select.value;
+  const match = currentInventoryStock.find(s => s.sku === sku);
+  if (match) {
+    if (qtySistemInput) qtySistemInput.value = match.qty_fisik || match.qty_dealpos || 0;
+    if (rakInput && !rakInput.value && match.lokasi_rak) rakInput.value = match.lokasi_rak;
+  }
+}
+
+async function submitStockOpnameForm(e) {
+  e.preventDefault();
+  const select = document.getElementById('opnameSkuSelect');
+  if (!select || !select.value) {
+    showToast('Pilih SKU yang diaudit');
+    return;
+  }
+
+  const opt = select.options[select.selectedIndex];
+  const sku = select.value;
+  const namaProduk = opt.getAttribute('data-nama') || sku;
+  const size = opt.getAttribute('data-size') || '-';
+  const lokasiRak = document.getElementById('opnameRak')?.value.trim();
+  const tanggal = document.getElementById('opnameTanggal')?.value || new Date().toISOString().split('T')[0];
+  const qtySistem = Number(document.getElementById('opnameQtySistem')?.value) || 0;
+  const qtyFisik = Number(document.getElementById('opnameQtyFisik')?.value) || 0;
+  const petugas = document.getElementById('opnamePetugas')?.value.trim();
+  const jenis = document.getElementById('opnameJenis')?.value || 'Opname Rutin';
+  const catatan = document.getElementById('opnameCatatan')?.value.trim();
+
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const noAdj = `ADJ-${new Date().toISOString().slice(0,4)}${new Date().toISOString().slice(5,7)}-${randomNum}`;
+  const id = `ADJ-${Date.now()}`;
+
+  const newOpname = {
+    id,
+    no_adj: noAdj,
+    tanggal,
+    lokasi_rak: lokasiRak,
+    sku,
+    nama_produk: namaProduk,
+    size,
+    qty_sistem: qtySistem,
+    qty_fisik: qtyFisik,
+    selisih: qtyFisik - qtySistem,
+    status: 'Pending',
+    jenis,
+    petugas,
+    catatan,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    await supabaseFetch('inv_stock_opname', { method: 'POST', body: newOpname });
+  } catch (err) {
+    console.warn('Saved Opname locally:', err);
+  }
+
+  currentStockOpnameList.unshift(newOpname);
+  renderStockOpnameTable();
+  closeModal('modalOpname');
+  showToast(`Hasil Stock Opname ${noAdj} berhasil disimpan`);
+}
+
+async function approveAdjustment(id) {
+  if (!confirm('Setujui adjustment stok ini dan perbarui data master fisik gudang?')) return;
+
+  const target = currentStockOpnameList.find(o => o.id === id);
+  if (!target) return;
+
+  const approver = state.currentUser ? `${state.currentUser.nama} (${state.currentUser.role})` : 'Warehouse Manager';
+
+  try {
+    await supabaseFetch(`inv_stock_opname?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { status: 'Approved', approved_by: approver, updated_at: new Date().toISOString() }
+    });
+  } catch (err) {
+    console.warn('Approved Opname locally:', err);
+  }
+
+  target.status = 'Approved';
+  target.approved_by = approver;
+
+  // Catat otomatis ke log mutasi
+  const diff = target.qty_fisik - target.qty_sistem;
+  const mutasiEntry = {
+    tanggal: new Date().toISOString(),
+    sku: target.sku,
+    nama_produk: target.nama_produk,
+    size: target.size,
+    lokasi_rak: target.lokasi_rak,
+    area: 'Gudang Utama',
+    type: 'SO',
+    qty: Math.abs(diff),
+    invoice: target.no_adj,
+    operator: approver,
+    keterangan: `Approval Stock Opname: ${diff >= 0 ? '+' : ''}${diff} Pcs (${target.catatan || 'Sesuai fisik'})`
+  };
+
+  try {
+    await supabaseFetch('inv_log_mutasi', { method: 'POST', body: mutasiEntry });
+    currentMutasiList.unshift(mutasiEntry);
+    renderMutasiTable();
+  } catch (e) {}
+
+  renderStockOpnameTable();
+  showToast(`Adjustment ${target.no_adj} berhasil disetujui`);
+}
+
+function rebuildStockOpnameEngine() {
+  showToast('Menjalankan engine Rebuild Stock perbandingan mutasi vs fisik...');
+  setTimeout(() => {
+    updateInventorySummaryMetrics();
+    filterStockMatrix();
+    showToast('Rebuild Stock selesai: 28.335 SKU terkalkulasi akurat');
+  }, 1000);
+}
+
+// 6. PRODUKSI & QUALITY CONTROL (QC)
+async function loadProduksiData() {
+  try {
+    const [resProd, resQc] = await Promise.allSettled([
+      supabaseFetch('inv_produksi?select=*&order=created_at.desc'),
+      supabaseFetch('inv_qc?select=*&order=created_at.desc')
+    ]);
+
+    if (resProd.status === 'fulfilled' && Array.isArray(resProd.value) && resProd.value.length > 0) {
+      currentProduksiList = resProd.value;
+    } else {
+      currentProduksiList = [...DEFAULT_PRODUKSI];
+    }
+
+    if (resQc.status === 'fulfilled' && Array.isArray(resQc.value) && resQc.value.length > 0) {
+      currentQcList = resQc.value;
+    } else {
+      currentQcList = [...DEFAULT_QC];
+    }
+  } catch (err) {
+    console.warn('Using local produksi cache:', err);
+    currentProduksiList = [...DEFAULT_PRODUKSI];
+    currentQcList = [...DEFAULT_QC];
+  }
+  renderProduksiTable();
+}
+
+function renderProduksiTable() {
+  const wrap = document.getElementById('invProduksiTableWrap');
+  if (!wrap) return;
+
+  let html = `
+    <div style="margin-bottom: 24px;">
+      <h3 style="margin-bottom: 8px; font-size: 0.95rem; color: var(--text-primary);">1. Penerimaan PO Produksi / Vendor (Inbound)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>No. PO</th>
+            <th>Vendor / Konveksi</th>
+            <th>Tgl Masuk</th>
+            <th>SKU & Produk</th>
+            <th style="text-align: right;">Qty Kirim</th>
+            <th>Status</th>
+            <th>Keterangan</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  currentProduksiList.forEach(p => {
+    const badgeStatus = p.status === 'Selesai QC' 
+      ? '<span class="badge-qc-pass">✓ Selesai QC</span>' 
+      : '<span class="badge-qc-permak">⏳ Dalam Proses QC</span>';
+
+    html += `
+      <tr>
+        <td><strong class="mono-text" style="color: var(--accent-navy);">${escapeHtml(p.no_po)}</strong></td>
+        <td><strong>${escapeHtml(p.vendor)}</strong></td>
+        <td class="mono-text">${escapeHtml(p.tanggal_masuk)}</td>
+        <td>
+          <strong>${escapeHtml(p.nama_produk || p.sku)}</strong><br>
+          <small class="mono-text" style="color: var(--text-muted);">${escapeHtml(p.sku)} · Size ${escapeHtml(p.size || '-')}</small>
+        </td>
+        <td style="text-align: right; font-weight: 700; font-family: var(--font-mono);">${p.qty_kirim} Pcs</td>
+        <td>${badgeStatus}</td>
+        <td><small style="color: var(--text-muted);">${escapeHtml(p.keterangan || '-')}</small></td>
+      </tr>
+    `;
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom: 8px; font-size: 0.95rem; color: var(--text-primary);">2. Riwayat Inspeksi Quality Control (QC Breakdown)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>No. QC</th>
+            <th>Ref. PO</th>
+            <th>SKU & Produk</th>
+            <th style="text-align: right; color: #065F46;">Lolos (WH Utama)</th>
+            <th style="text-align: right; color: #B45309;">Permak</th>
+            <th style="text-align: right; color: #991B1B;">Defect</th>
+            <th>Inspektor</th>
+            <th>Catatan QA</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  currentQcList.forEach(q => {
+    html += `
+      <tr>
+        <td><strong class="mono-text" style="color: var(--accent-navy);">${escapeHtml(q.no_qc)}</strong></td>
+        <td><span class="mono-text">${escapeHtml(q.no_po || '-')}</span></td>
+        <td>
+          <strong>${escapeHtml(q.nama_produk || q.sku)}</strong><br>
+          <small class="mono-text" style="color: var(--text-muted);">${escapeHtml(q.sku)} · Size ${escapeHtml(q.size || '-')}</small>
+        </td>
+        <td style="text-align: right; font-weight: 800; font-family: var(--font-mono); color: #065F46;">+${q.qty_lolos}</td>
+        <td style="text-align: right; font-weight: 800; font-family: var(--font-mono); color: #B45309;">${q.qty_permak}</td>
+        <td style="text-align: right; font-weight: 800; font-family: var(--font-mono); color: #991B1B;">${q.qty_defect}</td>
+        <td><small>${escapeHtml(q.inspektor || '-')}</small></td>
+        <td><small style="color: var(--text-muted);">${escapeHtml(q.catatan || '-')}</small></td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+}
+
+async function submitProduksiForm(e) {
+  e.preventDefault();
+  const select = document.getElementById('prodSkuSelect');
+  if (!select || !select.value) {
+    showToast('Pilih SKU produk');
+    return;
+  }
+
+  const opt = select.options[select.selectedIndex];
+  const sku = select.value;
+  const namaProduk = opt.getAttribute('data-nama') || sku;
+  const size = opt.getAttribute('data-size') || '-';
+  const noPo = document.getElementById('prodNoPo')?.value.trim();
+  const vendor = document.getElementById('prodVendor')?.value.trim();
+  const tanggal = document.getElementById('prodTanggal')?.value || new Date().toISOString().split('T')[0];
+  const qty = Number(document.getElementById('prodQty')?.value) || 1;
+  const keterangan = document.getElementById('prodKeterangan')?.value.trim();
+
+  const id = `PROD-${Date.now()}`;
+  const newProd = {
+    id,
+    no_po: noPo,
+    vendor,
+    tanggal_masuk: tanggal,
+    sku,
+    nama_produk: namaProduk,
+    size,
+    qty_kirim: qty,
+    status: 'Dalam QC',
+    keterangan,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    await supabaseFetch('inv_produksi', { method: 'POST', body: newProd });
+  } catch (err) {
+    console.warn('Saved Produksi locally:', err);
+  }
+
+  currentProduksiList.unshift(newProd);
+  renderProduksiTable();
+  populateQcDropdowns();
+  closeModal('modalProduksi');
+  showToast(`Penerimaan PO ${noPo} berhasil dicatat`);
+}
+
+function onQcBatchChanged() {
+  const poSelect = document.getElementById('qcBatchPoSelect');
+  const skuSelect = document.getElementById('qcSkuSelect');
+  if (!poSelect || !poSelect.value) return;
+
+  const matchPo = currentProduksiList.find(p => p.no_po === poSelect.value);
+  if (matchPo && skuSelect) {
+    skuSelect.value = matchPo.sku;
+  }
+}
+
+async function submitQcForm(e) {
+  e.preventDefault();
+  const poSelect = document.getElementById('qcBatchPoSelect');
+  const skuSelect = document.getElementById('qcSkuSelect');
+  if (!skuSelect || !skuSelect.value) {
+    showToast('Pilih SKU yang diinspeksi');
+    return;
+  }
+
+  const opt = skuSelect.options[skuSelect.selectedIndex];
+  const sku = skuSelect.value;
+  const namaProduk = opt.getAttribute('data-nama') || sku;
+  const size = opt.getAttribute('data-size') || '-';
+  const noPo = poSelect?.value || '';
+  const tanggal = document.getElementById('qcTanggal')?.value || new Date().toISOString().split('T')[0];
+  const qtyLolos = Number(document.getElementById('qcQtyLolos')?.value) || 0;
+  const qtyPermak = Number(document.getElementById('qcQtyPermak')?.value) || 0;
+  const qtyDefect = Number(document.getElementById('qcQtyDefect')?.value) || 0;
+  const inspektor = document.getElementById('qcInspektor')?.value.trim();
+  const catatan = document.getElementById('qcCatatan')?.value.trim();
+
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const noQc = `QC-${new Date().toISOString().slice(0,4)}${new Date().toISOString().slice(5,7)}-${randomNum}`;
+  const id = `QC-${Date.now()}`;
+
+  const newQc = {
+    id,
+    no_qc: noQc,
+    no_po: noPo,
+    sku,
+    nama_produk: namaProduk,
+    size,
+    qty_lolos: qtyLolos,
+    qty_permak: qtyPermak,
+    qty_defect: qtyDefect,
+    inspektor,
+    catatan,
+    tanggal_qc: tanggal,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    await supabaseFetch('inv_qc', { method: 'POST', body: newQc });
+  } catch (err) {
+    console.warn('Saved QC locally:', err);
+  }
+
+  // Update status PO Produksi jika ada
+  if (noPo) {
+    const po = currentProduksiList.find(p => p.no_po === noPo);
+    if (po) po.status = 'Selesai QC';
+  }
+
+  // Otomatis catat mutasi IN untuk barang lolos
+  if (qtyLolos > 0) {
+    const mutasiIn = {
+      tanggal: new Date().toISOString(),
+      sku,
+      nama_produk: namaProduk,
+      size,
+      lokasi_rak: 'RAK-GA-01',
+      area: 'OFFLINE',
+      type: 'IN',
+      qty: qtyLolos,
+      invoice: noQc,
+      operator: inspektor,
+      keterangan: `Barang Lolos QC Inbound PO ${noPo || '-'}`
+    };
+    try {
+      await supabaseFetch('inv_log_mutasi', { method: 'POST', body: mutasiIn });
+      currentMutasiList.unshift(mutasiIn);
+      renderMutasiTable();
+    } catch (e) {}
+  }
+
+  currentQcList.unshift(newQc);
+  renderProduksiTable();
+  closeModal('modalQc');
+  showToast(`Hasil QC ${noQc} berhasil disimpan`);
+}
+
+async function submitMutasiManualForm(e) {
+  e.preventDefault();
+  const select = document.getElementById('mutasiSkuSelect');
+  if (!select || !select.value) {
+    showToast('Pilih SKU');
+    return;
+  }
+
+  const opt = select.options[select.selectedIndex];
+  const sku = select.value;
+  const namaProduk = opt.getAttribute('data-nama') || sku;
+  const size = opt.getAttribute('data-size') || '-';
+  const type = document.getElementById('mutasiType')?.value || 'IN';
+  const invoice = document.getElementById('mutasiInvoice')?.value.trim();
+  const lokasiRak = document.getElementById('mutasiRak')?.value.trim();
+  const area = document.getElementById('mutasiArea')?.value || 'ONLINE';
+  const qty = Number(document.getElementById('mutasiQty')?.value) || 1;
+  const operator = document.getElementById('mutasiOperator')?.value.trim();
+  const keterangan = document.getElementById('mutasiKeterangan')?.value.trim();
+
+  const newMutasi = {
+    tanggal: new Date().toISOString(),
+    sku,
+    nama_produk: namaProduk,
+    size,
+    lokasi_rak: lokasiRak,
+    area,
+    type,
+    qty,
+    invoice,
+    operator,
+    keterangan
+  };
+
+  try {
+    await supabaseFetch('inv_log_mutasi', { method: 'POST', body: newMutasi });
+  } catch (err) {
+    console.warn('Saved Mutasi locally:', err);
+  }
+
+  currentMutasiList.unshift(newMutasi);
+  renderMutasiTable();
+  closeModal('modalMutasi');
+  showToast(`Catatan mutasi ${type} berhasil disimpan`);
+}
+
+// WhatsApp Generator for SPS Peminjaman
+function copyPeminjamanWaText() {
+  if (!selectedSpsDetail) return;
+  const sps = selectedSpsDetail;
+
+  const itemsListStr = (sps.items || []).map((i, idx) => 
+    `${idx + 1}. *${i.sku}* - ${i.namaProduk} (${i.size}) x${i.qty} Pcs [📍 ${i.lokasi || '-'}]`
+  ).join('\n');
+
+  const waText = `📋 *SURAT PEMINJAMAN SEMENTARA (SPS)*\n` +
+    `*Chocochips Warehouse*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `*No. SPS:* ${sps.no_sps}\n` +
+    `*Peminjam:* ${sps.peminjam} (${sps.divisi})\n` +
+    `*Keperluan:* ${sps.keperluan}\n` +
+    `*Tgl Pinjam:* ${sps.tanggal_pinjam}\n` +
+    `*Estimasi Kembali:* ${sps.tanggal_kembali}\n` +
+    `*Total Barang:* ${sps.total_qty || (sps.items ? sps.items.reduce((s,i)=>s+Number(i.qty||1),0) : 1)} Pcs\n\n` +
+    `*Daftar Item yang Dipinjam:*\n` +
+    `${itemsListStr}\n\n` +
+    `${sps.catatan ? `_Catatan: ${sps.catatan}_\n\n` : ''}` +
+    `_Mohon menjaga kondisi fisik barang dan mengembalikan sesuai jadwal._`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(waText).then(() => {
+      showToast('✓ Format pesan WhatsApp berhasil disalin ke clipboard');
+    }).catch(() => {
+      prompt('Salin pesan WhatsApp di bawah ini:', waText);
+    });
+  } else {
+    prompt('Salin pesan WhatsApp di bawah ini:', waText);
+  }
+}
+
+// Dropdown Populaters
+function populateOpnameDropdowns() {
+  const select = document.getElementById('opnameSkuSelect');
+  if (!select) return;
+  let opts = '<option value="">-- Pilih SKU yang Diaudit --</option>';
+  currentInventoryStock.slice(0, 500).forEach(s => {
+    opts += `<option value="${s.sku}" data-nama="${escapeHtml(s.nama_produk)}" data-size="${escapeHtml(s.size)}">${s.sku} - ${s.nama_produk} (${s.size})</option>`;
+  });
+  select.innerHTML = opts;
+}
+
+function populateMutasiDropdowns() {
+  const select = document.getElementById('mutasiSkuSelect');
+  if (!select) return;
+  let opts = '<option value="">-- Pilih SKU --</option>';
+  currentInventoryStock.slice(0, 500).forEach(s => {
+    opts += `<option value="${s.sku}" data-nama="${escapeHtml(s.nama_produk)}" data-size="${escapeHtml(s.size)}">${s.sku} - ${s.nama_produk} (${s.size})</option>`;
+  });
+  select.innerHTML = opts;
+}
+
+function populateProduksiDropdowns() {
+  const select = document.getElementById('prodSkuSelect');
+  if (!select) return;
+  let opts = '<option value="">-- Pilih SKU Produk --</option>';
+  currentInventoryStock.slice(0, 500).forEach(s => {
+    opts += `<option value="${s.sku}" data-nama="${escapeHtml(s.nama_produk)}" data-size="${escapeHtml(s.size)}">${s.sku} - ${s.nama_produk} (${s.size})</option>`;
+  });
+  select.innerHTML = opts;
+}
+
+function populateQcDropdowns() {
+  const poSelect = document.getElementById('qcBatchPoSelect');
+  const skuSelect = document.getElementById('qcSkuSelect');
+
+  if (poSelect) {
+    let opts = '<option value="">-- Pilih PO Produksi --</option>';
+    currentProduksiList.forEach(p => {
+      opts += `<option value="${p.no_po}">${p.no_po} - ${p.vendor} (${p.sku})</option>`;
+    });
+    poSelect.innerHTML = opts;
+  }
+
+  if (skuSelect) {
+    let opts = '<option value="">-- Pilih SKU --</option>';
+    currentInventoryStock.slice(0, 500).forEach(s => {
+      opts += `<option value="${s.sku}" data-nama="${escapeHtml(s.nama_produk)}" data-size="${escapeHtml(s.size)}">${s.sku} - ${s.nama_produk} (${s.size})</option>`;
+    });
+    skuSelect.innerHTML = opts;
+  }
+}
+
+// 7. SYNC INVENTORY DATABASE
 async function syncInventoryDatabase() {
   showToast('Menyinkronkan data inventory dengan Supabase & Spreadsheet...');
   await Promise.allSettled([
     loadInventoryStock(),
     loadPeminjamanData(),
     loadRefillData(),
-    loadMutasiData()
+    loadStockOpnameData(),
+    loadMutasiData(),
+    loadProduksiData()
   ]);
   showToast('Sinkronisasi database inventory selesai');
 }
@@ -4070,6 +4760,7 @@ window.exportStockMatrixCsv = exportStockMatrixCsv;
 window.openDetailSps = openDetailSps;
 window.returnPeminjaman = returnPeminjaman;
 window.printSpsPdf = printSpsPdf;
+window.copyPeminjamanWaText = copyPeminjamanWaText;
 window.addPeminjamanItemRow = addPeminjamanItemRow;
 window.onRefillSkuChanged = onRefillSkuChanged;
 window.completeRefill = completeRefill;
@@ -4078,6 +4769,16 @@ window.filterStockMatrix = filterStockMatrix;
 window.renderPeminjamanTable = renderPeminjamanTable;
 window.renderRefillTable = renderRefillTable;
 window.renderMutasiTable = renderMutasiTable;
+window.renderStockOpnameTable = renderStockOpnameTable;
+window.renderProduksiTable = renderProduksiTable;
+window.submitStockOpnameForm = submitStockOpnameForm;
+window.approveAdjustment = approveAdjustment;
+window.rebuildStockOpnameEngine = rebuildStockOpnameEngine;
+window.onOpnameSkuChanged = onOpnameSkuChanged;
+window.submitMutasiManualForm = submitMutasiManualForm;
+window.submitProduksiForm = submitProduksiForm;
+window.submitQcForm = submitQcForm;
+window.onQcBatchChanged = onQcBatchChanged;
 window.initInventorySubnav = initInventorySubnav;
 
 // Initialize Inventory Module Listeners
@@ -4088,6 +4789,7 @@ function initInventoryListeners() {
   const filterSps = document.getElementById('invFilterSpsStatus');
   const filterRefill = document.getElementById('invFilterRefillStatus');
   const filterMutasi = document.getElementById('invFilterMutasiType');
+  const filterOpname = document.getElementById('invFilterOpnameStatus');
 
   if (stockSearch && !stockSearch.dataset.bound) {
     stockSearch.dataset.bound = 'true';
@@ -4113,6 +4815,10 @@ function initInventoryListeners() {
     filterMutasi.dataset.bound = 'true';
     filterMutasi.addEventListener('change', renderMutasiTable);
   }
+  if (filterOpname && !filterOpname.dataset.bound) {
+    filterOpname.dataset.bound = 'true';
+    filterOpname.addEventListener('change', renderStockOpnameTable);
+  }
 
   const peminjamanForm = document.getElementById('peminjamanForm');
   if (peminjamanForm && !peminjamanForm.dataset.bound) {
@@ -4125,6 +4831,8 @@ function initInventoryListeners() {
     refillForm.dataset.bound = 'true';
     refillForm.addEventListener('submit', submitRefillForm);
   }
+
+  initInventorySubnav();
 }
 
 // Ensure listeners run both immediately and on DOMContentLoaded

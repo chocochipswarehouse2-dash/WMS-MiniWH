@@ -287,6 +287,59 @@ CREATE TABLE IF NOT EXISTS inv_log_mutasi (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 17. TABEL STOCK OPNAME & ADJUSTMENT
+CREATE TABLE IF NOT EXISTS inv_stock_opname (
+    id VARCHAR(50) PRIMARY KEY,
+    no_adj VARCHAR(100) NOT NULL UNIQUE,
+    tanggal DATE NOT NULL,
+    lokasi_rak VARCHAR(100) NOT NULL,
+    sku VARCHAR(100) NOT NULL,
+    nama_produk VARCHAR(255),
+    size VARCHAR(50),
+    qty_sistem INTEGER NOT NULL DEFAULT 0,
+    qty_fisik INTEGER NOT NULL DEFAULT 0,
+    selisih INTEGER GENERATED ALWAYS AS (qty_fisik - qty_sistem) STORED,
+    status VARCHAR(50) NOT NULL DEFAULT 'Pending', -- 'Pending', 'Approved', 'Rejected'
+    jenis VARCHAR(50) DEFAULT 'Opname', -- 'Opname', 'Manual'
+    petugas VARCHAR(100),
+    approved_by VARCHAR(100),
+    catatan TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 18. TABEL INBOUND PRODUKSI (PO / VENDOR)
+CREATE TABLE IF NOT EXISTS inv_produksi (
+    id VARCHAR(50) PRIMARY KEY,
+    no_po VARCHAR(100) NOT NULL,
+    vendor VARCHAR(150),
+    tanggal_masuk DATE NOT NULL,
+    sku VARCHAR(100) NOT NULL,
+    nama_produk VARCHAR(255),
+    size VARCHAR(50),
+    qty_kirim INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'Dalam QC', -- 'Dalam QC', 'Selesai QC'
+    keterangan TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 19. TABEL LAPORAN QUALITY CONTROL (QC)
+CREATE TABLE IF NOT EXISTS inv_qc (
+    id VARCHAR(50) PRIMARY KEY,
+    no_qc VARCHAR(100) NOT NULL UNIQUE,
+    no_po VARCHAR(100),
+    sku VARCHAR(100) NOT NULL,
+    nama_produk VARCHAR(255),
+    size VARCHAR(50),
+    qty_lolos INTEGER NOT NULL DEFAULT 0,
+    qty_permak INTEGER NOT NULL DEFAULT 0,
+    qty_defect INTEGER NOT NULL DEFAULT 0,
+    inspektor VARCHAR(100),
+    catatan TEXT,
+    tanggal_qc DATE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- Enable read & write for anon key (Frontend API)
@@ -307,6 +360,9 @@ ALTER TABLE inv_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_peminjaman ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_refill ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_log_mutasi ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_stock_opname ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_produksi ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inv_qc ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public all access on karyawan" ON karyawan FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on master_shift" ON master_shift FOR ALL USING (true) WITH CHECK (true);
@@ -324,4 +380,7 @@ CREATE POLICY "Allow public all access on inv_stock" ON inv_stock FOR ALL USING 
 CREATE POLICY "Allow public all access on inv_peminjaman" ON inv_peminjaman FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on inv_refill" ON inv_refill FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on inv_log_mutasi" ON inv_log_mutasi FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on inv_stock_opname" ON inv_stock_opname FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on inv_produksi" ON inv_produksi FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on inv_qc" ON inv_qc FOR ALL USING (true) WITH CHECK (true);
 

@@ -2008,3 +2008,63 @@ label {
     grid-column: span 2;
   }
 }
+
+.badge-qc-pass {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.badge-qc-permak {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.badge-qc-defect {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.badge-opname-pending {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.badge-opname-approved {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.badge-opname-rejected {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #FEE2E2;
+  color: #991B1B;
+}

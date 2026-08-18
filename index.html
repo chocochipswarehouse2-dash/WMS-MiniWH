@@ -378,7 +378,9 @@
             <button class="inv-subnav-btn active" data-invtab="invStockSubTab">📊 Live Stock (Fisik vs DealPOS)</button>
             <button class="inv-subnav-btn" data-invtab="invPeminjamanSubTab">📝 Peminjaman (SPS)</button>
             <button class="inv-subnav-btn" data-invtab="invRefillSubTab">📦 Fulfillment & Refill</button>
+            <button class="inv-subnav-btn" data-invtab="invOpnameSubTab">📋 Stock Opname & SO</button>
             <button class="inv-subnav-btn" data-invtab="invMutasiSubTab">📑 Log Mutasi & Riwayat</button>
+            <button class="inv-subnav-btn" data-invtab="invProduksiSubTab">🧵 Produksi & Inbound QC</button>
             <button class="inv-subnav-btn" data-invtab="invRackSubTab">🏬 Visual Layout Rak</button>
           </div>
 
@@ -464,7 +466,33 @@
             </div>
           </div>
 
-          <!-- SUB-TAB 4: LOG MUTASI & PERGERAKAN PRODUK -->
+          <!-- SUB-TAB 4: STOCK OPNAME & ADJUSTMENT -->
+          <div id="invOpnameSubTab" class="inv-subtab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-row" style="margin-bottom: 14px;">
+                <div>
+                  <strong style="font-size: 1.05rem;">Stock Opname & Adjustment Fisik</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Pemeriksaan fisik langsung per rak gudang dan kalkulasi penyesuaian selisih stok.</p>
+                </div>
+                <div class="submit-row" style="gap: 8px;">
+                  <select id="invFilterOpnameStatus" class="filter-select">
+                    <option value="">Semua Status</option>
+                    <option value="Pending">Pending Review</option>
+                    <option value="Approved">Disetujui (Approved)</option>
+                    <option value="Rejected">Ditolak</option>
+                  </select>
+                  <button type="button" class="primary-btn small-btn" onclick="openModal('modalOpname')">+ Entry Stock Opname</button>
+                  <button type="button" class="secondary-btn small-btn" onclick="rebuildStockOpnameEngine()">⚙️ Rebuild Stock</button>
+                </div>
+              </div>
+
+              <div class="table-container" id="invOpnameTableWrap">
+                <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat data stock opname...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 5: LOG MUTASI & PERGERAKAN PRODUK -->
           <div id="invMutasiSubTab" class="inv-subtab-panel hidden">
             <div class="panel">
               <div class="panel-header-row" style="margin-bottom: 14px;">
@@ -478,12 +506,34 @@
                     <option value="IN">IN (Masuk)</option>
                     <option value="OUT">OUT (Keluar)</option>
                     <option value="SO">SO (Stock Opname)</option>
+                    <option value="ADJ">ADJ (Penyesuaian)</option>
                   </select>
+                  <button type="button" class="primary-btn small-btn" onclick="openModal('modalMutasi')">+ Catat Mutasi Manual</button>
                 </div>
               </div>
 
               <div class="table-container" id="invMutasiTableWrap">
                 <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat log pergerakan produk...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 6: INBOUND PRODUKSI & QC -->
+          <div id="invProduksiSubTab" class="inv-subtab-panel hidden">
+            <div class="panel">
+              <div class="panel-header-row" style="margin-bottom: 14px;">
+                <div>
+                  <strong style="font-size: 1.05rem;">Penerimaan Produksi & Quality Control (QC)</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Penerimaan PO dari vendor penjahit dan alur routing hasil inspeksi kualitas.</p>
+                </div>
+                <div class="submit-row" style="gap: 8px;">
+                  <button type="button" class="primary-btn small-btn" onclick="openModal('modalProduksi')">+ Terima PO Produksi</button>
+                  <button type="button" class="primary-btn small-btn btn-navy" onclick="openModal('modalQc')">🔍 + Inspeksi QC</button>
+                </div>
+              </div>
+
+              <div class="table-container" id="invProduksiTableWrap">
+                <p style="padding: 24px; text-align: center; color: var(--text-muted);">Memuat data produksi & QC...</p>
               </div>
             </div>
           </div>
@@ -1562,8 +1612,183 @@
       </div>
       <div class="submit-row" style="margin-top: 16px; gap: 8px;">
         <button type="button" class="primary-btn" id="btnPrintSpsPdf" onclick="printSpsPdf()">🖨️ Cetak Slip / PDF</button>
+        <button type="button" class="primary-btn btn-navy" onclick="copyPeminjamanWaText()">📲 Salin Format WA</button>
         <button type="button" class="secondary-btn" onclick="closeModal('modalDetailSps')">Tutup</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL STOCK OPNAME & ADJUSTMENT -->
+  <div id="modalOpname" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Form Input Stock Opname (Fisik)</h3>
+          <small style="color: var(--text-muted);">Audit fisik barang per rak untuk mendeteksi selisih stok secara akurat.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalOpname')">✕</button>
+      </div>
+      <form id="opnameForm" onsubmit="submitStockOpnameForm(event)">
+        <div class="grid two-columns">
+          <label><span>Lokasi Rak</span><input type="text" id="opnameRak" placeholder="Contoh: RAK-A1-01" required></label>
+          <label><span>Tanggal Audit</span><input type="date" id="opnameTanggal" required></label>
+        </div>
+        <label><span>Pilih Produk / SKU</span>
+          <select id="opnameSkuSelect" required onchange="onOpnameSkuChanged()">
+            <option value="">-- Pilih SKU yang Diaudit --</option>
+          </select>
+        </label>
+        <div class="grid two-columns">
+          <label><span>Stok Sistem Saat Ini</span><input type="number" id="opnameQtySistem" readonly style="background: var(--bg-app);"></label>
+          <label><span>Qty Fisik Aktual (Hitungan)</span><input type="number" id="opnameQtyFisik" min="0" required></label>
+        </div>
+        <div class="grid two-columns">
+          <label><span>Petugas Auditor</span><input type="text" id="opnamePetugas" placeholder="Nama auditor..." required></label>
+          <label><span>Jenis Audit</span>
+            <select id="opnameJenis">
+              <option value="Opname Rutin">Opname Rutin</option>
+              <option value="Spot Check">Spot Check</option>
+              <option value="Audit Tahunan">Audit Tahunan</option>
+            </select>
+          </label>
+        </div>
+        <label><span>Catatan / Alasan Selisih</span><input type="text" id="opnameCatatan" placeholder="Contoh: 2 pcs terselip di rak B, barang rusak, dll..."></label>
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitOpname" class="primary-btn">
+            <span class="btn-text">📋 Simpan Hasil Opname</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalOpname')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL CATAT MUTASI MANUAL -->
+  <div id="modalMutasi" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Pencatatan Mutasi Barang Manual</h3>
+          <small style="color: var(--text-muted);">Pencatatan pergerakan barang masuk (IN), keluar (OUT), atau penyesuaian (ADJ).</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalMutasi')">✕</button>
+      </div>
+      <form id="mutasiForm" onsubmit="submitMutasiManualForm(event)">
+        <div class="grid two-columns">
+          <label><span>Tipe Mutasi</span>
+            <select id="mutasiType" required>
+              <option value="IN">IN (Barang Masuk)</option>
+              <option value="OUT">OUT (Barang Keluar)</option>
+              <option value="ADJ">ADJ (Penyesuaian Rak/Area)</option>
+            </select>
+          </label>
+          <label><span>No. Dokumen / Invoice</span><input type="text" id="mutasiInvoice" placeholder="Contoh: INV-2026-001" required></label>
+        </div>
+        <label><span>Pilih Produk / SKU</span>
+          <select id="mutasiSkuSelect" required>
+            <option value="">-- Pilih SKU --</option>
+          </select>
+        </label>
+        <div class="grid two-columns">
+          <label><span>Lokasi Rak</span><input type="text" id="mutasiRak" placeholder="Contoh: RAK-A1-02" required></label>
+          <label><span>Area</span>
+            <select id="mutasiArea" required>
+              <option value="ONLINE">ONLINE (MAP, Live, Studio)</option>
+              <option value="PERBAIKAN">PERBAIKAN (Permak, Defect)</option>
+              <option value="OFFLINE">OFFLINE (WH, QC, GA)</option>
+            </select>
+          </label>
+        </div>
+        <div class="grid two-columns">
+          <label><span>Jumlah Qty</span><input type="number" id="mutasiQty" min="1" value="1" required></label>
+          <label><span>Operator / Petugas</span><input type="text" id="mutasiOperator" placeholder="Nama operator..." required></label>
+        </div>
+        <label><span>Keterangan Mutasi</span><input type="text" id="mutasiKeterangan" placeholder="Contoh: Restock batch baru, sample hilang, dll..."></label>
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitMutasi" class="primary-btn">
+            <span class="btn-text">💾 Simpan Catatan Mutasi</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalMutasi')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL PENERIMAAN PO PRODUKSI -->
+  <div id="modalProduksi" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Penerimaan Barang Produksi / PO</h3>
+          <small style="color: var(--text-muted);">Penerimaan batch pakaian hasil jahit dari vendor konveksi sebelum masuk QC.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalProduksi')">✕</button>
+      </div>
+      <form id="produksiForm" onsubmit="submitProduksiForm(event)">
+        <div class="grid two-columns">
+          <label><span>No. PO / Cutting</span><input type="text" id="prodNoPo" placeholder="Contoh: PO-202608-01" required></label>
+          <label><span>Vendor / Penjahit</span><input type="text" id="prodVendor" placeholder="Contoh: Konveksi Bandung Jaya" required></label>
+        </div>
+        <div class="grid two-columns">
+          <label><span>Tanggal Masuk</span><input type="date" id="prodTanggal" required></label>
+          <label><span>Jumlah Qty Kirim</span><input type="number" id="prodQty" min="1" value="50" required></label>
+        </div>
+        <label><span>Pilih Produk / SKU</span>
+          <select id="prodSkuSelect" required>
+            <option value="">-- Pilih SKU Produk --</option>
+          </select>
+        </label>
+        <label><span>Keterangan Batch</span><input type="text" id="prodKeterangan" placeholder="Contoh: Produksi Batch 1 Koleksi Lebaran..."></label>
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitProduksi" class="primary-btn">
+            <span class="btn-text">🧵 Simpan Penerimaan PO</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalProduksi')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL INSPEKSI QUALITY CONTROL (QC) -->
+  <div id="modalQc" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Form Hasil Inspeksi Quality Control (QC)</h3>
+          <small style="color: var(--text-muted);">Klasifikasi barang lolos ke rak utama, butuh permak, atau defect/cacat.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalQc')">✕</button>
+      </div>
+      <form id="qcForm" onsubmit="submitQcForm(event)">
+        <div class="grid two-columns">
+          <label><span>Pilih Batch PO Produksi</span>
+            <select id="qcBatchPoSelect" onchange="onQcBatchChanged()">
+              <option value="">-- Pilih PO Produksi --</option>
+            </select>
+          </label>
+          <label><span>Tanggal QC</span><input type="date" id="qcTanggal" required></label>
+        </div>
+        <label><span>Pilih Produk / SKU</span>
+          <select id="qcSkuSelect" required>
+            <option value="">-- Pilih SKU --</option>
+          </select>
+        </label>
+        <div class="grid three-columns">
+          <label><span>Qty Lolos (WH Utama)</span><input type="number" id="qcQtyLolos" min="0" value="0" required></label>
+          <label><span>Qty Butuh Permak</span><input type="number" id="qcQtyPermak" min="0" value="0" required></label>
+          <label><span>Qty Cacat / Defect</span><input type="number" id="qcQtyDefect" min="0" value="0" required></label>
+        </div>
+        <div class="grid two-columns">
+          <label><span>Nama Inspektor QA</span><input type="text" id="qcInspektor" placeholder="Nama staf QC..." required></label>
+          <label><span>Tindakan Permak/Defect</span><input type="text" id="qcCatatan" placeholder="Contoh: Kancing lepas, noda minyak..."></label>
+        </div>
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitQc" class="primary-btn">
+            <span class="btn-text">🔍 Simpan Hasil QC</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalQc')">Batal</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1576,6 +1801,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=3.9"></script>
+  <script src="script.js?v=4.0"></script>
 </body>
 </html>
