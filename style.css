@@ -2026,6 +2026,22 @@ label {
 .inv-filter-bar {
   display: flex;
   flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.inv-filter-bar select {
+  width: auto;
+  flex: 1;
+  max-width: 250px;
+}
+.inv-filter-bar .topbar-search-wrap {
+  flex: 2;
+  min-width: 250px;
+}
+/* temp override for old filter bar */
+.old-inv-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
