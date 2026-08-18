@@ -978,7 +978,42 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
   }
 }
 
-// ================= INVENTORY SPREADSHEET CONNECTOR =================
+// ================= INVENTORY SPREADSHEET CONNECTOR & SUPABASE SYNC =================
+const SUPABASE_CONFIG = {
+  url: 'https://rmrbfecagwcojtoqeovk.supabase.co',
+  anonKey: 'sb_publishable_zOn1y93MF0x3CIy8MJ7I8Q_fQMkJ8x9'
+};
+
+function onOpen() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    ui.createMenu('📦 WMS Mini')
+      .addItem('⚡ Sinkronkan Inventory ke Supabase', 'syncAllInventoryToSupabase')
+      .addItem('🔄 Pasang Auto-Trigger Sinkronisasi (15 Menit)', 'installInventorySyncTrigger')
+      .addToUi();
+  } catch (e) {
+    Logger.log('onOpen notice: ' + e.message);
+  }
+}
+
+function installInventorySyncTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'syncAllInventoryToSupabase') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('syncAllInventoryToSupabase')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+
+  try {
+    SpreadsheetApp.getUi().alert('Auto-Trigger berhasil dipasang! Sinkronisasi otomatis berjalan setiap 15 menit.');
+  } catch(e) {}
+}
+
 function inspectInventorySpreadsheet(spreadsheetId) {
   try {
     const ss = SpreadsheetApp.openById(spreadsheetId);
@@ -997,6 +1032,173 @@ function inspectInventorySpreadsheet(spreadsheetId) {
       });
     });
     return { success: true, spreadsheetTitle: ss.getName(), sheets: result };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function syncAllInventoryToSupabase(spreadsheetId) {
+  try {
+    const ss = spreadsheetId ? SpreadsheetApp.openById(spreadsheetId) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheetStok = ss.getSheetByName('stok');
+    const sheetData = ss.getSheetByName('data');
+
+    if (!sheetData) throw new Error('Sheet "data" tidak ditemukan');
+
+    const fisikMap = {};
+    if (sheetStok) {
+      const stokVals = sheetStok.getDataRange().getValues();
+      if (stokVals.length > 1) {
+        const headers = stokVals[0].map(h => String(h).trim().toUpperCase());
+        const skuIdx = headers.findIndex(h => h.includes('SKU'));
+        const locIdx = headers.findIndex(h => h.includes('LOKASI UPDATE') || h.includes('LOKASI'));
+        const nameIdx = headers.findIndex(h => h.includes('NAMA'));
+        const sizeIdx = headers.findIndex(h => h.includes('SIZE'));
+
+        for (let i = 1; i < stokVals.length; i++) {
+          const row = stokVals[i];
+          const sku = String(row[skuIdx >= 0 ? skuIdx : 0] || '').trim();
+          if (!sku) continue;
+          const loc = String(row[locIdx >= 0 ? locIdx : 1] || '').trim();
+          const nama = String(row[nameIdx >= 0 ? nameIdx : 3] || '').trim();
+          const size = String(row[sizeIdx >= 0 ? sizeIdx : 4] || '').trim();
+
+          if (!fisikMap[sku]) {
+            fisikMap[sku] = { qty: 0, lokasi: loc, nama: nama !== 'SKU Tidak ditemukan' ? nama : '', size: size !== 'NO DATA' ? size : '' };
+          }
+          fisikMap[sku].qty += 1;
+          if (loc && !fisikMap[sku].lokasi) fisikMap[sku].lokasi = loc;
+        }
+      }
+    }
+
+    const dataVals = sheetData.getDataRange().getValues();
+    if (dataVals.length < 2) throw new Error('Sheet "data" kosong');
+
+    const headers = dataVals[0].map(h => String(h).trim());
+    const KEYWORD_MAP = {
+      'Inventory_Central Park Jakarta': { code: 'CPJ', group: 'RETAIL' },
+      'Inventory_Gading Serpong Tangerang': { code: 'GST', group: 'RETAIL' },
+      'Inventory_Lippo Mall Puri': { code: 'LMP', group: 'RETAIL' },
+      'Inventory_By The Sea PIK': { code: 'BTS', group: 'RETAIL' },
+      'Inventory_Ciputra World Surabaya': { code: 'CWS', group: 'RETAIL' },
+      'Inventory_Deli Park Medan': { code: 'DPM', group: 'RETAIL' },
+      'Inventory_Paskal Hyper Square Bandung': { code: 'PHB', group: 'RETAIL' },
+      'Inventory_Pakuwon Mall Surabaya': { code: 'PMS', group: 'RETAIL' },
+      'Inventory_Mall Kelapa Gading': { code: 'MKG', group: 'RETAIL' },
+      'Inventory_Living World Tangerang': { code: 'LWT', group: 'RETAIL' },
+      'Inventory_Website': { code: 'WEB', group: 'MAP' },
+      'Inventory_Marketplace': { code: 'MAP', group: 'MAP' },
+      'Inventory_Shopee': { code: 'SHP', group: 'MAP' },
+      'Inventory_Tokopedia': { code: 'TPD', group: 'MAP' },
+      'Inventory_TikTok': { code: 'TTK', group: 'MAP' },
+      'Inventory_Lazada': { code: 'LZD', group: 'MAP' },
+      'Inventory_Woocommerce': { code: 'WOO', group: 'MAP' },
+      'Inventory_ChicShopee': { code: 'CSHP', group: 'MAP' },
+      'Inventory_KYTE': { code: 'KYT', group: 'RETAIL' },
+      'Inventory_Warehouse': { code: 'WH', group: 'WH' },
+      'Inventory_Buying Staff': { code: 'BUY', group: 'STUDIO' },
+      'Inventory_Diskon Defect': { code: 'DD', group: 'DEFECT' },
+      'Inventory_Endorsement': { code: 'END', group: 'STUDIO' },
+      'Inventory_Sample Studio': { code: 'STD', group: 'STUDIO' },
+      'Inventory_Loss/Damage': { code: 'LND', group: 'DEFECT' },
+      'Inventory_Gudang Awal': { code: 'GA', group: 'GA' },
+      'Inventory_Gudang QC': { code: 'QC', group: 'QC' },
+      'Inventory_Gudang Permak': { code: 'PMK', group: 'PERMAK' },
+      'Inventory_Gudang Retur': { code: 'RET', group: 'WH' },
+      'Inventory_Gudang Logistik': { code: 'LOG', group: 'WH' },
+      'Inventory_Sample Live': { code: 'LIVE', group: 'LIVE' },
+      'Inventory_Neo Soho Jakarta': { code: 'NSJ', group: 'RETAIL' },
+      'Inventory_Bazaar Central Park': { code: 'BCPJ', group: 'RETAIL' },
+      'Inventory_Bazaar Lippo Mall Puri': { code: 'BLMP', group: 'RETAIL' },
+      'Inventory_Puri Indah Mall': { code: 'PIM', group: 'RETAIL' },
+      'Inventory_Shopee - Deli Park Medan': { code: 'SDPM', group: 'MAP' },
+      'Inventory_Shopee - Ciputra World Surabaya': { code: 'SCWS', group: 'MAP' },
+      'Inventory_La Vela Tangerang': { code: 'LVT', group: 'RETAIL' },
+      'Inventory_Gaia Pontianak': { code: 'GAIA', group: 'RETAIL' },
+      'Inventory_Sun Plaza Medan': { code: 'SPM', group: 'RETAIL' }
+    };
+
+    const colMap = {};
+    headers.forEach((h, idx) => {
+      if (KEYWORD_MAP[h]) colMap[idx] = KEYWORD_MAP[h];
+    });
+
+    const records = [];
+    for (let i = 1; i < dataVals.length; i++) {
+      const row = dataVals[i];
+      const sku = String(row[4] || '').trim();
+      if (!sku) continue;
+
+      const kategori = String(row[0] || 'CLOTHING').trim();
+      const nama = String(row[1] || sku).trim();
+      const variant = String(row[3] || '-').trim();
+      const fInfo = fisikMap[sku];
+      const qtyFisik = fInfo ? fInfo.qty : 0;
+      const lokasiRak = fInfo && fInfo.lokasi ? fInfo.lokasi : '';
+
+      const channelsData = {};
+      const groupData = {
+        MAP: { fisik: 0, dp: 0 },
+        LIVE: { fisik: 0, dp: 0 },
+        STUDIO: { fisik: 0, dp: 0 },
+        PERMAK: { fisik: 0, dp: 0 },
+        DEFECT: { fisik: 0, dp: 0 },
+        WH: { fisik: 0, dp: 0 },
+        QC: { fisik: 0, dp: 0 },
+        GA: { fisik: 0, dp: 0 },
+        RETAIL: { fisik: 0, dp: 0 }
+      };
+
+      let totalDp = 0;
+      Object.entries(colMap).forEach(([cIdx, info]) => {
+        const val = Number(row[Number(cIdx)] || 0);
+        const cleanVal = isNaN(val) ? 0 : val;
+        channelsData[info.code] = cleanVal;
+        totalDp += cleanVal;
+        if (groupData[info.group]) groupData[info.group].dp += cleanVal;
+      });
+
+      groupData.QC.fisik = qtyFisik;
+      records.push({
+        sku: sku,
+        nama_produk: nama,
+        size: variant,
+        kategori: kategori,
+        lokasi_rak: lokasiRak,
+        area: 'Gudang Utama',
+        kategori_area: 'ONLINE',
+        qty_fisik: qtyFisik,
+        qty_dealpos: totalDp,
+        keterangan: JSON.stringify({ ...groupData, channels: channelsData }),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    // Clear old & batch post
+    UrlFetchApp.fetch(SUPABASE_CONFIG.url + '/rest/v1/inv_stock?id=gt.0', {
+      method: 'delete',
+      headers: {
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey
+      }
+    });
+
+    const batchSize = 400;
+    for (let b = 0; b < records.length; b += batchSize) {
+      const batch = records.slice(b, b + batchSize);
+      UrlFetchApp.fetch(SUPABASE_CONFIG.url + '/rest/v1/inv_stock', {
+        method: 'post',
+        headers: {
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey,
+          'Content-Type': 'application/json'
+        },
+        payload: JSON.stringify(batch)
+      });
+    }
+
+    return { success: true, count: records.length, message: records.length + ' SKU berhasil disinkronkan ke Supabase' };
   } catch (e) {
     return { success: false, error: e.message };
   }

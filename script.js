@@ -3471,17 +3471,33 @@ function initInventorySubnav() {
 }
 
 // 1. LOAD & RENDER INVENTORY STOCK MATRIX
-let totalDatabaseSkuCount = 28335;
+let totalDatabaseSkuCount = 28356;
 
 async function loadInventoryStock() {
   try {
-    // Ambil produk stok aktif dari Supabase (diurutkan berdasarkan prioritas stok fisik)
-    const data = await supabaseFetch('inv_stock?select=*&order=qty_fisik.desc&limit=2000');
+    // Ambil produk stok aktif dari Supabase (diurutkan berdasarkan DealPOS dan Fisik tertinggi)
+    const data = await supabaseFetch('inv_stock?select=*&order=qty_dealpos.desc,qty_fisik.desc&limit=1000');
     if (data && Array.isArray(data) && data.length > 0) {
       currentInventoryStock = data;
     } else {
       currentInventoryStock = [...DEFAULT_INVENTORY_STOCK];
     }
+
+    // Ambil total SKU exact count dari database Supabase
+    try {
+      const countRes = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/inv_stock?select=count`, {
+        headers: {
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+          'Prefer': 'count=exact'
+        }
+      });
+      const range = countRes.headers.get('content-range');
+      if (range && range.includes('/')) {
+        const total = parseInt(range.split('/')[1], 10);
+        if (!isNaN(total) && total > 0) totalDatabaseSkuCount = total;
+      }
+    } catch (e) {}
   } catch (err) {
     console.warn('Using local inventory stock cache:', err);
     currentInventoryStock = [...DEFAULT_INVENTORY_STOCK];
@@ -3494,10 +3510,18 @@ async function loadInventoryStock() {
 
 function updateInventorySummaryMetrics() {
   const readyOnline = currentInventoryStock
-    .filter(s => s.kategori_area === 'ONLINE')
-    .reduce((sum, s) => sum + (Number(s.qty_fisik) || 0), 0);
-  const perbaikan = currentInventoryStock
-    .filter(s => s.kategori_area === 'PERBAIKAN')
+    .reduce((sum, s) => {
+      let komparasi = null;
+      if (s.keterangan && typeof s.keterangan === 'string' && s.keterangan.startsWith('{')) {
+        try { komparasi = JSON.parse(s.keterangan); } catch (e) {}
+      }
+      const mapDp = Number(komparasi?.MAP?.dp || 0);
+      const liveDp = Number(komparasi?.LIVE?.dp || 0);
+      const studioDp = Number(komparasi?.STUDIO?.dp || 0);
+      return sum + mapDp + liveDp + studioDp;
+    }, 0);
+
+  const totalFisik = currentInventoryStock
     .reduce((sum, s) => sum + (Number(s.qty_fisik) || 0), 0);
   const totalSelisih = currentInventoryStock
     .reduce((sum, s) => sum + ((Number(s.qty_fisik) || 0) - (Number(s.qty_dealpos) || 0)), 0);
@@ -3509,13 +3533,190 @@ function updateInventorySummaryMetrics() {
 
   if (elTotal) elTotal.textContent = `${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU`;
   if (elOnline) elOnline.textContent = `${readyOnline.toLocaleString('id-ID')} Pcs`;
-  if (elPerbaikan) elPerbaikan.textContent = `${perbaikan.toLocaleString('id-ID')} Pcs`;
+  if (elPerbaikan) elPerbaikan.textContent = `${totalFisik.toLocaleString('id-ID')} Pcs`;
   if (elSelisih) {
     const prefix = totalSelisih > 0 ? '+' : '';
-    elSelisih.textContent = `${prefix}${totalSelisih} Pcs`;
+    elSelisih.textContent = `${prefix}${totalSelisih.toLocaleString('id-ID')} Pcs`;
     elSelisih.style.color = totalSelisih === 0 ? 'var(--success)' : 'var(--error)';
   }
 }
+
+// ⚡ FITUR SINKRONISASI INSTAN LANGSUNG DARI GOOGLE SPREADSHEET
+window.syncLiveFromGoogleSheet = async function() {
+  const btn = document.getElementById('btnSyncGoogleSheet');
+  const ssId = '1kkjkKiqU39PnIWQhED1sLfH5uX349_vgqcs2qTpYixQ';
+
+  if (btn) setButtonLoading(btn, true, 'Menghubungkan...');
+  showToast('Memulai sinkronisasi data real dari Google Spreadsheet (Sheet "stok" & "data")...');
+
+  try {
+    // 1. Ambil Sheet stok
+    if (btn) btn.innerHTML = '<span class="btn-text">Mengunduh Stok Fisik...</span>';
+    const resStok = await fetch(`https://docs.google.com/spreadsheets/d/${ssId}/gviz/tq?tqx=out:csv&sheet=stok`);
+    const txtStok = await resStok.text();
+    const rowsStok = parseCsvToArray(txtStok);
+
+    const fisikMap = {};
+    if (rowsStok.length > 1) {
+      const headersStok = rowsStok[0].map(h => h.trim().toUpperCase());
+      const skuIdx = headersStok.findIndex(h => h.includes('SKU'));
+      const locUpdateIdx = headersStok.findIndex(h => h === 'LOKASI UPDATE');
+      const locPrevIdx = headersStok.findIndex(h => h === 'LOKASI SECELUM' || h.includes('SEBELUM'));
+      const nameIdx = headersStok.findIndex(h => h.includes('NAMA'));
+      const sizeIdx = headersStok.findIndex(h => h === 'SIZE');
+
+      for (let i = 1; i < rowsStok.length; i++) {
+        const r = rowsStok[i];
+        const sku = (r[skuIdx >= 0 ? skuIdx : 0] || '').trim();
+        if (!sku || sku === 'SKU SCAN') continue;
+
+        const loc = (r[locUpdateIdx >= 0 ? locUpdateIdx : 1] || r[locPrevIdx >= 0 ? locPrevIdx : 2] || '').trim();
+        const nama = (r[nameIdx >= 0 ? nameIdx : 3] || '').trim();
+        const size = (r[sizeIdx >= 0 ? sizeIdx : 4] || '').trim();
+
+        if (!fisikMap[sku]) {
+          fisikMap[sku] = {
+            qty: 0,
+            lokasi: loc,
+            nama: (nama && nama !== 'SKU Tidak ditemukan') ? nama : '',
+            size: (size && size !== 'NO DATA') ? size : ''
+          };
+        }
+        fisikMap[sku].qty += 1;
+        if (loc && !fisikMap[sku].lokasi) fisikMap[sku].lokasi = loc;
+        if (nama && nama !== 'SKU Tidak ditemukan' && !fisikMap[sku].nama) fisikMap[sku].nama = nama;
+        if (size && size !== 'NO DATA' && !fisikMap[sku].size) fisikMap[sku].size = size;
+      }
+    }
+
+    // 2. Ambil Sheet data (DealPOS)
+    if (btn) btn.innerHTML = '<span class="btn-text">Mengunduh 28k DealPOS...</span>';
+    const resData = await fetch(`https://docs.google.com/spreadsheets/d/${ssId}/gviz/tq?tqx=out:csv&sheet=data`);
+    const txtData = await resData.text();
+    const rowsData = parseCsvToArray(txtData);
+
+    if (rowsData.length < 2) throw new Error('Sheet data kosong');
+
+    const headersData = rowsData[0].map(h => h.trim());
+    const colCategoryIdx = 0;
+    const colProductIdx = 1;
+    const colVariantIdx = 3;
+    const colSkuIdx = 4;
+
+    const colMap = {};
+    headersData.forEach((h, idx) => {
+      if (DEALPOS_KEYWORD_MAP[h]) {
+        colMap[idx] = DEALPOS_KEYWORD_MAP[h];
+      }
+    });
+
+    const records = [];
+    const seenSku = new Set();
+
+    for (let i = 1; i < rowsData.length; i++) {
+      const r = rowsData[i];
+      const sku = (r[colSkuIdx] || '').trim();
+      if (!sku) continue;
+
+      const kategori = (r[colCategoryIdx] || 'CLOTHING').trim();
+      const productName = (r[colProductIdx] || '').trim();
+      const variant = (r[colVariantIdx] || '').trim();
+
+      const fisikInfo = fisikMap[sku];
+      const qtyFisik = fisikInfo ? fisikInfo.qty : 0;
+      const lokasiRak = (fisikInfo && fisikInfo.lokasi) ? fisikInfo.lokasi : '';
+
+      const channelsData = {};
+      const groupData = {
+        MAP: { fisik: 0, dp: 0 },
+        LIVE: { fisik: 0, dp: 0 },
+        STUDIO: { fisik: 0, dp: 0 },
+        PERMAK: { fisik: 0, dp: 0 },
+        DEFECT: { fisik: 0, dp: 0 },
+        WH: { fisik: 0, dp: 0 },
+        QC: { fisik: 0, dp: 0 },
+        GA: { fisik: 0, dp: 0 },
+        RETAIL: { fisik: 0, dp: 0 }
+      };
+
+      let totalDp = 0;
+      Object.entries(colMap).forEach(([cIdx, info]) => {
+        const val = Number(r[Number(cIdx)] || 0);
+        const cleanVal = isNaN(val) ? 0 : val;
+        channelsData[info.code] = cleanVal;
+        totalDp += cleanVal;
+        if (groupData[info.group]) groupData[info.group].dp += cleanVal;
+      });
+
+      groupData.QC.fisik = qtyFisik;
+      records.push({
+        sku,
+        nama_produk: productName || (fisikInfo ? fisikInfo.nama : sku),
+        size: variant || (fisikInfo ? fisikInfo.size : '-'),
+        kategori: kategori,
+        lokasi_rak: lokasiRak || '',
+        area: 'Gudang Utama',
+        kategori_area: 'ONLINE',
+        qty_fisik: qtyFisik,
+        qty_dealpos: totalDp,
+        keterangan: JSON.stringify({ ...groupData, channels: channelsData }),
+        updated_at: new Date().toISOString()
+      });
+
+      seenSku.add(sku);
+    }
+
+    // SKU fisik yang belum ada di sheet data
+    Object.entries(fisikMap).forEach(([sku, info]) => {
+      if (!seenSku.has(sku)) {
+        records.push({
+          sku,
+          nama_produk: info.nama || sku,
+          size: info.size || '-',
+          kategori: 'CLOTHING',
+          lokasi_rak: info.lokasi || '',
+          area: 'Gudang Utama',
+          kategori_area: 'ONLINE',
+          qty_fisik: info.qty,
+          qty_dealpos: 0,
+          keterangan: JSON.stringify({
+            MAP: { fisik: 0, dp: 0 }, LIVE: { fisik: 0, dp: 0 }, STUDIO: { fisik: 0, dp: 0 },
+            PERMAK: { fisik: 0, dp: 0 }, DEFECT: { fisik: 0, dp: 0 }, WH: { fisik: 0, dp: 0 },
+            QC: { fisik: info.qty, dp: 0 }, GA: { fisik: 0, dp: 0 }, RETAIL: { fisik: 0, dp: 0 }, channels: {}
+          }),
+          updated_at: new Date().toISOString()
+        });
+      }
+    });
+
+    if (btn) btn.innerHTML = '<span class="btn-text">Menyimpan ke Supabase...</span>';
+
+    // 3. Clear old & batch post
+    await supabaseFetch('inv_stock?id=gt.0', { method: 'DELETE' });
+
+    const batchSize = 500;
+    const totalBatches = Math.ceil(records.length / batchSize);
+    for (let b = 0; b < totalBatches; b++) {
+      const start = b * batchSize;
+      const end = Math.min(start + batchSize, records.length);
+      const batch = records.slice(start, end);
+
+      if (btn) btn.innerHTML = `<span class="btn-text">Upload ${end}/${records.length}...</span>`;
+      await supabaseFetch('inv_stock', {
+        method: 'POST',
+        body: batch
+      });
+    }
+
+    showToast(`⚡ Sukses! ${records.length.toLocaleString('id-ID')} produk real berhasil disinkronkan ke Supabase!`);
+    await loadInventoryStock();
+  } catch (err) {
+    console.error('Sync error:', err);
+    showToast(`Gagal sinkronisasi: ${err.message}`, 'error');
+  } finally {
+    if (btn) setButtonLoading(btn, false);
+  }
+};
 
 // 40 KATA KUNCI LOKASI & CHANNEL DEALPOS
 const DEALPOS_KEYWORD_MAP = {
@@ -4011,7 +4212,6 @@ window.executeImportStockFisikDealpos = async function(e) {
         kategori_area: 'ONLINE',
         qty_fisik: qtyFisik,
         qty_dealpos: sumDealpos,
-        selisih: selisih,
         keterangan: keteranganJson,
         updated_at: new Date().toISOString()
       });
@@ -4019,8 +4219,10 @@ window.executeImportStockFisikDealpos = async function(e) {
 
     if (parsedItems.length === 0) throw new Error('Tidak ada data produk yang berhasil diparsing.');
 
-    // 3. Simpan ke Supabase dalam batch
-    const batchSize = 250;
+    // 3. Clear existing data & Simpan ke Supabase dalam batch
+    await supabaseFetch('inv_stock?id=gt.0', { method: 'DELETE' });
+
+    const batchSize = 500;
     const totalBatches = Math.ceil(parsedItems.length / batchSize);
 
     for (let b = 0; b < totalBatches; b++) {
@@ -4032,9 +4234,8 @@ window.executeImportStockFisikDealpos = async function(e) {
       if (statusText) statusText.textContent = `Menyimpan ke database Supabase (${end}/${parsedItems.length} SKU - ${percent}%)...`;
       if (progressBar) progressBar.style.width = `${percent}%`;
 
-      await supabaseFetch('inv_stock?on_conflict=sku', {
+      await supabaseFetch('inv_stock', {
         method: 'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: batch
       });
     }

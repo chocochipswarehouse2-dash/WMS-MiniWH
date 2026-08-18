@@ -407,8 +407,9 @@
                   </select>
                 </div>
                 <div class="submit-row" style="gap: 8px;">
-                  <button type="button" class="primary-btn small-btn" onclick="openModal('modalImportInventoryStock')">📥 Import Data Stok & DealPOS</button>
-                  <button type="button" class="secondary-btn small-btn" onclick="exportStockMatrixCsv()">📤 Export CSV Stok</button>
+                  <button type="button" class="primary-btn small-btn" id="btnSyncGoogleSheet" onclick="syncLiveFromGoogleSheet()">⚡ Sinkronkan Google Sheet</button>
+                  <button type="button" class="secondary-btn small-btn" onclick="openModal('modalImportInventoryStock')">📥 Upload File</button>
+                  <button type="button" class="secondary-btn small-btn" onclick="exportStockMatrixCsv()">📤 Export CSV</button>
                 </div>
               </div>
 
