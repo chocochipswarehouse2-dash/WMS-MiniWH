@@ -3241,14 +3241,9 @@ async function startApp() {
       loadKasbon(),
       loadLembur(),
       loadCuti(),
-      loadPayroll(),
-      loadInventoryStock(),
-      loadPeminjamanData(),
-      loadRefillData(),
-      loadMutasiData()
+      loadPayroll()
     ]);
 
-    initInventorySubnav();
     renderEmployeeShiftDashboard();
   } catch (err) {
     console.error('Error starting app:', err);
