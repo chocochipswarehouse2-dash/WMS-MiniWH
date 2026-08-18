@@ -392,41 +392,81 @@ async function supabaseApiRequest(action, payload) {
       const data = await supabaseFetch(`presensi?select=*,karyawan(nama,divisi)&order=tanggal.desc${filter}`);
       return {
         success: true,
-        data: data.map(a => ({
-          id: a.id,
-          nik: a.nik,
-          nama: a.karyawan ? a.karyawan.nama : a.nik,
-          divisi: a.karyawan ? a.karyawan.divisi : '',
-          tanggal: a.tanggal,
-          shift: a.shift,
-          status: a.status,
-          jamMasuk: (a.jam_masuk || '').slice(0, 5),
-          jamPulang: (a.jam_pulang || '').slice(0, 5),
-          catatan: a.catatan || ''
-        }))
+        data: (data || []).map(a => {
+          let lateMins = Number(a.keterlambatan_menit || 0);
+          if (!lateMins && a.status === 'Terlambat' && a.jam_masuk) {
+            const [h, m] = a.jam_masuk.split(':').map(Number);
+            const shiftStart = 8 * 60;
+            const checkInMins = h * 60 + m;
+            if (checkInMins > shiftStart + 15) {
+              lateMins = checkInMins - shiftStart;
+            }
+          }
+
+          return {
+            id: a.id,
+            nik: a.nik,
+            nama: a.karyawan ? a.karyawan.nama : a.nik,
+            divisi: a.karyawan ? a.karyawan.divisi : '',
+            tanggal: a.tanggal,
+            shift: a.shift || 'Shift 1',
+            status: a.status || 'Hadir',
+            jamMasuk: (a.jam_masuk || '').slice(0, 5),
+            jamPulang: (a.jam_pulang || '').slice(0, 5),
+            keterlambatanMenit: lateMins,
+            catatan: a.catatan || ''
+          };
+        })
       };
     }
 
-    case 'checkIn': {
+    case 'checkIn':
+    case 'checkInAbsensi': {
       const now = new Date();
       const time = now.toTimeString().slice(0, 8);
       const today = now.toISOString().split('T')[0];
+      
+      let lateMins = 0;
+      let status = 'Hadir';
+      const shiftMasuk = payload.shiftJamMasuk || '08:00';
+      const tolerance = Number(payload.toleransi || 15);
+      
+      const [shH, shM] = shiftMasuk.split(':').map(Number);
+      const currentH = now.getHours();
+      const currentM = now.getMinutes();
+      const diffMins = (currentH * 60 + currentM) - (shH * 60 + (shM || 0));
+      
+      if (diffMins > tolerance) {
+        status = 'Terlambat';
+        lateMins = diffMins;
+      }
+
       const row = {
         nik: payload.nik,
         tanggal: today,
         shift: payload.shift || 'Shift 1',
-        status: payload.status || 'Hadir',
+        status: status,
         jam_masuk: time
       };
+
       await supabaseFetch('presensi?on_conflict=nik,tanggal', {
         method: 'POST',
         headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: [row]
       });
-      return { success: true, message: `Presensi Masuk berhasil dicatat pukul ${time.slice(0, 5)}` };
+
+      fetch(GOOGLE_SHEET_WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkInAbsensi', data: payload })
+      }).catch(() => {});
+
+      return { success: true, message: `Presensi Masuk berhasil dicatat pukul ${time.slice(0, 5)} (${status})` };
     }
 
-    case 'checkOut': {
+    case 'checkOut':
+    case 'checkOutAbsensi': {
       const now = new Date();
       const time = now.toTimeString().slice(0, 8);
       const today = now.toISOString().split('T')[0];
@@ -434,6 +474,14 @@ async function supabaseApiRequest(action, payload) {
         method: 'PATCH',
         body: { jam_pulang: time }
       });
+
+      fetch(GOOGLE_SHEET_WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkOutAbsensi', data: payload })
+      }).catch(() => {});
+
       return { success: true, message: `Presensi Pulang berhasil dicatat pukul ${time.slice(0, 5)}` };
     }
 
@@ -1117,8 +1165,10 @@ window.deleteRosterShiftRecord = async (id) => {
 
 // ================= PRESENSI & ABSENSI =================
 async function loadAbsensi() {
+  if (!state.currentUser) return;
+  const nik = state.currentUser.role === 'admin' ? '' : state.currentUser.nik;
   const res = await apiRequest('getAbsensi', { 
-    nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
+    nik: nik, 
     role: state.currentUser.role 
   });
   if (res) {
@@ -1164,9 +1214,11 @@ function renderShiftDropdowns() {
 
 function renderUserAbsensi() {
   const wrap = document.getElementById('userAbsensiTableWrap');
-  if (!wrap) return;
+  if (!wrap || !state.currentUser) return;
 
-  const data = state.absensi.filter(a => a.nik === state.currentUser.nik);
+  const currentNik = String(state.currentUser.nik || '').trim().toUpperCase();
+  const data = state.absensi.filter(a => String(a.nik || '').trim().toUpperCase() === currentNik);
+
   if (!data.length) {
     wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada riwayat presensi.</p>`;
     return;
@@ -3029,15 +3081,23 @@ async function startApp() {
       if (sidebarName) sidebarName.textContent = state.currentUser.nama || 'Pengguna';
       if (sidebarRole) sidebarRole.textContent = `${state.currentUser.divisi || 'Warehouse'} • ${state.currentUser.role || 'user'}`;
       
-      // Role-Based Navigation Groups (Admin Only Modules)
+      // Role-Based Navigation Groups (Menu selain People & Attendance HANYA untuk Admin)
+      const executiveGroup = document.getElementById('executiveNavGroup');
       const adminGroup = document.getElementById('adminNavGroup');
       const isAdmin = state.currentUser.role === 'admin';
 
+      if (executiveGroup) executiveGroup.classList.toggle('hidden', !isAdmin);
       if (adminGroup) adminGroup.classList.toggle('hidden', !isAdmin);
     }
 
     startLiveClock();
-    switchTab('dashboardTab');
+    
+    // User diarahkan ke Presensi Harian, Admin diarahkan ke Dashboard
+    if (state.currentUser && state.currentUser.role === 'admin') {
+      switchTab('dashboardTab');
+    } else {
+      switchTab('presensiTab');
+    }
 
     // Load data in parallel for maximum speed
     await Promise.allSettled([
@@ -3050,6 +3110,8 @@ async function startApp() {
       loadCuti(),
       loadPayroll()
     ]);
+
+    renderEmployeeShiftDashboard();
   } catch (err) {
     console.error('Error starting app:', err);
   }

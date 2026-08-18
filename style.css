@@ -161,11 +161,11 @@ body {
   background-color: var(--bg-app);
 }
 
-/* ================= Sidebar ================= */
+/* ================= Sidebar (Clean Light Style - Seragam dengan Menu Page) ================= */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: var(--bg-sidebar);
-  color: var(--text-on-navy);
+  background-color: var(--bg-panel);
+  color: var(--text-primary);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -175,7 +175,8 @@ body {
   z-index: 100;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow-y: auto;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  border-right: 1px solid var(--border-color);
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.03);
 }
 
 /* Collapsed Sidebar on Desktop */
@@ -188,67 +189,63 @@ body {
 }
 
 .sidebar-header {
-  padding: 24px 20px 18px;
+  padding: 22px 20px 18px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .brand-logo-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .brand-icon-box {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   background: var(--accent-primary);
   color: var(--accent-navy);
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  box-shadow: 0 4px 12px rgba(244, 196, 48, 0.3);
+  box-shadow: 0 4px 12px var(--accent-primary-glow);
 }
 
-.brand-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: #FFFFFF;
+.brand-title-stacked {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
 }
 
-.brand-title span {
-  color: var(--accent-primary);
-}
-
-.brand-subtitle {
-  font-size: 0.72rem;
-  color: var(--text-on-navy-mute);
-  text-transform: uppercase;
+.brand-title-stacked .brand-line {
+  font-size: 0.82rem;
+  font-weight: 800;
   letter-spacing: 0.8px;
-  font-weight: 600;
-  margin-top: 2px;
+  color: var(--text-primary);
+}
+
+.brand-title-stacked .brand-line.highlight {
+  color: var(--accent-primary-hover);
 }
 
 .sidebar-content {
   flex: 1;
-  padding: 18px 14px;
+  padding: 16px 12px;
   overflow-y: auto;
 }
 
 .sidebar-section-title {
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: var(--text-on-navy-mute);
+  color: var(--text-muted);
   padding: 14px 12px 6px;
-  opacity: 0.85;
 }
 
 .sidebar-nav {
@@ -258,7 +255,7 @@ body {
   margin-bottom: 14px;
 }
 
-/* Nav Item (IronNest Rounded Pill Style) */
+/* Nav Item (Panze Rounded Pill Style) */
 .nav-item {
   display: flex;
   align-items: center;
@@ -267,7 +264,7 @@ body {
   border-radius: 28px;
   background: transparent;
   border: none;
-  color: #CFDCE3;
+  color: var(--text-secondary);
   font-size: 0.88rem;
   font-weight: 500;
   cursor: pointer;
@@ -285,25 +282,30 @@ body {
 }
 
 .nav-item:hover {
-  background: var(--bg-sidebar-hover);
-  color: #FFFFFF;
+  background: var(--bg-app);
+  color: var(--text-primary);
   transform: translateX(2px);
 }
 
 .nav-item.active {
+  background: var(--accent-navy) !important;
+  color: #FFFFFF !important;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(17, 46, 59, 0.2);
+}
+
+[data-theme="dark"] .nav-item.active {
   background: var(--accent-primary) !important;
   color: var(--accent-navy) !important;
-  font-weight: 700;
-  box-shadow: 0 4px 16px rgba(244, 196, 48, 0.35);
 }
 
 .nav-item.active .nav-icon {
-  color: var(--accent-navy);
+  color: inherit;
 }
 
 .sidebar-footer {
   padding: 16px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -319,25 +321,25 @@ body {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-pill);
-  background: var(--accent-navy-light);
+  background: var(--bg-app);
   border: 2px solid var(--accent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
 .user-meta .user-name {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--text-primary);
   display: block;
 }
 
 .user-meta .user-role {
   font-size: 0.72rem;
-  color: var(--text-on-navy-mute);
+  color: var(--text-muted);
   display: block;
 }
 

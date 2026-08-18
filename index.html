@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3.2" />
+  <link rel="stylesheet" href="style.css?v=3.3" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -15,7 +15,11 @@
     <div class="auth-card">
       <div class="brand-logo-wrap" style="justify-content: center; margin-bottom: 12px;">
         <div class="brand-icon-box" style="width: 44px; height: 44px; font-size: 1.5rem;">🏬</div>
-        <div class="brand-title" style="color: var(--text-primary); font-size: 1.6rem;">Warehouse <span>WMS</span></div>
+        <div class="brand-title-stacked" style="text-align: left;">
+          <span class="brand-line" style="font-size: 0.95rem;">WAREHOUSE</span>
+          <span class="brand-line" style="font-size: 0.95rem;">MANAGEMENT</span>
+          <span class="brand-line highlight" style="font-size: 0.95rem;">SISTEM</span>
+        </div>
       </div>
       <p class="auth-subtitle">Operational & Inventory Management Portal</p>
       <form id="loginForm">
@@ -43,39 +47,43 @@
       <div class="sidebar-header">
         <div class="brand-logo-wrap">
           <div class="brand-icon-box">🏬</div>
-          <div>
-            <div class="brand-title">Warehouse <span>WMS</span></div>
-            <div class="brand-subtitle">Operations Portal</div>
+          <div class="brand-title-stacked">
+            <span class="brand-line">WAREHOUSE</span>
+            <span class="brand-line">MANAGEMENT</span>
+            <span class="brand-line highlight">SISTEM</span>
           </div>
         </div>
         <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu" style="margin-left: auto; color: inherit; border: none; background: transparent;">✕</button>
       </div>
 
       <div class="sidebar-content">
-        <!-- 1. DASHBOARD OVERVIEW -->
-        <nav class="sidebar-nav">
-          <button class="nav-item active" data-tab="dashboardTab">
-            <span class="nav-icon">⊞</span>
-            <span class="nav-label">Dashboard</span>
-          </button>
-          <button class="nav-item" data-tab="inventoryTab">
-            <span class="nav-icon">🏬</span>
-            <span class="nav-label">Warehouses</span>
-          </button>
-          <button class="nav-item" data-tab="taskTab">
-            <span class="nav-icon">📋</span>
-            <span class="nav-label">Task Management</span>
-          </button>
-          <button class="nav-item" data-tab="reportTab">
-            <span class="nav-icon">📊</span>
-            <span class="nav-label">KPI & Performance</span>
-          </button>
-        </nav>
+        <!-- 1. EXECUTIVE & OPERATIONAL (ADMIN ONLY) -->
+        <div id="executiveNavGroup" class="hidden">
+          <div class="sidebar-section-title">Warehouse & Operational</div>
+          <nav class="sidebar-nav">
+            <button class="nav-item" data-tab="dashboardTab">
+              <span class="nav-icon">⊞</span>
+              <span class="nav-label">Dashboard</span>
+            </button>
+            <button class="nav-item" data-tab="inventoryTab">
+              <span class="nav-icon">🏬</span>
+              <span class="nav-label">Warehouses</span>
+            </button>
+            <button class="nav-item" data-tab="taskTab">
+              <span class="nav-icon">📋</span>
+              <span class="nav-label">Task Management</span>
+            </button>
+            <button class="nav-item" data-tab="reportTab">
+              <span class="nav-icon">📊</span>
+              <span class="nav-label">KPI & Performance</span>
+            </button>
+          </nav>
+        </div>
 
-        <!-- 2. PEOPLE MANAGEMENT (Presensi & Employee HR) -->
+        <!-- 2. PEOPLE MANAGEMENT (Presensi & Employee HR - AKSES USER & ADMIN) -->
         <div class="sidebar-section-title">People & Attendance</div>
         <nav class="sidebar-nav">
-          <button class="nav-item" data-tab="presensiTab">
+          <button class="nav-item active" data-tab="presensiTab">
             <span class="nav-icon">⏱️</span>
             <span class="nav-label">Presensi Harian</span>
           </button>
@@ -1303,6 +1311,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=3.2"></script>
+  <script src="script.js?v=3.3"></script>
 </body>
 </html>
