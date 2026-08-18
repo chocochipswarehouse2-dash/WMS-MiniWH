@@ -883,17 +883,21 @@ async function supabaseApiRequest(action, payload) {
 
 // ================= THEME =================
 function initTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'dark';
+  const savedTheme = localStorage.getItem('theme') || 'light';
   htmlEl.setAttribute('data-theme', savedTheme);
-  themeToggleBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 }
-themeToggleBtn.addEventListener('click', () => {
-  const current = htmlEl.getAttribute('data-theme');
-  const nextTheme = current === 'dark' ? 'light' : 'dark';
-  htmlEl.setAttribute('data-theme', nextTheme);
-  themeToggleBtn.textContent = nextTheme === 'dark' ? '☀️' : '🌙';
-  localStorage.setItem('theme', nextTheme);
-});
+const btnTheme = document.getElementById('themeToggleBtn');
+if (btnTheme) {
+  btnTheme.addEventListener('click', () => {
+    const current = htmlEl.getAttribute('data-theme');
+    const nextTheme = current === 'dark' ? 'light' : 'dark';
+    htmlEl.setAttribute('data-theme', nextTheme);
+    btnTheme.textContent = nextTheme === 'dark' ? '☀️' : '🌙';
+    localStorage.setItem('theme', nextTheme);
+  });
+}
 
 // ================= FORMATTERS & HELPERS =================
 function formatRupiah(num) {
@@ -1176,40 +1180,44 @@ function renderAdminAbsensi() {
 }
 
 // Check-in & Check-out events with button loading state
-document.getElementById('btnCheckIn').addEventListener('click', async () => {
-  const btn = document.getElementById('btnCheckIn');
-  setButtonLoading(btn, true, 'Memproses Masuk...');
+const btnCheckInEl = document.getElementById('btnCheckIn');
+if (btnCheckInEl) {
+  btnCheckInEl.addEventListener('click', async () => {
+    setButtonLoading(btnCheckInEl, true, 'Memproses Masuk...');
 
-  const select = document.getElementById('userActiveShiftSelect');
-  const opt = select ? select.selectedOptions[0] : null;
+    const select = document.getElementById('userActiveShiftSelect');
+    const opt = select ? select.selectedOptions[0] : null;
 
-  const payload = {
-    nik: state.currentUser.nik,
-    nama: state.currentUser.nama,
-    shift: opt ? opt.value : 'Shift 1',
-    shiftJamMasuk: opt ? opt.dataset.masuk : '08:00',
-    toleransi: opt ? opt.dataset.tol : '15'
-  };
+    const payload = {
+      nik: state.currentUser.nik,
+      nama: state.currentUser.nama,
+      shift: opt ? opt.value : 'Shift 1',
+      shiftJamMasuk: opt ? opt.dataset.masuk : '08:00',
+      toleransi: opt ? opt.dataset.tol : '15'
+    };
 
-  const res = await apiRequest('checkInAbsensi', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Presensi Masuk Berhasil!');
-    loadAbsensi();
-  }
-});
+    const res = await apiRequest('checkInAbsensi', payload);
+    setButtonLoading(btnCheckInEl, false);
+    if (res) {
+      showToast('Presensi Masuk Berhasil!');
+      loadAbsensi();
+    }
+  });
+}
 
-document.getElementById('btnCheckOut').addEventListener('click', async () => {
-  const btn = document.getElementById('btnCheckOut');
-  setButtonLoading(btn, true, 'Memproses Pulang...');
+const btnCheckOutEl = document.getElementById('btnCheckOut');
+if (btnCheckOutEl) {
+  btnCheckOutEl.addEventListener('click', async () => {
+    setButtonLoading(btnCheckOutEl, true, 'Memproses Pulang...');
 
-  const res = await apiRequest('checkOutAbsensi', { nik: state.currentUser.nik });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Presensi Pulang Berhasil!');
-    loadAbsensi();
-  }
-});
+    const res = await apiRequest('checkOutAbsensi', { nik: state.currentUser.nik });
+    setButtonLoading(btnCheckOutEl, false);
+    if (res) {
+      showToast('Presensi Pulang Berhasil!');
+      loadAbsensi();
+    }
+  });
+}
 
 window.deleteAbsensiRecord = async (id) => {
   if (confirm('Hapus log presensi ini?')) {
@@ -1279,34 +1287,43 @@ async function deleteShift(idOrName) {
   }
 }
 
-document.getElementById('btnOpenAddShiftModal').addEventListener('click', () => {
-  document.getElementById('addShiftForm').reset();
-  document.getElementById('shift_id').value = '';
-  document.getElementById('addShiftModal').classList.remove('hidden');
-});
+const btnOpenAddShift = document.getElementById('btnOpenAddShiftModal');
+if (btnOpenAddShift) {
+  btnOpenAddShift.addEventListener('click', () => {
+    const form = document.getElementById('addShiftForm');
+    if (form) form.reset();
+    const idEl = document.getElementById('shift_id');
+    if (idEl) idEl.value = '';
+    const modal = document.getElementById('addShiftModal');
+    if (modal) modal.classList.remove('hidden');
+  });
+}
 
-document.getElementById('addShiftForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSaveShift');
-  setButtonLoading(btn, true, 'Menyimpan...');
+const addShiftF = document.getElementById('addShiftForm');
+if (addShiftF) {
+  addShiftF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveShift');
+    setButtonLoading(btn, true, 'Menyimpan...');
 
-  const payload = {
-    id: document.getElementById('shift_id').value,
-    namaShift: document.getElementById('shift_nama').value,
-    jamMasuk: document.getElementById('shift_jamMasuk').value,
-    jamPulang: document.getElementById('shift_jamPulang').value,
-    toleransiMenit: document.getElementById('shift_toleransi').value,
-    status: document.getElementById('shift_status').value
-  };
+    const payload = {
+      id: document.getElementById('shift_id').value,
+      namaShift: document.getElementById('shift_nama').value,
+      jamMasuk: document.getElementById('shift_jamMasuk').value,
+      jamPulang: document.getElementById('shift_jamPulang').value,
+      toleransiMenit: document.getElementById('shift_toleransi').value,
+      status: document.getElementById('shift_status').value
+    };
 
-  const res = await apiRequest('saveShift', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Shift berhasil disimpan!');
-    closeModal('addShiftModal');
-    loadShifts();
-  }
-});
+    const res = await apiRequest('saveShift', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Shift berhasil disimpan!');
+      closeModal('addShiftModal');
+      loadShifts();
+    }
+  });
+}
 
 // ================= CSV IMPORT / EXPORT SHIFT ROSTER =================
 function downloadCsv(filename, text) {
@@ -1319,24 +1336,38 @@ function downloadCsv(filename, text) {
   document.body.removeChild(link);
 }
 
-document.getElementById('btnDownloadShiftTemplate').addEventListener('click', () => {
-  const today = new Date();
-  const startStr = today.toISOString().slice(0, 10);
-  const end = new Date(today);
-  end.setDate(end.getDate() + 6); // default 7 hari
-  const endStr = end.toISOString().slice(0, 10);
+const btnDlShiftTpl = document.getElementById('btnDownloadShiftTemplate');
+if (btnDlShiftTpl) {
+  btnDlShiftTpl.addEventListener('click', () => {
+    const today = new Date();
+    const startStr = today.toISOString().slice(0, 10);
+    const end = new Date(today);
+    end.setDate(end.getDate() + 6);
+    const endStr = end.toISOString().slice(0, 10);
 
-  const startInput = document.getElementById('tpl_shift_start_date');
-  const endInput = document.getElementById('tpl_shift_end_date');
-  if (startInput) startInput.value = startStr;
-  if (endInput) endInput.value = endStr;
+    const startInput = document.getElementById('tpl_shift_start') || document.getElementById('tpl_shift_start_date');
+    const endInput = document.getElementById('tpl_shift_end') || document.getElementById('tpl_shift_end_date');
+    if (startInput) startInput.value = startStr;
+    if (endInput) endInput.value = endStr;
 
-  document.getElementById('downloadShiftTemplateModal').classList.remove('hidden');
-});
+    const modal = document.getElementById('downloadShiftTemplateModal');
+    if (modal) modal.classList.remove('hidden');
+  });
+}
+
+const formDlShiftTpl = document.getElementById('downloadShiftTemplateForm');
+if (formDlShiftTpl) {
+  formDlShiftTpl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    executeDownloadShiftTemplate();
+  });
+}
 
 function executeDownloadShiftTemplate() {
-  const startVal = document.getElementById('tpl_shift_start_date').value;
-  const endVal = document.getElementById('tpl_shift_end_date').value;
+  const startEl = document.getElementById('tpl_shift_start') || document.getElementById('tpl_shift_start_date');
+  const endEl = document.getElementById('tpl_shift_end') || document.getElementById('tpl_shift_end_date');
+  const startVal = startEl ? startEl.value : '';
+  const endVal = endEl ? endEl.value : '';
   if (!startVal || !endVal) return showToast('Pilih tanggal mulai dan tanggal selesai!', 'error');
 
   const startDate = new Date(startVal);
@@ -1377,20 +1408,30 @@ function executeDownloadShiftTemplate() {
   showToast(`Template CSV berhasil diunduh (${dates.length} tanggal, ${users.length} karyawan)`);
 }
 
-document.getElementById('btnExportShiftCsv').addEventListener('click', () => {
-  if (!state.roster.length) return showToast('Belum ada data roster untuk diexport!', 'error');
-  const header = 'NIK,Nama,Tanggal,Shift,JamMasuk,JamPulang,Keterangan\n';
-  const rows = state.roster.map(r => `"${r.nik}","${r.nama}","${r.tanggal}","${r.shift}","${r.jamMasuk}","${r.jamPulang}","${r.keterangan || ''}"`).join('\n');
-  downloadCsv('export_roster_shift_warehouse.csv', header + rows);
-});
+const btnExpShift = document.getElementById('btnExportShiftCsv');
+if (btnExpShift) {
+  btnExpShift.addEventListener('click', () => {
+    if (!state.roster.length) return showToast('Belum ada data roster untuk diexport!', 'error');
+    const header = 'NIK,Nama,Tanggal,Shift,JamMasuk,JamPulang,Keterangan\n';
+    const rows = state.roster.map(r => `"${r.nik}","${r.nama}","${r.tanggal}","${r.shift}","${r.jamMasuk}","${r.jamPulang}","${r.keterangan || ''}"`).join('\n');
+    downloadCsv('export_roster_shift_warehouse.csv', header + rows);
+  });
+}
 
-document.getElementById('btnOpenImportShiftModal').addEventListener('click', () => {
-  document.getElementById('shiftCsvFileInput').value = '';
-  document.getElementById('shiftImportPreviewWrap').style.display = 'none';
-  document.getElementById('btnExecuteImportShift').disabled = true;
-  state.pendingShiftImport = [];
-  document.getElementById('importShiftModal').classList.remove('hidden');
-});
+const btnOpenImpShift = document.getElementById('btnOpenImportShiftModal');
+if (btnOpenImpShift) {
+  btnOpenImpShift.addEventListener('click', () => {
+    const fi = document.getElementById('shiftCsvFileInput');
+    if (fi) fi.value = '';
+    const pw = document.getElementById('shiftImportPreviewWrap');
+    if (pw) pw.style.display = 'none';
+    const ex = document.getElementById('btnExecuteImportShift');
+    if (ex) ex.disabled = true;
+    state.pendingShiftImport = [];
+    const modal = document.getElementById('importShiftModal');
+    if (modal) modal.classList.remove('hidden');
+  });
+}
 
 document.getElementById('shiftCsvFileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -1536,89 +1577,110 @@ document.getElementById('btnExecuteImportShift').addEventListener('click', async
 });
 
 // ================= CSV IMPORT / EXPORT KARYAWAN =================
-document.getElementById('btnDownloadUserTemplate').addEventListener('click', () => {
-  const header = 'NIK,Nama,Divisi,Username,Password,Role,Email,NoHP,GajiPokok,Tunjangan,RateLembur\n';
-  const sample1 = 'WH0001,Admin Warehouse,Warehouse,admin,12345,admin,admin@warehouse.com,081234567890,4500000,500000,25000\n';
-  const sample2 = 'WH0002,Budi Santoso,Inbound,budi,12345,user,budi@warehouse.com,081298765432,4200000,300000,25000\n';
-  downloadCsv('template_data_karyawan_warehouse.csv', header + sample1 + sample2);
-});
+const btnDlUserTpl = document.getElementById('btnDownloadUserTemplate');
+if (btnDlUserTpl) {
+  btnDlUserTpl.addEventListener('click', () => {
+    const header = 'NIK,Nama,Divisi,Username,Password,Role,Email,NoHP,GajiPokok,Tunjangan,RateLembur\n';
+    const sample1 = 'WH0001,Admin Warehouse,Warehouse,admin,12345,admin,admin@warehouse.com,081234567890,4500000,500000,25000\n';
+    const sample2 = 'WH0002,Budi Santoso,Inbound,budi,12345,user,budi@warehouse.com,081298765432,4200000,300000,25000\n';
+    downloadCsv('template_data_karyawan_warehouse.csv', header + sample1 + sample2);
+  });
+}
 
-document.getElementById('btnExportUserCsv').addEventListener('click', () => {
-  if (!state.users.length) return showToast('Belum ada data karyawan untuk diexport!', 'error');
-  const header = 'NIK,Nama,Divisi,Username,Password,Role,Email,NoHP,GajiPokok,Tunjangan,RateLembur\n';
-  const rows = state.users.map(u => `"${u.nik}","${u.nama}","${u.divisi}","${u.username}","${u.password || ''}","${u.role}","${u.email || ''}","${u.noHp || ''}",${u.gajiPokok || 0},${u.tunjangan || 0},${u.rateLembur || 25000}`).join('\n');
-  downloadCsv('export_data_karyawan_warehouse.csv', header + rows);
-});
+const btnExpUser = document.getElementById('btnExportUserCsv');
+if (btnExpUser) {
+  btnExpUser.addEventListener('click', () => {
+    if (!state.users.length) return showToast('Belum ada data karyawan untuk diexport!', 'error');
+    const header = 'NIK,Nama,Divisi,Username,Password,Role,Email,NoHP,GajiPokok,Tunjangan,RateLembur\n';
+    const rows = state.users.map(u => `"${u.nik}","${u.nama}","${u.divisi}","${u.username}","${u.password || ''}","${u.role}","${u.email || ''}","${u.noHp || ''}",${u.gajiPokok || 0},${u.tunjangan || 0},${u.rateLembur || 25000}`).join('\n');
+    downloadCsv('export_data_karyawan_warehouse.csv', header + rows);
+  });
+}
 
-document.getElementById('btnOpenImportUserModal').addEventListener('click', () => {
-  document.getElementById('userCsvFileInput').value = '';
-  document.getElementById('userImportPreviewWrap').style.display = 'none';
-  document.getElementById('btnExecuteImportUser').disabled = true;
-  state.pendingUserImport = [];
-  document.getElementById('importUserModal').classList.remove('hidden');
-});
+const btnOpenImpUser = document.getElementById('btnOpenImportUserModal');
+if (btnOpenImpUser) {
+  btnOpenImpUser.addEventListener('click', () => {
+    const fi = document.getElementById('userCsvFileInput');
+    if (fi) fi.value = '';
+    const pw = document.getElementById('userImportPreviewWrap');
+    if (pw) pw.style.display = 'none';
+    const ex = document.getElementById('btnExecuteImportUser');
+    if (ex) ex.disabled = true;
+    state.pendingUserImport = [];
+    const modal = document.getElementById('importUserModal');
+    if (modal) modal.classList.remove('hidden');
+  });
+}
 
-document.getElementById('userCsvFileInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+const userCsvInput = document.getElementById('userCsvFileInput');
+if (userCsvInput) {
+  userCsvInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    const text = evt.target.result;
-    const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
-    if (lines.length < 2) return showToast('File CSV kosong atau tidak valid', 'error');
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target.result;
+      const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
+      if (lines.length < 2) return showToast('File CSV kosong atau tidak valid', 'error');
 
-    const parsed = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-      if (cols.length >= 4) {
-        parsed.push({
-          nik: cols[0],
-          nama: cols[1] || '',
-          divisi: cols[2] || 'Warehouse',
-          username: cols[3] || cols[0],
-          password: cols[4] || '12345',
-          role: cols[5] || 'user',
-          email: cols[6] || '',
-          noHp: cols[7] || '',
-          gajiPokok: Number(cols[8] || 4000000),
-          tunjangan: Number(cols[9] || 0),
-          rateLembur: Number(cols[10] || 25000)
-        });
+      const parsed = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        if (cols.length >= 4) {
+          parsed.push({
+            nik: cols[0],
+            nama: cols[1] || '',
+            divisi: cols[2] || 'Warehouse',
+            username: cols[3] || cols[0],
+            password: cols[4] || '12345',
+            role: cols[5] || 'user',
+            email: cols[6] || '',
+            noHp: cols[7] || '',
+            gajiPokok: Number(cols[8] || 4000000),
+            tunjangan: Number(cols[9] || 0),
+            rateLembur: Number(cols[10] || 25000)
+          });
+        }
       }
+
+      state.pendingUserImport = parsed;
+      const previewWrap = document.getElementById('userImportPreviewWrap');
+      if (previewWrap) {
+        previewWrap.style.display = 'block';
+        previewWrap.innerHTML = `
+          <table>
+            <thead><tr><th>NIK</th><th>Nama</th><th>Divisi</th><th>Role</th><th>Gaji Pokok</th></tr></thead>
+            <tbody>
+              ${parsed.slice(0, 5).map(p => `<tr><td>${p.nik}</td><td>${p.nama}</td><td>${p.divisi}</td><td>${p.role}</td><td>${formatRupiah(p.gajiPokok)}</td></tr>`).join('')}
+            </tbody>
+          </table>
+          <small style="display:block; padding: 6px 12px; color: var(--text-muted);">Total ${parsed.length} karyawan siap di-import.</small>
+        `;
+      }
+
+      const execBtn = document.getElementById('btnExecuteImportUser');
+      if (execBtn) execBtn.disabled = false;
+    };
+    reader.readAsText(file);
+  });
+}
+
+const btnExecImpUser = document.getElementById('btnExecuteImportUser');
+if (btnExecImpUser) {
+  btnExecImpUser.addEventListener('click', async () => {
+    if (!state.pendingUserImport.length) return;
+    setButtonLoading(btnExecImpUser, true, 'Mengimport...');
+
+    const res = await apiRequest('importUsersBulk', { userList: state.pendingUserImport });
+    setButtonLoading(btnExecImpUser, false);
+    if (res) {
+      showToast(`Berhasil mengimport ${res.count || state.pendingUserImport.length} karyawan!`);
+      closeModal('importUserModal');
+      loadUsersData();
     }
-
-    state.pendingUserImport = parsed;
-    const previewWrap = document.getElementById('userImportPreviewWrap');
-    previewWrap.style.display = 'block';
-    previewWrap.innerHTML = `
-      <table>
-        <thead><tr><th>NIK</th><th>Nama</th><th>Divisi</th><th>Role</th><th>Gaji Pokok</th></tr></thead>
-        <tbody>
-          ${parsed.slice(0, 5).map(p => `<tr><td>${p.nik}</td><td>${p.nama}</td><td>${p.divisi}</td><td>${p.role}</td><td>${formatRupiah(p.gajiPokok)}</td></tr>`).join('')}
-        </tbody>
-      </table>
-      <small style="display:block; padding: 6px 12px; color: var(--text-muted);">Total ${parsed.length} karyawan siap di-import.</small>
-    `;
-
-    document.getElementById('btnExecuteImportUser').disabled = false;
-  };
-  reader.readAsText(file);
-});
-
-document.getElementById('btnExecuteImportUser').addEventListener('click', async () => {
-  if (!state.pendingUserImport.length) return;
-  const btn = document.getElementById('btnExecuteImportUser');
-  setButtonLoading(btn, true, 'Mengimport...');
-
-  const res = await apiRequest('importUsersBulk', { userList: state.pendingUserImport });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast(`Berhasil mengimport ${res.count || state.pendingUserImport.length} karyawan!`);
-    closeModal('importUserModal');
-    loadUsersData();
-  }
-});
+  });
+}
 
 // ================= KASBON KARYAWAN =================
 async function loadKasbon() {
@@ -1672,43 +1734,52 @@ function renderKasbonTable() {
   `;
 }
 
-document.getElementById('btnOpenAddKasbonModal').addEventListener('click', () => {
-  const select = document.getElementById('kasbon_nik');
-  if (select) {
-    select.innerHTML = state.users.filter(u => u.nik !== 'admin').map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
-  }
-  document.getElementById('addKasbonForm').reset();
-  document.getElementById('kasbon_tanggal').value = new Date().toISOString().split('T')[0];
-  document.getElementById('addKasbonModal').classList.remove('hidden');
-});
+const btnOpenAddKasbon = document.getElementById('btnOpenAddKasbonModal');
+if (btnOpenAddKasbon) {
+  btnOpenAddKasbon.addEventListener('click', () => {
+    const select = document.getElementById('kasbon_nik');
+    if (select) {
+      select.innerHTML = state.users.filter(u => u.nik !== 'admin').map(u => `<option value="${u.nik}">${u.nik} - ${u.nama}</option>`).join('');
+    }
+    const form = document.getElementById('addKasbonForm');
+    if (form) form.reset();
+    const tgl = document.getElementById('kasbon_tanggal');
+    if (tgl) tgl.value = new Date().toISOString().split('T')[0];
+    const modal = document.getElementById('addKasbonModal');
+    if (modal) modal.classList.remove('hidden');
+  });
+}
 
-document.getElementById('addKasbonForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSaveKasbon');
-  setButtonLoading(btn, true, 'Menyimpan...');
+const addKasbonF = document.getElementById('addKasbonForm');
+if (addKasbonF) {
+  addKasbonF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveKasbon');
+    setButtonLoading(btn, true, 'Menyimpan...');
 
-  const nik = document.getElementById('kasbon_nik').value;
-  const user = state.users.find(u => u.nik === nik);
+    const nik = document.getElementById('kasbon_nik').value;
+    const user = state.users.find(u => u.nik === nik);
 
-  const payload = {
-    nik,
-    nama: user ? user.nama : '',
-    tanggalPengajuan: document.getElementById('kasbon_tanggal').value,
-    jumlahPinjaman: document.getElementById('kasbon_jumlah').value,
-    cicilanPerBulan: document.getElementById('kasbon_cicilan').value,
-    catatan: document.getElementById('kasbon_catatan').value,
-    status: 'Aktif'
-  };
+    const payload = {
+      nik,
+      nama: user ? user.nama : '',
+      tanggalPengajuan: document.getElementById('kasbon_tanggal').value,
+      jumlahPinjaman: document.getElementById('kasbon_jumlah').value,
+      cicilanPerBulan: document.getElementById('kasbon_cicilan').value,
+      catatan: document.getElementById('kasbon_catatan').value,
+      status: 'Aktif'
+    };
 
-  const res = await apiRequest('saveKasbon', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Data kasbon berhasil disimpan!');
-    closeModal('addKasbonModal');
-    loadKasbon();
-    loadUsersData();
-  }
-});
+    const res = await apiRequest('saveKasbon', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Data kasbon berhasil disimpan!');
+      closeModal('addKasbonModal');
+      loadKasbon();
+      loadUsersData();
+    }
+  });
+}
 
 window.deleteKasbonRecord = async (id) => {
   if (confirm('Hapus data kasbon ini?')) {
@@ -1720,7 +1791,8 @@ window.deleteKasbonRecord = async (id) => {
 
 // ================= PAYROLL & AUDIT GAJI =================
 async function loadPayroll() {
-  const period = document.getElementById('payrollMonthPicker').value;
+  const picker = document.getElementById('payrollMonthPicker');
+  const period = picker ? picker.value : new Date().toISOString().slice(0, 7);
   const res = await apiRequest('getPayroll', { 
     nik: state.currentUser.role === 'admin' ? '' : state.currentUser.nik, 
     role: state.currentUser.role,
@@ -1804,57 +1876,65 @@ function renderPayrollTables() {
 }
 
 function updatePayrollMetrics(totalGaji, totalLembur, totalKasbon, statusStr) {
-  document.getElementById('sumGajiBersih').textContent = formatRupiah(totalGaji);
-  document.getElementById('sumUangLembur').textContent = formatRupiah(totalLembur);
-  document.getElementById('sumPotonganKasbon').textContent = formatRupiah(totalKasbon);
+  const gb = document.getElementById('sumGajiBersih');
+  if (gb) gb.textContent = formatRupiah(totalGaji);
+  const ul = document.getElementById('sumUangLembur');
+  if (ul) ul.textContent = formatRupiah(totalLembur);
+  const pk = document.getElementById('sumPotonganKasbon');
+  if (pk) pk.textContent = formatRupiah(totalKasbon);
   const statusEl = document.getElementById('payrollPeriodStatus');
-  statusEl.textContent = statusStr;
-  statusEl.className = `status ${statusStr.includes('Approved') || statusStr.includes('Disetujui') ? 'disetujui' : 'diajukan'}`;
+  if (statusEl) {
+    statusEl.textContent = statusStr;
+    statusEl.className = `status ${statusStr.includes('Approved') || statusStr.includes('Disetujui') ? 'disetujui' : 'diajukan'}`;
+  }
 }
 
-document.getElementById('btnGeneratePayroll').addEventListener('click', async () => {
-  const period = document.getElementById('payrollMonthPicker').value;
-  if (!period) return showToast('Pilih bulan payroll terlebih dahulu!', 'error');
+const btnGenPayroll = document.getElementById('btnGeneratePayroll');
+if (btnGenPayroll) {
+  btnGenPayroll.addEventListener('click', async () => {
+    const period = document.getElementById('payrollMonthPicker').value;
+    if (!period) return showToast('Pilih bulan payroll terlebih dahulu!', 'error');
 
-  // Hitung range tanggal: 26 bulan lalu s/d 25 bulan ini
-  const [pYear, pMonth] = period.split('-').map(Number);
-  const prevMonth = pMonth === 1 ? 12 : pMonth - 1;
-  const prevYear  = pMonth === 1 ? pYear - 1 : pYear;
-  const startLabel = `26 ${new Date(prevYear, prevMonth - 1).toLocaleString('id-ID', {month:'long', year:'numeric'})}`;
-  const endLabel   = `25 ${new Date(pYear, pMonth - 1).toLocaleString('id-ID', {month:'long', year:'numeric'})}`;
-  const rangeLabel = `${startLabel} – ${endLabel}`;
+    const [pYear, pMonth] = period.split('-').map(Number);
+    const prevMonth = pMonth === 1 ? 12 : pMonth - 1;
+    const prevYear  = pMonth === 1 ? pYear - 1 : pYear;
+    const startLabel = `26 ${new Date(prevYear, prevMonth - 1).toLocaleString('id-ID', {month:'long', year:'numeric'})}`;
+    const endLabel   = `25 ${new Date(pYear, pMonth - 1).toLocaleString('id-ID', {month:'long', year:'numeric'})}`;
+    const rangeLabel = `${startLabel} – ${endLabel}`;
 
-  const btn = document.getElementById('btnGeneratePayroll');
-  setButtonLoading(btn, true, 'Menghitung...');
+    setButtonLoading(btnGenPayroll, true, 'Menghitung...');
 
-  const res = await apiRequest('generateMonthlyPayroll', { 
-    periode: period, 
-    adminUsername: state.currentUser.username 
+    const res = await apiRequest('generateMonthlyPayroll', { 
+      periode: period, 
+      adminUsername: state.currentUser.username 
+    });
+    setButtonLoading(btnGenPayroll, false);
+    if (res) {
+      showToast(`Payroll periode ${rangeLabel} berhasil di-generate!`);
+      loadPayroll();
+    }
   });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast(`Payroll periode ${rangeLabel} berhasil di-generate!`);
-    loadPayroll();
-  }
-});
+}
 
-document.getElementById('btnApprovePayrollFinance').addEventListener('click', async () => {
-  const period = document.getElementById('payrollMonthPicker').value;
-  if (!confirm(`Setujui seluruh payroll periode ${period} untuk diajukan ke Finance?`)) return;
+const btnApprovePay = document.getElementById('btnApprovePayrollFinance');
+if (btnApprovePay) {
+  btnApprovePay.addEventListener('click', async () => {
+    const period = document.getElementById('payrollMonthPicker').value;
+    if (!confirm(`Setujui seluruh payroll periode ${period} untuk diajukan ke Finance?`)) return;
 
-  const btn = document.getElementById('btnApprovePayrollFinance');
-  setButtonLoading(btn, true, 'Menyetujui...');
+    setButtonLoading(btnApprovePay, true, 'Menyetujui...');
 
-  const res = await apiRequest('approvePayroll', { 
-    periode: period, 
-    adminUsername: state.currentUser.username 
+    const res = await apiRequest('approvePayroll', { 
+      periode: period, 
+      adminUsername: state.currentUser.username 
+    });
+    setButtonLoading(btnApprovePay, false);
+    if (res) {
+      showToast(`Payroll periode ${period} telah disetujui & siap dibayarkan!`);
+      loadPayroll();
+    }
   });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast(`Payroll periode ${period} telah disetujui & siap dibayarkan!`);
-    loadPayroll();
-  }
-});
+}
 
 window.openEditPayrollModal = (id) => {
   const p = state.payroll.find(x => x.id === id);
@@ -1877,32 +1957,35 @@ window.openEditPayrollModal = (id) => {
   document.getElementById('editPayrollModal').classList.remove('hidden');
 };
 
-document.getElementById('editPayrollForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSavePayrollAdjustment');
-  setButtonLoading(btn, true, 'Menyimpan...');
+const editPayrollF = document.getElementById('editPayrollForm');
+if (editPayrollF) {
+  editPayrollF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSavePayrollAdjustment');
+    setButtonLoading(btn, true, 'Menyimpan...');
 
-  const payload = {
-    id: document.getElementById('adj_id').value,
-    gajiPokok: document.getElementById('adj_gajiPokok').value,
-    tunjangan: document.getElementById('adj_tunjangan').value,
-    totalJamLembur: document.getElementById('adj_totalJamLembur').value,
-    rateLembur: document.getElementById('adj_rateLembur').value,
-    potonganKasbon: document.getElementById('adj_potonganKasbon').value,
-    potonganAbsensi: document.getElementById('adj_potonganAbsensi').value,
-    potonganLain: document.getElementById('adj_potonganLain').value,
-    catatan: document.getElementById('adj_catatan').value,
-    updatedBy: state.currentUser.username
-  };
+    const payload = {
+      id: document.getElementById('adj_id').value,
+      gajiPokok: document.getElementById('adj_gajiPokok').value,
+      tunjangan: document.getElementById('adj_tunjangan').value,
+      totalJamLembur: document.getElementById('adj_totalJamLembur').value,
+      rateLembur: document.getElementById('adj_rateLembur').value,
+      potonganKasbon: document.getElementById('adj_potonganKasbon').value,
+      potonganAbsensi: document.getElementById('adj_potonganAbsensi').value,
+      potonganLain: document.getElementById('adj_potonganLain').value,
+      catatan: document.getElementById('adj_catatan').value,
+      updatedBy: state.currentUser.username
+    };
 
-  const res = await apiRequest('savePayrollAdjustment', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Koreksi payroll berhasil disimpan!');
-    closeModal('editPayrollModal');
-    loadPayroll();
-  }
-});
+    const res = await apiRequest('savePayrollAdjustment', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Koreksi payroll berhasil disimpan!');
+      closeModal('editPayrollModal');
+      loadPayroll();
+    }
+  });
+}
 
 // ================= SLIP GAJI KARYAWAN =================
 function renderUserSlipGajiTable() {
@@ -1946,59 +2029,31 @@ window.openSlipGajiModal = (payrollId) => {
   state.selectedSlip = p;
 
   const totalPot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
-  const totalPendapatan = Number(p.gajiPokok || 0) + Number(p.tunjangan || 0) + Number(p.totalUangLembur || 0);
 
-  const container = document.getElementById('slipGajiContentArea');
-  container.innerHTML = `
-    <div class="slip-header-info">
-      <div><strong>NIK:</strong> <span class="mono-text">${p.nik}</span></div>
-      <div><strong>Periode:</strong> <span class="mono-text">${p.periode}</span></div>
-      <div><strong>Nama:</strong> ${p.nama}</div>
-      <div><strong>Status Slip:</strong> <span class="status ${p.status === 'Disetujui' ? 'disetujui' : 'diajukan'}">${p.status || 'Draft'}</span></div>
-      <div><strong>Divisi:</strong> ${p.divisi}</div>
-      <div><strong>Tanggal Terbit:</strong> <span class="mono-text">${formatDate(p.createdAt ? p.createdAt.split('T')[0] : '-')}</span></div>
-    </div>
+  const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setT('slip_periode', `Periode: ${p.periode}`);
+  setT('slip_nik', p.nik);
+  setT('slip_nama', p.nama);
+  setT('slip_divisi', p.divisi || 'Warehouse');
+  setT('slip_status', p.status || 'Draft');
+  setT('slip_gapok', formatRupiah(p.gajiPokok));
+  setT('slip_tunjangan', formatRupiah(p.tunjangan));
+  setT('slip_jamLembur', p.totalJamLembur || 0);
+  setT('slip_uangLembur', formatRupiah(p.totalUangLembur));
+  setT('slip_potKasbon', formatRupiah(p.potonganKasbon));
+  setT('slip_potLain', formatRupiah(totalPot - Number(p.potonganKasbon || 0)));
+  setT('slip_gajiBersih', formatRupiah(p.gajiBersih));
 
-    <div class="slip-grid" style="margin-top: 14px;">
-      <!-- PENERIMAAN -->
-      <div class="slip-col">
-        <h4 style="color: var(--success);">PENERIMAAN (EARNINGS)</h4>
-        <div class="slip-line-item"><span>Gaji Pokok:</span><strong class="mono-text">${formatRupiah(p.gajiPokok)}</strong></div>
-        <div class="slip-line-item"><span>Tunjangan Bulanan:</span><strong class="mono-text">${formatRupiah(p.tunjangan)}</strong></div>
-        <div class="slip-line-item"><span>Uang Lembur (${p.totalJamLembur || 0} Jam):</span><strong class="mono-text">${formatRupiah(p.totalUangLembur)}</strong></div>
-        <div class="slip-line-item" style="border-top: 1px solid var(--border-color); margin-top: 6px; padding-top: 6px;">
-          <strong>Total Pendapatan:</strong><strong class="mono-text" style="color: var(--success);">${formatRupiah(totalPendapatan)}</strong>
-        </div>
-      </div>
-
-      <!-- POTONGAN -->
-      <div class="slip-col">
-        <h4 style="color: var(--error);">POTONGAN (DEDUCTIONS)</h4>
-        <div class="slip-line-item"><span>Cicilan Kasbon:</span><strong class="mono-text">${formatRupiah(p.potonganKasbon)}</strong></div>
-        <div class="slip-line-item"><span>Potongan Absensi:</span><strong class="mono-text">${formatRupiah(p.potonganAbsensi || 0)}</strong></div>
-        <div class="slip-line-item"><span>Potongan Lain / Denda:</span><strong class="mono-text">${formatRupiah(p.potonganLain || 0)}</strong></div>
-        <div class="slip-line-item" style="border-top: 1px solid var(--border-color); margin-top: 6px; padding-top: 6px;">
-          <strong>Total Potongan:</strong><strong class="mono-text" style="color: var(--error);">${formatRupiah(totalPot)}</strong>
-        </div>
-      </div>
-    </div>
-
-    <div class="slip-total-box" style="margin-top: 16px;">
-      <div>
-        <div class="total-title">GAJI BERSIH DITERIMA (TAKE HOME PAY)</div>
-        <small style="color: var(--text-muted);">Ditransfer via Rekening / Kasir Finance</small>
-      </div>
-      <div class="total-amount">${formatRupiah(p.gajiBersih)}</div>
-    </div>
-  `;
-
-  document.getElementById('viewSlipGajiModal').classList.remove('hidden');
+  const modal = document.getElementById('slipGajiModal') || document.getElementById('viewSlipGajiModal');
+  if (modal) modal.classList.remove('hidden');
 };
 
-document.getElementById('btnPrintSlipPdf').addEventListener('click', () => {
-  if (!state.selectedSlip) return;
-  exportSingleSlipPdf(state.selectedSlip);
-});
+const btnPrintSlip = document.getElementById('btnPrintSlipGaji') || document.getElementById('btnPrintSlipPdf');
+if (btnPrintSlip) {
+  btnPrintSlip.addEventListener('click', () => {
+    if (state.selectedSlip) exportSingleSlipPdf(state.selectedSlip);
+  });
+}
 
 function exportSingleSlipPdf(p) {
   if (!window.jspdf || !window.jspdf.jsPDF) return showToast('Library PDF belum siap', 'error');
@@ -2059,58 +2114,63 @@ function exportSingleSlipPdf(p) {
 }
 
 // PDF Summary for Finance
-document.getElementById('btnDownloadFinanceSummaryPdf').addEventListener('click', () => {
-  if (!state.payroll.length) return showToast('Belum ada data payroll untuk diexport!', 'error');
-  if (!window.jspdf || !window.jspdf.jsPDF) return showToast('Library PDF belum siap', 'error');
+const btnFinancePdf = document.getElementById('btnDownloadFinanceSummaryPdf');
+if (btnFinancePdf) {
+  btnFinancePdf.addEventListener('click', () => {
+    if (!state.payroll.length) return showToast('Belum ada data payroll untuk diexport!', 'error');
+    if (!window.jspdf || !window.jspdf.jsPDF) return showToast('Library PDF belum siap', 'error');
 
-  const period = document.getElementById('payrollMonthPicker').value || 'Periode';
-  const doc = new window.jspdf.jsPDF('landscape');
+    const picker = document.getElementById('payrollMonthPicker');
+    const period = picker ? picker.value : 'Periode';
+    const doc = new window.jspdf.jsPDF('landscape');
 
-  doc.setFontSize(16);
-  doc.text(`REKAPITULASI PEMBAYARAN GAJI KARYAWAN WAREHOUSE - PERIODE ${period}`, 14, 18);
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text('Pengajuan Resmi ke Departemen Finance / Accounting', 14, 24);
+    doc.setFontSize(16);
+    doc.text(`REKAPITULASI PEMBAYARAN GAJI KARYAWAN WAREHOUSE - PERIODE ${period}`, 14, 18);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Pengajuan Resmi ke Departemen Finance / Accounting', 14, 24);
 
-  let sumBersih = 0;
-  const rows = state.payroll.map((p, idx) => {
-    sumBersih += Number(p.gajiBersih || 0);
-    const pot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
-    return [
-      idx + 1,
-      p.nik,
-      p.nama,
-      p.divisi,
-      formatRupiah(p.gajiPokok),
-      formatRupiah(p.tunjangan),
-      `${p.totalJamLembur || 0} jam`,
-      formatRupiah(p.totalUangLembur),
-      formatRupiah(pot),
-      formatRupiah(p.gajiBersih),
-      p.status || 'Draft'
-    ];
+    let sumBersih = 0;
+    const rows = state.payroll.map((p, idx) => {
+      sumBersih += Number(p.gajiBersih || 0);
+      const pot = Number(p.potonganKasbon || 0) + Number(p.potonganAbsensi || 0) + Number(p.potonganLain || 0);
+      return [
+        idx + 1,
+        p.nik,
+        p.nama,
+        p.divisi,
+        formatRupiah(p.gajiPokok),
+        formatRupiah(p.tunjangan),
+        `${p.totalJamLembur || 0} jam`,
+        formatRupiah(p.totalUangLembur),
+        formatRupiah(pot),
+        formatRupiah(p.gajiBersih),
+        p.status || 'Draft'
+      ];
+    });
+
+    doc.autoTable({
+      startY: 28,
+      head: [['No', 'NIK', 'Nama', 'Divisi', 'Gaji Pokok', 'Tunjangan', 'Jam Lembur', 'Uang Lembur', 'Potongan', 'Gaji Bersih', 'Status']],
+      body: rows,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [56, 189, 248], textColor: [13, 17, 23] }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(0);
+    doc.text(`TOTAL DANA GAJI DIBAYARKAN: ${formatRupiah(sumBersih)}`, 14, finalY);
+
+    doc.save(`Rekap_Payroll_Finance_${period}.pdf`);
   });
-
-  doc.autoTable({
-    startY: 28,
-    head: [['No', 'NIK', 'Nama', 'Divisi', 'Gaji Pokok', 'Tunjangan', 'Jam Lembur', 'Uang Lembur', 'Potongan', 'Gaji Bersih', 'Status']],
-    body: rows,
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [56, 189, 248], textColor: [13, 17, 23] }
-  });
-
-  const finalY = doc.lastAutoTable.finalY + 8;
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(0);
-  doc.text(`TOTAL DANA GAJI DIBAYARKAN: ${formatRupiah(sumBersih)}`, 14, finalY);
-
-  doc.save(`Rekap_Payroll_Finance_${period}.pdf`);
-});
+}
 
 // ================= DYNAMIC FORMS & SUBMISSIONS =================
 const lemburContainer = document.getElementById('lemburListContainer');
 function addLemburRow() {
+  if (!lemburContainer) return;
   const rowId = 'lembur_' + Date.now() + Math.floor(Math.random()*1000);
   const div = document.createElement('div');
   div.className = 'dynamic-row grid two-columns';
@@ -2125,10 +2185,11 @@ function addLemburRow() {
   `;
   lemburContainer.appendChild(div);
 }
-document.getElementById('addLemburRowBtn').addEventListener('click', addLemburRow);
+document.getElementById('addLemburRowBtn')?.addEventListener('click', addLemburRow);
 
 const cutiContainer = document.getElementById('cutiListContainer');
 function addCutiRow() {
+  if (!cutiContainer) return;
   const rowId = 'cuti_' + Date.now() + Math.floor(Math.random()*1000);
   const div = document.createElement('div');
   div.className = 'dynamic-row grid two-columns';
@@ -2148,77 +2209,83 @@ function addCutiRow() {
   `;
   cutiContainer.appendChild(div);
 }
-document.getElementById('addCutiRowBtn').addEventListener('click', addCutiRow);
+document.getElementById('addCutiRowBtn')?.addEventListener('click', addCutiRow);
 
-document.getElementById('lemburForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('submitLemburBtn');
-  const rows = Array.from(lemburContainer.querySelectorAll('.dynamic-row'));
-  if (rows.length === 0) return showToast('Tambahkan minimal 1 baris lembur!', 'error');
+const lemburF = document.getElementById('lemburForm');
+if (lemburF) {
+  lemburF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitLemburBtn');
+    const rows = lemburContainer ? Array.from(lemburContainer.querySelectorAll('.dynamic-row')) : [];
+    if (rows.length === 0) return showToast('Tambahkan minimal 1 baris lembur!', 'error');
 
-  setButtonLoading(btn, true, 'Menyimpan Lembur...');
-  const nik = document.getElementById('l_nik').value;
+    setButtonLoading(btn, true, 'Menyimpan Lembur...');
+    const nik = document.getElementById('l_nik').value;
 
-  const lemburList = rows.map(row => {
-    const mulai = row.querySelector('.l_jamMulai').value;
-    const selesai = row.querySelector('.l_jamSelesai').value;
-    const totalJam = calculateOvertime(mulai, selesai);
+    const lemburList = rows.map(row => {
+      const mulai = row.querySelector('.l_jamMulai').value;
+      const selesai = row.querySelector('.l_jamSelesai').value;
+      const totalJam = calculateOvertime(mulai, selesai);
 
-    return {
-      nik, 
-      nama: document.getElementById('l_nama').value, 
-      divisi: document.getElementById('l_divisi').value,
-      tanggal: row.querySelector('.l_tanggal').value,
-      deskripsi: row.querySelector('.l_deskripsi').value,
-      jamMulai: mulai, 
-      jamSelesai: selesai, 
-      totalJam: `${totalJam} jam`,
-      catatan: row.querySelector('.l_catatan').value,
-      updatedBy: state.currentUser.username
-    };
+      return {
+        nik, 
+        nama: document.getElementById('l_nama').value, 
+        divisi: document.getElementById('l_divisi').value,
+        tanggal: row.querySelector('.l_tanggal').value,
+        deskripsi: row.querySelector('.l_deskripsi').value,
+        jamMulai: mulai, 
+        jamSelesai: selesai, 
+        totalJam: `${totalJam} jam`,
+        catatan: row.querySelector('.l_catatan').value,
+        updatedBy: state.currentUser.username
+      };
+    });
+
+    const res = await apiRequest('saveLemburMultiple', { lemburList });
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Lembur berhasil disimpan!');
+      if (lemburContainer) lemburContainer.innerHTML = ''; 
+      addLemburRow();
+      loadLembur(); 
+      switchTab('statusLemburTab');
+    }
   });
+}
 
-  const res = await apiRequest('saveLemburMultiple', { lemburList });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Lembur berhasil disimpan!');
-    lemburContainer.innerHTML = ''; 
-    addLemburRow();
-    loadLembur(); 
-    switchTab('statusLemburTab');
-  }
-});
+const cutiF = document.getElementById('cutiForm');
+if (cutiF) {
+  cutiF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitCutiBtn');
+    const rows = cutiContainer ? Array.from(cutiContainer.querySelectorAll('.dynamic-row')) : [];
+    if (rows.length === 0) return showToast('Tambahkan minimal 1 baris Ijin/Cuti!', 'error');
 
-document.getElementById('cutiForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('submitCutiBtn');
-  const rows = Array.from(cutiContainer.querySelectorAll('.dynamic-row'));
-  if (rows.length === 0) return showToast('Tambahkan minimal 1 baris Ijin/Cuti!', 'error');
+    setButtonLoading(btn, true, 'Mengajukan...');
+    const nik = document.getElementById('c_nik').value;
 
-  setButtonLoading(btn, true, 'Mengajukan...');
-  const nik = document.getElementById('c_nik').value;
+    const perijinanList = rows.map(row => ({
+      nik, 
+      nama: document.getElementById('c_nama').value, 
+      divisi: document.getElementById('c_divisi').value,
+      jenis: row.querySelector('.c_jenis').value, 
+      alasan: row.querySelector('.c_alasan').value,
+      tanggalMulai: row.querySelector('.c_tglMulai').value, 
+      tanggalSelesai: row.querySelector('.c_tglSelesai').value,
+      updatedBy: state.currentUser.username
+    }));
 
-  const perijinanList = rows.map(row => ({
-    nik, 
-    nama: document.getElementById('c_nama').value, 
-    divisi: document.getElementById('c_divisi').value,
-    jenis: row.querySelector('.c_jenis').value, 
-    alasan: row.querySelector('.c_alasan').value,
-    tanggalMulai: row.querySelector('.c_tglMulai').value, 
-    tanggalSelesai: row.querySelector('.c_tglSelesai').value,
-    updatedBy: state.currentUser.username
-  }));
-
-  const res = await apiRequest('savePerijinanMultiple', { perijinanList });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Ijin/Cuti diajukan & notifikasi dikirim!');
-    cutiContainer.innerHTML = ''; 
-    addCutiRow();
-    loadCuti(); 
-    switchTab('statusCutiTab');
-  }
-});
+    const res = await apiRequest('savePerijinanMultiple', { perijinanList });
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Ijin/Cuti diajukan & notifikasi dikirim!');
+      if (cutiContainer) cutiContainer.innerHTML = ''; 
+      addCutiRow();
+      loadCuti(); 
+      switchTab('statusCutiTab');
+    }
+  });
+}
 
 // ================= RENDER TABLES (LEMBUR & CUTI) =================
 function renderStatusBadge(status) {
@@ -2503,48 +2570,58 @@ window.deleteUserRecord = async (nik) => {
   }
 };
 
-document.getElementById('userForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSaveUser');
-  setButtonLoading(btn, true, 'Menyimpan...');
+const userF = document.getElementById('userForm');
+if (userF) {
+  userF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveUser');
+    setButtonLoading(btn, true, 'Menyimpan...');
 
-  const payload = {
-    nik: document.getElementById('userNIK').value.trim(),
-    nama: document.getElementById('userName').value.trim(),
-    divisi: document.getElementById('userDivisi').value.trim(),
-    username: document.getElementById('userUsername').value.trim(),
-    password: document.getElementById('userPassword').value.trim(),
-    gajiPokok: document.getElementById('userGajiPokok').value,
-    tunjangan: document.getElementById('userTunjangan').value,
-    rateLembur: document.getElementById('userRateLembur').value,
-    saldoKasbon: document.getElementById('userSaldoKasbon').value,
-    email: document.getElementById('userEmail').value.trim(),
-    noHp: document.getElementById('userNoHp').value.trim(),
-    role: document.getElementById('userRole').value
-  };
+    const payload = {
+      nik: document.getElementById('userNIK').value.trim(),
+      nama: document.getElementById('userName').value.trim(),
+      divisi: document.getElementById('userDivisi').value.trim(),
+      username: document.getElementById('userUsername').value.trim(),
+      password: document.getElementById('userPassword').value.trim(),
+      gajiPokok: document.getElementById('userGajiPokok').value,
+      tunjangan: document.getElementById('userTunjangan').value,
+      rateLembur: document.getElementById('userRateLembur').value,
+      saldoKasbon: document.getElementById('userSaldoKasbon').value,
+      email: document.getElementById('userEmail').value.trim(),
+      noHp: document.getElementById('userNoHp').value.trim(),
+      role: document.getElementById('userRole').value
+    };
 
-  const res = await apiRequest('saveUser', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Data karyawan berhasil disimpan!');
-    document.getElementById('userForm').reset();
-    document.getElementById('userEditMode').value = "false";
+    const res = await apiRequest('saveUser', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Data karyawan berhasil disimpan!');
+      userF.reset();
+      const editMode = document.getElementById('userEditMode');
+      if (editMode) editMode.value = "false";
+      const formTitle = document.getElementById('userFormTitle');
+      if (formTitle) formTitle.textContent = 'Tambah / Edit Data Karyawan & Gaji';
+      loadUsersData();
+    }
+  });
+}
+
+const btnCancelUser = document.getElementById('btnCancelEditUser') || document.getElementById('resetUserFormBtn');
+if (btnCancelUser) {
+  btnCancelUser.addEventListener('click', () => {
+    const form = document.getElementById('userForm');
+    if (form) form.reset();
+    const editMode = document.getElementById('userEditMode');
+    if (editMode) editMode.value = "false";
     const formTitle = document.getElementById('userFormTitle');
     if (formTitle) formTitle.textContent = 'Tambah / Edit Data Karyawan & Gaji';
-    loadUsersData();
-  }
-});
-
-document.getElementById('resetUserFormBtn').addEventListener('click', () => {
-  document.getElementById('userForm').reset();
-  document.getElementById('userEditMode').value = "false";
-  const formTitle = document.getElementById('userFormTitle');
-  if (formTitle) formTitle.textContent = 'Tambah / Edit Data Karyawan & Gaji';
-});
+  });
+}
 
 // ================= MODAL & ACTIONS =================
 window.closeModal = (modalId) => {
-  document.getElementById(modalId).classList.add('hidden');
+  const m = document.getElementById(modalId);
+  if (m) m.classList.add('hidden');
 };
 
 window.openEditLembur = (id) => {
@@ -2556,38 +2633,42 @@ window.openEditLembur = (id) => {
   document.getElementById('editL_jamMulai').value = item.jamMulai || '';
   document.getElementById('editL_jamSelesai').value = item.jamSelesai || '';
   document.getElementById('editL_catatan').value = item.catatan || '';
-  document.getElementById('editLemburModal').classList.remove('hidden');
+  const modal = document.getElementById('editLemburModal');
+  if (modal) modal.classList.remove('hidden');
 };
 
-document.getElementById('editLemburForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSaveEditLembur');
-  setButtonLoading(btn, true, 'Menyimpan...');
+const editLemburF = document.getElementById('editLemburForm');
+if (editLemburF) {
+  editLemburF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveEditLembur');
+    setButtonLoading(btn, true, 'Menyimpan...');
 
-  const id = document.getElementById('editL_id').value;
-  const mulai = document.getElementById('editL_jamMulai').value;
-  const selesai = document.getElementById('editL_jamSelesai').value;
-  const totalJam = calculateOvertime(mulai, selesai);
+    const id = document.getElementById('editL_id').value;
+    const mulai = document.getElementById('editL_jamMulai').value;
+    const selesai = document.getElementById('editL_jamSelesai').value;
+    const totalJam = calculateOvertime(mulai, selesai);
 
-  const payload = {
-    id,
-    tanggal: document.getElementById('editL_tanggal').value,
-    deskripsi: document.getElementById('editL_deskripsi').value,
-    jamMulai: mulai,
-    jamSelesai: selesai,
-    totalJam: `${totalJam} jam`,
-    catatan: document.getElementById('editL_catatan').value,
-    updatedBy: state.currentUser.username
-  };
+    const payload = {
+      id,
+      tanggal: document.getElementById('editL_tanggal').value,
+      deskripsi: document.getElementById('editL_deskripsi').value,
+      jamMulai: mulai,
+      jamSelesai: selesai,
+      totalJam: `${totalJam} jam`,
+      catatan: document.getElementById('editL_catatan').value,
+      updatedBy: state.currentUser.username
+    };
 
-  const res = await apiRequest('updateLembur', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Data lembur berhasil diperbarui!');
-    closeModal('editLemburModal');
-    loadLembur();
-  }
-});
+    const res = await apiRequest('updateLembur', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Data lembur berhasil diperbarui!');
+      closeModal('editLemburModal');
+      loadLembur();
+    }
+  });
+}
 
 window.openEditCuti = (id) => {
   const item = state.cuti.find(r => r.id === id);
@@ -2599,33 +2680,37 @@ window.openEditCuti = (id) => {
   document.getElementById('editC_tglSelesai').value = item.tanggalSelesai || '';
   document.getElementById('editC_alasan').value = item.alasan || '';
   document.getElementById('editC_status').value = item.status || 'Diajukan';
-  document.getElementById('editCutiModal').classList.remove('hidden');
+  const modal = document.getElementById('editCutiModal');
+  if (modal) modal.classList.remove('hidden');
 };
 
-document.getElementById('editCutiForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btnSaveEditCuti');
-  setButtonLoading(btn, true, 'Menyimpan...');
+const editCutiF = document.getElementById('editCutiForm');
+if (editCutiF) {
+  editCutiF.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveEditCuti');
+    setButtonLoading(btn, true, 'Menyimpan...');
 
-  const payload = {
-    id: document.getElementById('editC_id').value,
-    nik: document.getElementById('editC_nik').value,
-    jenis: document.getElementById('editC_jenis').value,
-    tanggalMulai: document.getElementById('editC_tglMulai').value,
-    tanggalSelesai: document.getElementById('editC_tglSelesai').value,
-    alasan: document.getElementById('editC_alasan').value,
-    status: document.getElementById('editC_status').value,
-    updatedBy: state.currentUser.username
-  };
+    const payload = {
+      id: document.getElementById('editC_id').value,
+      nik: document.getElementById('editC_nik').value,
+      jenis: document.getElementById('editC_jenis').value,
+      tanggalMulai: document.getElementById('editC_tglMulai').value,
+      tanggalSelesai: document.getElementById('editC_tglSelesai').value,
+      alasan: document.getElementById('editC_alasan').value,
+      status: document.getElementById('editC_status').value,
+      updatedBy: state.currentUser.username
+    };
 
-  const res = await apiRequest('updatePerijinan', payload);
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast('Data perijinan diperbarui & notifikasi dikirim!');
-    closeModal('editCutiModal');
-    loadCuti();
-  }
-});
+    const res = await apiRequest('updatePerijinan', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Data perijinan diperbarui & notifikasi dikirim!');
+      closeModal('editCutiModal');
+      loadCuti();
+    }
+  });
+}
 
 window.deleteLembur = async (id) => {
   if (confirm('Hapus lembur ini?')) {
@@ -2685,8 +2770,15 @@ function exportPdf(isAdmin) {
   doc.save(filename);
 }
 
-document.getElementById('downloadStatusPdfBtn').addEventListener('click', () => exportPdf(false));
-document.getElementById('downloadAdminPdfBtn').addEventListener('click', () => exportPdf(true));
+const btnDlStatusPdf = document.getElementById('downloadStatusPdfBtn');
+if (btnDlStatusPdf) {
+  btnDlStatusPdf.addEventListener('click', () => exportPdf(false));
+}
+
+const btnDlAdminPdf = document.getElementById('downloadAdminPdfBtn');
+if (btnDlAdminPdf) {
+  btnDlAdminPdf.addEventListener('click', () => exportPdf(true));
+}
 
 // ================= CSV EXPORTERS (LEMBUR, CUTI, ABSENSI, KASBON, PAYROLL) =================
 const setupCsvExportListeners = () => {
