@@ -3285,9 +3285,12 @@ function initInventorySubnav() {
 }
 
 // 1. LOAD & RENDER INVENTORY STOCK MATRIX
+let totalDatabaseSkuCount = 28335;
+
 async function loadInventoryStock() {
   try {
-    const data = await supabaseFetch('inv_stock?select=*&order=sku.asc');
+    // Ambil produk stok aktif dari Supabase (diurutkan berdasarkan prioritas stok fisik)
+    const data = await supabaseFetch('inv_stock?select=*&order=qty_fisik.desc&limit=2000');
     if (data && Array.isArray(data) && data.length > 0) {
       currentInventoryStock = data;
     } else {
@@ -3300,10 +3303,10 @@ async function loadInventoryStock() {
 
   updateInventorySummaryMetrics();
   filterStockMatrix();
+  populateRefillSkuDropdown();
 }
 
 function updateInventorySummaryMetrics() {
-  const totalSku = new Set(currentInventoryStock.map(s => s.sku)).size;
   const readyOnline = currentInventoryStock
     .filter(s => s.kategori_area === 'ONLINE')
     .reduce((sum, s) => sum + (Number(s.qty_fisik) || 0), 0);
@@ -3318,7 +3321,7 @@ function updateInventorySummaryMetrics() {
   const elPerbaikan = document.getElementById('invStatPerbaikan');
   const elSelisih = document.getElementById('invStatSelisih');
 
-  if (elTotal) elTotal.textContent = `${totalSku} SKU`;
+  if (elTotal) elTotal.textContent = `${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU`;
   if (elOnline) elOnline.textContent = `${readyOnline.toLocaleString('id-ID')} Pcs`;
   if (elPerbaikan) elPerbaikan.textContent = `${perbaikan.toLocaleString('id-ID')} Pcs`;
   if (elSelisih) {
@@ -3362,7 +3365,14 @@ function renderStockMatrixTable(data) {
     return;
   }
 
+  // Batasi tampilan DOM 100 item pertama untuk performa kilat
+  const displayLimit = 100;
+  const itemsToRender = data.slice(0, displayLimit);
+
   let html = `
+    <div style="padding: 10px 16px; background: var(--bg-app); border-bottom: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center;">
+      <span>Menampilkan <strong>${itemsToRender.length}</strong> dari <strong>${data.length.toLocaleString('id-ID')}</strong> hasil pencarian (Total Database: <strong>${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU</strong>)</span>
+    </div>
     <table>
       <thead>
         <tr>
@@ -3378,7 +3388,7 @@ function renderStockMatrixTable(data) {
       <tbody>
   `;
 
-  data.forEach(item => {
+  itemsToRender.forEach(item => {
     const diff = (Number(item.qty_fisik) || 0) - (Number(item.qty_dealpos) || 0);
     let badgeDiff = '<span class="badge-match">✓ Match (0)</span>';
     if (diff < 0) {
