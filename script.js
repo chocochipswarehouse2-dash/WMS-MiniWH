@@ -115,23 +115,30 @@ function switchTab(tabId) {
 
 // ================= SIDEBAR CONTROLS =================
 function toggleSidebar() {
+  const appLayout = document.getElementById('appPage');
+  const sidebar = document.getElementById('sidebar');
+  
   if (window.innerWidth <= 900) {
-    const isOpen = appPageEl.classList.contains('sidebar-mobile-open');
+    const isOpen = sidebar ? sidebar.classList.contains('open') : false;
     if (isOpen) closeMobileSidebar();
     else openMobileSidebar();
   } else {
-    appPageEl.classList.toggle('sidebar-collapsed');
+    if (appLayout) appLayout.classList.toggle('sidebar-collapsed');
   }
 }
 
 function openMobileSidebar() {
-  appPageEl.classList.add('sidebar-mobile-open');
-  sidebarOverlay.classList.remove('hidden');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar) sidebar.classList.add('open');
+  if (overlay) overlay.classList.remove('hidden');
 }
 
 function closeMobileSidebar() {
-  appPageEl.classList.remove('sidebar-mobile-open');
-  sidebarOverlay.classList.add('hidden');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar) sidebar.classList.remove('open');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 if (toggleSidebarBtn) toggleSidebarBtn.addEventListener('click', toggleSidebar);
@@ -977,6 +984,29 @@ async function loadRosterShifts() {
   }
 }
 
+function updateAttendanceStatusBox() {
+  const statusBox = document.getElementById('todayAttendanceStatusBox');
+  if (!statusBox || !state.currentUser) return;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const myRecordToday = state.absensi.find(a => 
+    String(a.nik).trim() === String(state.currentUser.nik).trim() && 
+    (a.tanggal === todayStr || (a.createdAt && a.createdAt.startsWith(todayStr)))
+  );
+
+  if (!myRecordToday) {
+    statusBox.className = 'attendance-status-badge';
+    statusBox.innerHTML = `⚪ <strong>Belum Melakukan Presensi Hari Ini</strong>. Silakan pilih shift dan klik tombol <em>🟢 Presensi Masuk</em>.`;
+  } else if (myRecordToday.jamMasuk && (!myRecordToday.jamPulang || myRecordToday.jamPulang === '-')) {
+    const isLate = Number(myRecordToday.keterlambatanMenit || 0) > 0;
+    statusBox.className = 'attendance-status-badge checked-in';
+    statusBox.innerHTML = `🟢 <strong>Sudah Presensi Masuk:</strong> Pukul <span class="mono-text">${myRecordToday.jamMasuk}</span> (${myRecordToday.shift || 'Shift 1'})${isLate ? ` • <span style="color:var(--error);">Terlambat ${myRecordToday.keterlambatanMenit} menit</span>` : ' • <span style="color:var(--success);">Tepat Waktu</span>'}. Jangan lupa presensi pulang saat jam kerja berakhir.`;
+  } else if (myRecordToday.jamMasuk && myRecordToday.jamPulang && myRecordToday.jamPulang !== '-') {
+    statusBox.className = 'attendance-status-badge completed';
+    statusBox.innerHTML = `✅ <strong>Presensi Hari Ini Selesai:</strong> Masuk <span class="mono-text">${myRecordToday.jamMasuk}</span> • Pulang <span class="mono-text">${myRecordToday.jamPulang}</span> (${myRecordToday.shift || 'Shift 1'}).`;
+  }
+}
+
 function renderEmployeeShiftDashboard() {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -993,11 +1023,11 @@ function renderEmployeeShiftDashboard() {
   const noteEl = document.getElementById('todayShiftNote');
 
   if (badgeEl) {
-    badgeEl.textContent = `${schedule.shift} (${schedule.masuk} - ${schedule.pulang})`;
+    badgeEl.textContent = `${schedule.shift} (${schedule.masuk || '08:00'} - ${schedule.pulang || '17:00'})`;
     badgeEl.className = `status ${schedule.isOff ? 'ditolak' : 'disetujui'}`;
   }
   if (textEl) {
-    textEl.textContent = schedule.isOff ? 'HARI INI LIBUR' : `${schedule.masuk} - ${schedule.pulang}`;
+    textEl.textContent = schedule.isOff ? 'HARI INI LIBUR' : `${schedule.masuk || '08:00'} - ${schedule.pulang || '17:00'}`;
     textEl.style.color = schedule.isOff ? 'var(--error)' : 'var(--accent-primary)';
   }
   if (noteEl) {
@@ -1009,6 +1039,7 @@ function renderEmployeeShiftDashboard() {
   if (timelineEl) {
     const days = [];
     const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     
     for (let i = 0; i < 7; i++) {
       const d = new Date();
@@ -1020,18 +1051,30 @@ function renderEmployeeShiftDashboard() {
         ? { shift: rosterItem.shift, masuk: rosterItem.jamMasuk, pulang: rosterItem.jamPulang, isOff: rosterItem.shift.toLowerCase().includes('libur') }
         : getShiftScheduleForDate(defaultShift, d);
 
+      const dNum = d.getDate();
+      const mName = monthNames[d.getMonth()];
+      const dayName = dayNames[d.getDay()];
+
       days.push(`
         <div class="roster-day-card ${i === 0 ? 'today' : ''}">
-          <span class="roster-day-date">${dStr.slice(5)}</span>
-          <span class="roster-day-name">${dayNames[d.getDay()]}</span>
-          <span class="roster-shift-pill ${sc.isOff ? 'off' : ''}">
-            ${sc.isOff ? 'LIBUR' : `${sc.shift.replace('Shift ', 'S')}<br>${sc.masuk}-${sc.pulang}`}
+          ${i === 0 ? '<span class="roster-today-tag">Hari Ini</span>' : ''}
+          <div class="roster-card-header">
+            <span class="roster-day-name">${dayName}</span>
+            <span class="roster-day-date">${dNum} ${mName}</span>
+          </div>
+          <span class="roster-shift-badge ${sc.isOff ? 'off' : 'work'}">
+            ${sc.isOff ? 'LIBUR' : sc.shift}
+          </span>
+          <span class="roster-time-range mono-text">
+            ${sc.isOff ? 'Off Duty' : `${sc.masuk || '08:00'} - ${sc.pulang || '17:00'}`}
           </span>
         </div>
       `);
     }
     timelineEl.innerHTML = days.join('');
   }
+
+  updateAttendanceStatusBox();
 }
 
 function renderAdminRosterTable() {
@@ -1082,6 +1125,7 @@ async function loadAbsensi() {
     state.absensi = res.data || [];
     renderUserAbsensi();
     if (state.currentUser.role === 'admin') renderAdminAbsensi();
+    updateAttendanceStatusBox();
   }
 }
 
@@ -3011,33 +3055,7 @@ async function startApp() {
   }
 }
 
-// ================= SIDEBAR & NAVIGATION BINDINGS =================
-const toggleBtn = document.getElementById('toggleSidebarBtn');
-const closeBtn = document.getElementById('closeSidebarMobileBtn');
-const overlayEl = document.getElementById('sidebarOverlay');
-const sidebarEl = document.getElementById('sidebar');
-
-if (toggleBtn) {
-  toggleBtn.addEventListener('click', () => {
-    if (sidebarEl) sidebarEl.classList.toggle('open');
-    if (overlayEl) overlayEl.classList.toggle('hidden');
-  });
-}
-
-if (closeBtn) {
-  closeBtn.addEventListener('click', () => {
-    if (sidebarEl) sidebarEl.classList.remove('open');
-    if (overlayEl) overlayEl.classList.add('hidden');
-  });
-}
-
-if (overlayEl) {
-  overlayEl.addEventListener('click', () => {
-    if (sidebarEl) sidebarEl.classList.remove('open');
-    overlayEl.classList.add('hidden');
-  });
-}
-
+// ================= TAB NAVIGATION BINDINGS =================
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => switchTab(item.dataset.tab));
 });

@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>IronNest — Warehouse Management System</title>
+  <title>Warehouse Management System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3.1" />
+  <link rel="stylesheet" href="style.css?v=3.2" />
 </head>
 <body>
   <!-- Halaman Login -->
   <div id="loginPage" class="auth-wrap">
     <div class="auth-card">
       <div class="brand-logo-wrap" style="justify-content: center; margin-bottom: 12px;">
-        <div class="brand-icon-box" style="width: 44px; height: 44px; font-size: 1.5rem;">◰</div>
-        <div class="brand-title" style="color: #112E3B; font-size: 1.6rem;">Iron<span>Nest</span></div>
+        <div class="brand-icon-box" style="width: 44px; height: 44px; font-size: 1.5rem;">🏬</div>
+        <div class="brand-title" style="color: var(--text-primary); font-size: 1.6rem;">Warehouse <span>WMS</span></div>
       </div>
-      <p class="auth-subtitle">Warehouse & Operational Management Portal</p>
+      <p class="auth-subtitle">Operational & Inventory Management Portal</p>
       <form id="loginForm">
         <label style="text-align: left;">
           <span>Username / NIK</span>
@@ -38,17 +38,17 @@
   <!-- Halaman Aplikasi (Main WMS Layout) -->
   <div id="appPage" class="app-layout hidden">
     
-    <!-- SIDEBAR NAVIGASI (IronNest Dark Slate Style) -->
+    <!-- SIDEBAR NAVIGASI -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="brand-logo-wrap">
-          <div class="brand-icon-box">◰</div>
+          <div class="brand-icon-box">🏬</div>
           <div>
-            <div class="brand-title">Iron<span>Nest</span></div>
-            <div class="brand-subtitle">Warehouse WMS</div>
+            <div class="brand-title">Warehouse <span>WMS</span></div>
+            <div class="brand-subtitle">Operations Portal</div>
           </div>
         </div>
-        <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu" style="margin-left: auto; color:#fff; border:none; background:transparent;">✕</button>
+        <button id="closeSidebarMobileBtn" class="icon-btn mobile-only" title="Tutup Menu" style="margin-left: auto; color: inherit; border: none; background: transparent;">✕</button>
       </div>
 
       <div class="sidebar-content">
@@ -1303,6 +1303,6 @@
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js?v=3.1"></script>
+  <script src="script.js?v=3.2"></script>
 </body>
 </html>
