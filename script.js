@@ -46,6 +46,23 @@ const tabTitles = {
   settingTab: 'Kelola Data Karyawan & Gaji'
 };
 
+// ================= MODAL & UI HELPERS =================
+window.openModal = (modalId) => {
+  const m = document.getElementById(modalId);
+  if (m) {
+    m.classList.remove('hidden');
+    m.classList.add('active');
+  }
+};
+
+window.closeModal = (modalId) => {
+  const m = document.getElementById(modalId);
+  if (m) {
+    m.classList.add('hidden');
+    m.classList.remove('active');
+  }
+};
+
 // ================= WAREHOUSE & TASK INTERACTIVE HELPERS =================
 window.switchWarehouseView = (whId) => {
   const btns = document.querySelectorAll('.wh-tab-btn');
@@ -66,12 +83,13 @@ window.toggleTaskCheck = (el) => {
 window.setTimeframeFilter = (filter) => {
   const pills = document.querySelectorAll('.timeframe-pill');
   pills.forEach(p => p.classList.remove('active'));
-  if (event && event.target) event.target.classList.add('active');
+  if (window.event && window.event.target) window.event.target.classList.add('active');
   showToast(`Filter rentang waktu: ${filter.toUpperCase()}`);
 };
 
 // ================= UI HELPERS & LOADING STATE =================
 function showToast(msg, type = 'success') {
+  if (!toast) return;
   toast.textContent = msg; 
   toast.className = `toast ${type}`; 
   toast.classList.remove('hidden');
@@ -3257,8 +3275,8 @@ function initInventorySubnav() {
 // 1. LOAD & RENDER INVENTORY STOCK MATRIX
 async function loadInventoryStock() {
   try {
-    const { data, error } = await supabaseClient.from('inv_stock').select('*').order('sku', { ascending: true });
-    if (!error && data && data.length > 0) {
+    const data = await supabaseFetch('inv_stock?select=*&order=sku.asc');
+    if (data && Array.isArray(data) && data.length > 0) {
       currentInventoryStock = data;
     } else {
       currentInventoryStock = [...DEFAULT_INVENTORY_STOCK];
@@ -3421,13 +3439,14 @@ function exportStockMatrixCsv() {
 // 2. PEMINJAMAN SEMENTARA (SPS)
 async function loadPeminjamanData() {
   try {
-    const { data, error } = await supabaseClient.from('inv_peminjaman').select('*').order('created_at', { ascending: false });
-    if (!error && data && data.length > 0) {
+    const data = await supabaseFetch('inv_peminjaman?select=*&order=created_at.desc');
+    if (data && Array.isArray(data) && data.length > 0) {
       currentPeminjamanList = data;
     } else {
       currentPeminjamanList = [...DEFAULT_PEMINJAMAN];
     }
   } catch (err) {
+    console.warn('Using local peminjaman cache:', err);
     currentPeminjamanList = [...DEFAULT_PEMINJAMAN];
   }
   renderPeminjamanTable();
@@ -3579,7 +3598,7 @@ async function submitPeminjamanForm(e) {
   };
 
   try {
-    await supabaseClient.from('inv_peminjaman').insert([newSps]);
+    await supabaseFetch('inv_peminjaman', { method: 'POST', body: newSps });
   } catch (err) {
     console.warn('Saved SPS locally:', err);
   }
@@ -3594,7 +3613,10 @@ async function returnPeminjaman(id) {
   if (!confirm('Konfirmasi pengembalian barang pinjaman ini ke gudang?')) return;
 
   try {
-    await supabaseClient.from('inv_peminjaman').update({ status: 'Dikembalikan', updated_at: new Date().toISOString() }).eq('id', id);
+    await supabaseFetch(`inv_peminjaman?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { status: 'Dikembalikan', updated_at: new Date().toISOString() }
+    });
   } catch (err) {
     console.warn('Updated SPS locally:', err);
   }
@@ -3690,13 +3712,14 @@ function printSpsPdf() {
 // 3. FULFILLMENT & REFILL
 async function loadRefillData() {
   try {
-    const { data, error } = await supabaseClient.from('inv_refill').select('*').order('created_at', { ascending: false });
-    if (!error && data && data.length > 0) {
+    const data = await supabaseFetch('inv_refill?select=*&order=created_at.desc');
+    if (data && Array.isArray(data) && data.length > 0) {
       currentRefillList = data;
     } else {
       currentRefillList = [...DEFAULT_REFILL];
     }
   } catch (err) {
+    console.warn('Using local refill cache:', err);
     currentRefillList = [...DEFAULT_REFILL];
   }
   renderRefillTable();
@@ -3822,7 +3845,7 @@ async function submitRefillForm(e) {
   };
 
   try {
-    await supabaseClient.from('inv_refill').insert([newRefill]);
+    await supabaseFetch('inv_refill', { method: 'POST', body: newRefill });
   } catch (err) {
     console.warn('Saved Refill locally:', err);
   }
@@ -3835,7 +3858,10 @@ async function submitRefillForm(e) {
 
 async function completeRefill(id) {
   try {
-    await supabaseClient.from('inv_refill').update({ status: 'Selesai', updated_at: new Date().toISOString() }).eq('id', id);
+    await supabaseFetch(`inv_refill?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { status: 'Selesai', updated_at: new Date().toISOString() }
+    });
   } catch (err) {
     console.warn('Updated Refill locally:', err);
   }
@@ -3851,13 +3877,14 @@ async function completeRefill(id) {
 // 4. LOG MUTASI PRODUK
 async function loadMutasiData() {
   try {
-    const { data, error } = await supabaseClient.from('inv_log_mutasi').select('*').order('tanggal', { ascending: false });
-    if (!error && data && data.length > 0) {
+    const data = await supabaseFetch('inv_log_mutasi?select=*&order=tanggal.desc');
+    if (data && Array.isArray(data) && data.length > 0) {
       currentMutasiList = data;
     } else {
       currentMutasiList = [...DEFAULT_MUTASI];
     }
   } catch (err) {
+    console.warn('Using local mutasi cache:', err);
     currentMutasiList = [...DEFAULT_MUTASI];
   }
   renderMutasiTable();
@@ -3932,8 +3959,23 @@ async function syncInventoryDatabase() {
   showToast('Sinkronisasi database inventory selesai');
 }
 
-// Event Listeners for Inventory Forms & Filters
-document.addEventListener('DOMContentLoaded', () => {
+// Window Exposures
+window.exportStockMatrixCsv = exportStockMatrixCsv;
+window.openDetailSps = openDetailSps;
+window.returnPeminjaman = returnPeminjaman;
+window.printSpsPdf = printSpsPdf;
+window.addPeminjamanItemRow = addPeminjamanItemRow;
+window.onRefillSkuChanged = onRefillSkuChanged;
+window.completeRefill = completeRefill;
+window.syncInventoryDatabase = syncInventoryDatabase;
+window.filterStockMatrix = filterStockMatrix;
+window.renderPeminjamanTable = renderPeminjamanTable;
+window.renderRefillTable = renderRefillTable;
+window.renderMutasiTable = renderMutasiTable;
+window.initInventorySubnav = initInventorySubnav;
+
+// Initialize Inventory Module Listeners
+function initInventoryListeners() {
   const stockSearch = document.getElementById('invStockSearchInput');
   const filterArea = document.getElementById('invFilterArea');
   const filterSelisih = document.getElementById('invFilterSelisih');
@@ -3941,19 +3983,50 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterRefill = document.getElementById('invFilterRefillStatus');
   const filterMutasi = document.getElementById('invFilterMutasiType');
 
-  if (stockSearch) stockSearch.addEventListener('input', filterStockMatrix);
-  if (filterArea) filterArea.addEventListener('change', filterStockMatrix);
-  if (filterSelisih) filterSelisih.addEventListener('change', filterStockMatrix);
-  if (filterSps) filterSps.addEventListener('change', renderPeminjamanTable);
-  if (filterRefill) filterRefill.addEventListener('change', renderRefillTable);
-  if (filterMutasi) filterMutasi.addEventListener('change', renderMutasiTable);
+  if (stockSearch && !stockSearch.dataset.bound) {
+    stockSearch.dataset.bound = 'true';
+    stockSearch.addEventListener('input', filterStockMatrix);
+  }
+  if (filterArea && !filterArea.dataset.bound) {
+    filterArea.dataset.bound = 'true';
+    filterArea.addEventListener('change', filterStockMatrix);
+  }
+  if (filterSelisih && !filterSelisih.dataset.bound) {
+    filterSelisih.dataset.bound = 'true';
+    filterSelisih.addEventListener('change', filterStockMatrix);
+  }
+  if (filterSps && !filterSps.dataset.bound) {
+    filterSps.dataset.bound = 'true';
+    filterSps.addEventListener('change', renderPeminjamanTable);
+  }
+  if (filterRefill && !filterRefill.dataset.bound) {
+    filterRefill.dataset.bound = 'true';
+    filterRefill.addEventListener('change', renderRefillTable);
+  }
+  if (filterMutasi && !filterMutasi.dataset.bound) {
+    filterMutasi.dataset.bound = 'true';
+    filterMutasi.addEventListener('change', renderMutasiTable);
+  }
 
   const peminjamanForm = document.getElementById('peminjamanForm');
-  if (peminjamanForm) peminjamanForm.addEventListener('submit', submitPeminjamanForm);
+  if (peminjamanForm && !peminjamanForm.dataset.bound) {
+    peminjamanForm.dataset.bound = 'true';
+    peminjamanForm.addEventListener('submit', submitPeminjamanForm);
+  }
 
   const refillForm = document.getElementById('refillForm');
-  if (refillForm) refillForm.addEventListener('submit', submitRefillForm);
-});
+  if (refillForm && !refillForm.dataset.bound) {
+    refillForm.dataset.bound = 'true';
+    refillForm.addEventListener('submit', submitRefillForm);
+  }
+}
+
+// Ensure listeners run both immediately and on DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initInventoryListeners);
+} else {
+  initInventoryListeners();
+}
 
 // ================= TAB NAVIGATION BINDINGS =================
 document.querySelectorAll('.nav-item').forEach(item => {

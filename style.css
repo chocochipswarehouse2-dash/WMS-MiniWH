@@ -1259,6 +1259,23 @@ tbody tr:hover td {
   gap: 8px;
 }
 
+.small-btn {
+  padding: 6px 14px !important;
+  font-size: 0.78rem !important;
+  border-radius: 20px !important;
+  white-space: nowrap;
+}
+
+.primary-btn.btn-navy {
+  background: var(--accent-navy) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(17, 46, 59, 0.2) !important;
+}
+
+.primary-btn.btn-navy:hover {
+  background: #1B3E4E !important;
+}
+
 .secondary-btn:hover {
   background: var(--bg-subtle);
   border-color: var(--text-muted);
