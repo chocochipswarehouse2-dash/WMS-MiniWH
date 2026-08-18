@@ -1433,7 +1433,9 @@ if (btnOpenImpShift) {
   });
 }
 
-document.getElementById('shiftCsvFileInput').addEventListener('change', (e) => {
+const shiftCsvInp = document.getElementById('shiftCsvFileInput');
+if (shiftCsvInp) {
+  shiftCsvInp.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
@@ -1532,49 +1534,55 @@ document.getElementById('shiftCsvFileInput').addEventListener('change', (e) => {
       }
     }
 
-    if (!parsed.length) return showToast('Tidak ada data roster valid yang ditemukan dalam CSV', 'error');
+      if (!parsed.length) return showToast('Tidak ada data roster valid yang ditemukan dalam CSV', 'error');
 
-    state.pendingShiftImport = parsed;
-    const previewWrap = document.getElementById('shiftImportPreviewWrap');
-    previewWrap.style.display = 'block';
-    previewWrap.innerHTML = `
-      <table>
-        <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Shift</th><th>Jam Masuk - Pulang</th></tr></thead>
-        <tbody>
-          ${parsed.slice(0, 8).map(p => `
-            <tr>
-              <td><span class="mono-text">${p.nik}</span></td>
-              <td><strong>${p.nama}</strong></td>
-              <td><span class="mono-text">${formatDate(p.tanggal)}</span></td>
-              <td><span class="status disetujui">${p.shift}</span></td>
-              <td><span class="mono-text">${p.jamMasuk && p.jamPulang ? (p.jamMasuk + ' - ' + p.jamPulang) : (p.shift || '-')}</span></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      <small style="display:block; padding: 8px 12px; color: var(--text-muted);">
-        Total <strong>${parsed.length}</strong> jadwal roster karyawan siap di-import ke database.
-      </small>
-    `;
+      state.pendingShiftImport = parsed;
+      const previewWrap = document.getElementById('shiftImportPreviewWrap');
+      if (previewWrap) {
+        previewWrap.style.display = 'block';
+        previewWrap.innerHTML = `
+          <table>
+            <thead><tr><th>NIK</th><th>Nama</th><th>Tanggal</th><th>Shift</th><th>Jam Masuk - Pulang</th></tr></thead>
+            <tbody>
+              ${parsed.slice(0, 8).map(p => `
+                <tr>
+                  <td><span class="mono-text">${p.nik}</span></td>
+                  <td><strong>${p.nama}</strong></td>
+                  <td><span class="mono-text">${formatDate(p.tanggal)}</span></td>
+                  <td><span class="status disetujui">${p.shift}</span></td>
+                  <td><span class="mono-text">${p.jamMasuk && p.jamPulang ? (p.jamMasuk + ' - ' + p.jamPulang) : (p.shift || '-')}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <small style="display:block; padding: 8px 12px; color: var(--text-muted);">
+            Total <strong>${parsed.length}</strong> jadwal roster karyawan siap di-import ke database.
+          </small>
+        `;
+      }
 
-    document.getElementById('btnExecuteImportShift').disabled = false;
-  };
-  reader.readAsText(file);
-});
+      const execBtn = document.getElementById('btnExecuteImportShift');
+      if (execBtn) execBtn.disabled = false;
+    };
+    reader.readAsText(file);
+  });
+}
 
-document.getElementById('btnExecuteImportShift').addEventListener('click', async () => {
-  if (!state.pendingShiftImport.length) return;
-  const btn = document.getElementById('btnExecuteImportShift');
-  setButtonLoading(btn, true, 'Mengimport...');
+const btnExecImpShift = document.getElementById('btnExecuteImportShift');
+if (btnExecImpShift) {
+  btnExecImpShift.addEventListener('click', async () => {
+    if (!state.pendingShiftImport.length) return;
+    setButtonLoading(btnExecImpShift, true, 'Mengimport...');
 
-  const res = await apiRequest('importRosterShifts', { rosterList: state.pendingShiftImport });
-  setButtonLoading(btn, false);
-  if (res) {
-    showToast(`Berhasil mengimport ${res.count || state.pendingShiftImport.length} jadwal roster!`);
-    closeModal('importShiftModal');
-    loadRosterShifts();
-  }
-});
+    const res = await apiRequest('importRosterShifts', { rosterList: state.pendingShiftImport });
+    setButtonLoading(btnExecImpShift, false);
+    if (res) {
+      showToast(`Berhasil mengimport ${res.count || state.pendingShiftImport.length} jadwal roster!`);
+      closeModal('importShiftModal');
+      loadRosterShifts();
+    }
+  });
+}
 
 // ================= CSV IMPORT / EXPORT KARYAWAN =================
 const btnDlUserTpl = document.getElementById('btnDownloadUserTemplate');
