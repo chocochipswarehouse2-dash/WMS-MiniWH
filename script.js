@@ -3348,6 +3348,9 @@ const CSV_COL_MAP = {
 
 let invAllData = [];
 let invFilteredData = [];
+let invCurrentPage = 1;
+const invRowsPerPage = 100;
+let invSearchTimeout = null;
 
 // Parse a CSV text string (handles quoted commas)
 function parseCSV(text) {
@@ -3389,6 +3392,23 @@ async function loadInventoryData(forceRefresh = false) {
     }
     invAllData = all;
     populateCategoryFilter();
+    
+    // Bind filters
+    const searchInput = document.getElementById('invSearchInput');
+    if (searchInput && !searchInput.dataset.bound) {
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(invSearchTimeout);
+        invSearchTimeout = setTimeout(() => filterInventoryTable(), 300);
+      });
+      searchInput.dataset.bound = 'true';
+    }
+    ['invCategoryFilter', 'invGroupFilter', 'invOnlyStockFilter'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.dataset.bound) {
+        el.addEventListener('change', () => filterInventoryTable());
+        el.dataset.bound = 'true';
+      }
+    });
     updateInvSummaryCards();
     filterInventoryTable();
     if (all.length === 0 && loadingEl) {
@@ -3436,6 +3456,7 @@ function filterInventoryTable() {
   const allCols    = INV_OUTLET_MAP.map(o => o.col);
   const totalQty   = row => allCols.reduce((s, c) => s + (Number(row[c]) || 0), 0);
 
+  invCurrentPage = 1;
   invFilteredData = invAllData.filter(row => {
     if (cat && row.category !== cat) return false;
     if (onlyStk && totalQty(row) === 0) return false;
@@ -3453,6 +3474,7 @@ function renderInventoryTable(data, outlets) {
   const tbody = document.getElementById('invMatrixTbody');
   const table = document.getElementById('invMatrixTable');
   const loading = document.getElementById('invLoadingState');
+  const pagination = document.getElementById('invPagination');
   if (!thead || !tbody || !table) return;
 
   const retailOutlets  = outlets.filter(o => o.group === 'retail');
@@ -3460,7 +3482,7 @@ function renderInventoryTable(data, outlets) {
   const gudangOutlets  = outlets.filter(o => o.group === 'gudang');
 
   // Build group header row
-  const fixedCols = 6; // No, Kategori, Produk, Varian, SKU, Harga
+  const fixedCols = 6;
   const rSpan = `<th colspan="${fixedCols}" class="sticky-col grp-sticky" style="left:0; z-index:12; background:var(--bg-sidebar); border-right:2px solid var(--border-subtle);"></th>`;
   let groupRow = `<tr class="group-row">${rSpan}`;
   if (retailOutlets.length)  groupRow += `<th colspan="${retailOutlets.length}"  class="grp-retail">🏪 RETAIL (${retailOutlets.length})</th>`;
@@ -3470,31 +3492,36 @@ function renderInventoryTable(data, outlets) {
 
   // Build column header row
   let colRow = `<tr>
-    <th class="sticky-col col-no">#</th>
-    <th class="sticky-col col-cat">Kategori</th>
-    <th class="sticky-col col-prod">Produk</th>
-    <th class="sticky-col col-var">Varian</th>
-    <th class="sticky-col col-sku">SKU</th>
-    <th class="sticky-col col-price">Harga</th>
+    <th class="sticky-col col-no" style="left:0; z-index:11;">#</th>
+    <th class="sticky-col col-cat" style="left:40px; z-index:11;">Kategori</th>
+    <th class="sticky-col col-prod" style="left:150px; z-index:11;">Produk</th>
+    <th class="sticky-col col-var" style="left:330px; z-index:11;">Varian</th>
+    <th class="sticky-col col-sku" style="left:390px; z-index:11;">SKU</th>
+    <th class="sticky-col col-price" style="left:500px; z-index:11;">Harga</th>
   `;
   outlets.forEach(o => { colRow += `<th class="qty-cell" title="${o.name}">${o.label}</th>`; });
   colRow += '</tr>';
   thead.innerHTML = groupRow + colRow;
 
-  // Build body rows (render in chunks to avoid UI freeze on large datasets)
   if (data.length === 0) {
     loading.style.display = 'block';
     loading.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);">Tidak ada data yang cocok dengan filter.</div>';
     table.classList.add('hidden');
+    if (pagination) pagination.style.display = 'none';
     return;
   }
 
   loading.style.display = 'none';
   table.classList.remove('hidden');
 
-  const CHUNK = 500;
+  // Pagination Logic
+  const totalPages = Math.ceil(data.length / invRowsPerPage);
+  if (invCurrentPage > totalPages) invCurrentPage = totalPages;
+  const startIdx = (invCurrentPage - 1) * invRowsPerPage;
+  const endIdx = Math.min(startIdx + invRowsPerPage, data.length);
+
   let html = '';
-  for (let i = 0; i < Math.min(data.length, CHUNK); i++) {
+  for (let i = startIdx; i < endIdx; i++) {
     const r = data[i];
     html += `<tr>
       <td class="sticky-col col-no">${i + 1}</td>
@@ -3513,34 +3540,26 @@ function renderInventoryTable(data, outlets) {
   }
   tbody.innerHTML = html;
 
-  // Render remaining rows async if more than CHUNK
-  if (data.length > CHUNK) {
-    const renderRest = (start) => {
-      let chunk = '';
-      const end = Math.min(start + CHUNK, data.length);
-      for (let i = start; i < end; i++) {
-        const r = data[i];
-        chunk += `<tr>
-          <td class="sticky-col col-no">${i + 1}</td>
-          <td class="sticky-col col-cat">${r.category || ''}</td>
-          <td class="sticky-col col-prod" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
-          <td class="sticky-col col-var">${r.variant || ''}</td>
-          <td class="sticky-col col-sku">${r.sku || ''}</td>
-          <td class="sticky-col col-price">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
-        `;
-        outlets.forEach(o => {
-          const qty = Number(r[o.col]) || 0;
-          const cls = qty > 0 ? 'qty-pos' : 'qty-zero';
-          chunk += `<td class="qty-cell ${cls}">${qty > 0 ? qty : '–'}</td>`;
-        });
-        chunk += '</tr>';
-      }
-      tbody.insertAdjacentHTML('beforeend', chunk);
-      if (end < data.length) requestAnimationFrame(() => renderRest(end));
-    };
-    requestAnimationFrame(() => renderRest(CHUNK));
+  // Render Pagination Controls
+  if (pagination) {
+    pagination.style.display = 'flex';
+    pagination.innerHTML = `
+      <button onclick="invChangePage(-1)" ${invCurrentPage === 1 ? 'disabled' : ''}>&laquo; Prev</button>
+      <span>Halaman <strong>${invCurrentPage}</strong> dari ${totalPages.toLocaleString('id-ID')}</span>
+      <button onclick="invChangePage(1)" ${invCurrentPage === totalPages ? 'disabled' : ''}>Next &raquo;</button>
+    `;
   }
 }
+
+window.invChangePage = function(delta) {
+  invCurrentPage += delta;
+  const group   = document.getElementById('invGroupFilter')?.value   || '';
+  const activeCols = group ? INV_OUTLET_MAP.filter(o => o.group === group) : INV_OUTLET_MAP;
+  renderInventoryTable(invFilteredData, activeCols);
+  // scroll to top of table wrapper
+  const wrap = document.querySelector('.inv-matrix-wrapper');
+  if(wrap) wrap.scrollTop = 0;
+};
 
 // ── CSV IMPORT ──────────────────────────────────────────────────────────────
 
