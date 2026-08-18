@@ -3373,54 +3373,115 @@ function renderStockMatrixTable(data) {
     <div style="padding: 10px 16px; background: var(--bg-app); border-bottom: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center;">
       <span>Menampilkan <strong>${itemsToRender.length}</strong> dari <strong>${data.length.toLocaleString('id-ID')}</strong> hasil pencarian (Total Database: <strong>${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU</strong>)</span>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>SKU & Produk</th>
-          <th>Lokasi Rak</th>
-          <th>Area / Kategori</th>
-          <th style="text-align: right;">Fisik</th>
-          <th style="text-align: right;">DealPOS</th>
-          <th style="text-align: center;">Selisih</th>
-          <th>Keterangan</th>
-        </tr>
-      </thead>
-      <tbody>
+    <div class="inv-matrix-wrap">
+      <table class="inv-matrix-table">
+        <thead>
+          <tr>
+            <th rowspan="3" class="th-main" style="min-width: 220px; text-align: left;">NAMA PRODUK</th>
+            <th rowspan="3" class="th-main" style="width: 55px; text-align: center;">SIZE</th>
+            <th rowspan="3" class="th-main" style="width: 140px; text-align: left;">SKU</th>
+            <th colspan="6" style="text-align: center;">ONLINE</th>
+            <th colspan="4" style="text-align: center;">PERBAIKAN</th>
+            <th colspan="6" style="text-align: center;">OFFLINE</th>
+          </tr>
+          <tr>
+            <th colspan="2" style="text-align: center;">MAP</th>
+            <th colspan="2" style="text-align: center;">LIVE</th>
+            <th colspan="2" style="text-align: center;">STUDIO</th>
+            <th colspan="2" style="text-align: center;">PERMAK</th>
+            <th colspan="2" style="text-align: center;">DEFECT</th>
+            <th colspan="2" style="text-align: center;">WH</th>
+            <th colspan="2" style="text-align: center;">QC</th>
+            <th colspan="2" style="text-align: center;">GA</th>
+          </tr>
+          <tr>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+            <th class="th-sub-fisik">FISIK</th>
+            <th class="th-sub-dp">DP</th>
+          </tr>
+        </thead>
+        <tbody>
   `;
 
   itemsToRender.forEach(item => {
-    const diff = (Number(item.qty_fisik) || 0) - (Number(item.qty_dealpos) || 0);
-    let badgeDiff = '<span class="badge-match">✓ Match (0)</span>';
-    if (diff < 0) {
-      badgeDiff = `<span class="badge-minus">▼ ${diff} Pcs</span>`;
-    } else if (diff > 0) {
-      badgeDiff = `<span class="badge-plus">▲ +${diff} Pcs</span>`;
+    let komparasi = null;
+    if (item.keterangan && typeof item.keterangan === 'string' && item.keterangan.startsWith('{')) {
+      try {
+        komparasi = JSON.parse(item.keterangan);
+      } catch (e) {}
     }
 
-    let badgeArea = `<span class="badge-area-online">${item.area || 'ONLINE'}</span>`;
-    if (item.kategori_area === 'PERBAIKAN') {
-      badgeArea = `<span class="badge-area-perbaikan">${item.area || 'PERBAIKAN'}</span>`;
-    } else if (item.kategori_area === 'OFFLINE') {
-      badgeArea = `<span class="badge-area-offline">${item.area || 'OFFLINE'}</span>`;
+    const mapFisik = komparasi?.MAP?.fisik ?? item.qty_fisik ?? 0;
+    const mapDp = komparasi?.MAP?.dp ?? item.qty_dealpos ?? 0;
+    const liveFisik = komparasi?.LIVE?.fisik ?? 0;
+    const liveDp = komparasi?.LIVE?.dp ?? 0;
+    const studioFisik = komparasi?.STUDIO?.fisik ?? 0;
+    const studioDp = komparasi?.STUDIO?.dp ?? 0;
+    const permakFisik = komparasi?.PERMAK?.fisik ?? 0;
+    const permakDp = komparasi?.PERMAK?.dp ?? 0;
+    const defectFisik = komparasi?.DEFECT?.fisik ?? 0;
+    const defectDp = komparasi?.DEFECT?.dp ?? 0;
+    const whFisik = komparasi?.WH?.fisik ?? 0;
+    const whDp = komparasi?.WH?.dp ?? 0;
+    const qcFisik = komparasi?.QC?.fisik ?? 0;
+    const qcDp = komparasi?.QC?.dp ?? 0;
+    const gaFisik = komparasi?.GA?.fisik ?? 0;
+    const gaDp = komparasi?.GA?.dp ?? 0;
+
+    function renderCell(val) {
+      if (Number(val) > 0) {
+        return `<td><span class="val-active">${val}</span></td>`;
+      }
+      return `<td><span class="val-zero">0</span></td>`;
     }
 
     html += `
       <tr>
-        <td>
-          <strong>${escapeHtml(item.nama_produk || item.sku)}</strong><br>
-          <small class="mono-text" style="color: var(--text-muted);">${escapeHtml(item.sku)} · Size ${escapeHtml(item.size || '-')}</small>
+        <td class="cell-prod-name">
+          ${escapeHtml(item.nama_produk || item.sku)}
+          ${item.lokasi_rak ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">📍 ${escapeHtml(item.lokasi_rak)}</div>` : ''}
         </td>
-        <td><strong class="mono-text" style="color: var(--accent-navy);">${escapeHtml(item.lokasi_rak || '-')}</strong></td>
-        <td>${badgeArea}</td>
-        <td style="text-align: right; font-weight: 700; font-family: var(--font-mono);">${item.qty_fisik || 0}</td>
-        <td style="text-align: right; font-weight: 700; font-family: var(--font-mono); color: var(--text-muted);">${item.qty_dealpos || 0}</td>
-        <td style="text-align: center;">${badgeDiff}</td>
-        <td><small style="color: var(--text-muted);">${escapeHtml(item.keterangan || '-')}</small></td>
+        <td class="cell-size">${escapeHtml(item.size || '-')}</td>
+        <td class="cell-sku">${escapeHtml(item.sku)}</td>
+        ${renderCell(mapFisik)}
+        ${renderCell(mapDp)}
+        ${renderCell(liveFisik)}
+        ${renderCell(liveDp)}
+        ${renderCell(studioFisik)}
+        ${renderCell(studioDp)}
+        ${renderCell(permakFisik)}
+        ${renderCell(permakDp)}
+        ${renderCell(defectFisik)}
+        ${renderCell(defectDp)}
+        ${renderCell(whFisik)}
+        ${renderCell(whDp)}
+        ${renderCell(qcFisik)}
+        ${renderCell(qcDp)}
+        ${renderCell(gaFisik)}
+        ${renderCell(gaDp)}
       </tr>
     `;
   });
 
-  html += '</tbody></table>';
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
   wrap.innerHTML = html;
 }
 
@@ -3429,21 +3490,34 @@ function exportStockMatrixCsv() {
     showToast('Tidak ada data stok untuk diekspor');
     return;
   }
-  const headers = ['SKU', 'Nama Produk', 'Size', 'Kategori', 'Lokasi Rak', 'Area', 'Kategori Area', 'Qty Fisik', 'Qty DealPOS', 'Selisih', 'Keterangan'];
+  const headers = [
+    'SKU', 'Nama Produk', 'Size',
+    'Online_MAP_Fisik', 'Online_MAP_DP',
+    'Online_Live_Fisik', 'Online_Live_DP',
+    'Online_Studio_Fisik', 'Online_Studio_DP',
+    'Perbaikan_Permak_Fisik', 'Perbaikan_Permak_DP',
+    'Perbaikan_Defect_Fisik', 'Perbaikan_Defect_DP',
+    'Offline_WH_Fisik', 'Offline_WH_DP',
+    'Offline_QC_Fisik', 'Offline_QC_DP',
+    'Offline_GA_Fisik', 'Offline_GA_DP'
+  ];
   const rows = currentInventoryStock.map(s => {
-    const diff = (Number(s.qty_fisik) || 0) - (Number(s.qty_dealpos) || 0);
+    let k = null;
+    if (s.keterangan && s.keterangan.startsWith('{')) {
+      try { k = JSON.parse(s.keterangan); } catch(e) {}
+    }
     return [
       `"${s.sku}"`,
       `"${(s.nama_produk || '').replace(/"/g, '""')}"`,
       `"${s.size || ''}"`,
-      `"${s.kategori || ''}"`,
-      `"${s.lokasi_rak || ''}"`,
-      `"${s.area || ''}"`,
-      `"${s.kategori_area || ''}"`,
-      s.qty_fisik || 0,
-      s.qty_dealpos || 0,
-      diff,
-      `"${(s.keterangan || '').replace(/"/g, '""')}"`
+      k?.MAP?.fisik ?? 0, k?.MAP?.dp ?? 0,
+      k?.LIVE?.fisik ?? 0, k?.LIVE?.dp ?? 0,
+      k?.STUDIO?.fisik ?? 0, k?.STUDIO?.dp ?? 0,
+      k?.PERMAK?.fisik ?? 0, k?.PERMAK?.dp ?? 0,
+      k?.DEFECT?.fisik ?? 0, k?.DEFECT?.dp ?? 0,
+      k?.WH?.fisik ?? 0, k?.WH?.dp ?? 0,
+      k?.QC?.fisik ?? 0, k?.QC?.dp ?? 0,
+      k?.GA?.fisik ?? 0, k?.GA?.dp ?? 0
     ];
   });
 
@@ -3544,18 +3618,27 @@ function addPeminjamanItemRow(sku = '', qty = 1, catatan = '') {
   const row = document.createElement('div');
   row.className = 'sps-item-row';
   
-  let skuOptions = '<option value="">-- Pilih SKU --</option>';
-  currentInventoryStock.forEach(s => {
+  let skuOptions = '<option value="">-- Pilih SKU Produk --</option>';
+  // Tampilkan 300 item pertama atau item yang dipilih untuk kecepatan dan kelancaran
+  const activeItems = currentInventoryStock.slice(0, 400);
+  let found = false;
+  activeItems.forEach(s => {
     const selected = s.sku === sku ? 'selected' : '';
-    skuOptions += `<option value="${s.sku}" data-nama="${escapeHtml(s.nama_produk)}" data-size="${escapeHtml(s.size)}" ${selected}>${s.sku} - ${s.nama_produk} (${s.size})</option>`;
+    if (selected) found = true;
+    const loc = s.lokasi_rak ? ` [📍 ${s.lokasi_rak}]` : '';
+    skuOptions += `<option value="${s.sku}" data-nama="${escapeHtml(s.nama_produk)}" data-size="${escapeHtml(s.size)}" data-rak="${escapeHtml(s.lokasi_rak || '-')}" ${selected}>${s.sku} - ${s.nama_produk} (${s.size})${loc}</option>`;
   });
 
+  if (sku && !found) {
+    skuOptions += `<option value="${sku}" selected>${sku}</option>`;
+  }
+
   row.innerHTML = `
-    <select class="sps-item-sku" required>
+    <select class="sps-item-sku" required style="font-size: 0.8rem;">
       ${skuOptions}
     </select>
     <input type="number" class="sps-item-qty" min="1" value="${qty}" placeholder="Qty" required />
-    <input type="text" class="sps-item-note" value="${escapeHtml(catatan)}" placeholder="Catatan / Varian" />
+    <input type="text" class="sps-item-note" value="${escapeHtml(catatan)}" placeholder="Catatan / Lokasi" />
     <button type="button" class="secondary-btn small-btn btn-remove-item" onclick="this.parentElement.remove()" style="color: var(--error); padding: 0 8px;">✕</button>
   `;
 
@@ -3588,6 +3671,7 @@ async function submitPeminjamanForm(e) {
         sku: skuSelect.value,
         namaProduk: selectedOpt.getAttribute('data-nama') || skuSelect.value,
         size: selectedOpt.getAttribute('data-size') || '-',
+        lokasi: selectedOpt.getAttribute('data-rak') || '-',
         qty: q,
         catatan: noteInput?.value.trim() || ''
       });
@@ -3599,9 +3683,9 @@ async function submitPeminjamanForm(e) {
     return;
   }
 
-  const randomNum = Math.floor(100 + Math.random() * 900);
-  const noSps = `SPS-${new Date().toISOString().slice(0,7).replace('-','')}-${randomNum}`;
-  const id = `SPS-${Date.now()}`;
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  const noSps = `PJM-${new Date().toISOString().slice(0,4)}${new Date().toISOString().slice(5,7)}-${randomNum}`;
+  const id = `PJM-${Date.now()}`;
 
   const newSps = {
     id,
@@ -3628,7 +3712,7 @@ async function submitPeminjamanForm(e) {
   currentPeminjamanList.unshift(newSps);
   renderPeminjamanTable();
   closeModal('modalPeminjaman');
-  showToast(`Berhasil menerbitkan ${noSps}`);
+  showToast(`Berhasil menerbitkan Surat Peminjaman: ${noSps}`);
 }
 
 async function returnPeminjaman(id) {
