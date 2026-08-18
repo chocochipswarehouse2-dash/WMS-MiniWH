@@ -198,11 +198,17 @@ async function supabaseFetch(tableAndQuery, options = {}) {
     const errorText = await res.text();
     throw new Error(`Supabase API error (${res.status}): ${errorText}`);
   }
+  const text = await res.text();
+  if (!text) return null;
   const contentType = res.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
-    return await res.json();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
   }
-  return await res.text();
+  return text;
 }
 
 // ================= API REQUEST HANDLER =================
@@ -539,7 +545,7 @@ async function supabaseApiRequest(action, payload) {
       const data = await supabaseFetch(`lembur?order=tanggal.desc${filter}`);
       return {
         success: true,
-        data: data.map(l => {
+        data: (data || []).map(l => {
           const jamM = (l.jam_mulai || '').slice(0, 5);
           const jamS = (l.jam_selesai || '').slice(0, 5);
           let dur = Number(l.durasi_jam || 0);
@@ -558,14 +564,14 @@ async function supabaseApiRequest(action, payload) {
             nama: l.nama,
             divisi: l.divisi,
             tanggal: l.tanggal,
-            deskripsi: l.deskripsi,
+            deskripsi: l.deskripsi || l.deskripsiPekerjaan || l.keterangan || '-',
             jamMulai: jamM,
             jamSelesai: jamS,
             durasiJam: dur,
             totalJam: dur > 0 ? `${dur % 1 === 0 ? dur.toFixed(0) : dur.toFixed(2)} Jam` : '-',
             rateLembur: Number(l.rate_lembur || 0),
             totalLembur: Number(l.total_lembur || 0),
-            status: l.status,
+            status: l.status || 'Diajukan',
             approvedBy: l.approved_by || '',
             catatan: l.catatan || ''
           };
@@ -573,11 +579,13 @@ async function supabaseApiRequest(action, payload) {
       };
     }
 
-    case 'saveLembur': {
-      const list = (payload.lemburList || [payload.lembur || payload]).map(l => {
-        const jamM = l.jamMulai || '';
-        const jamS = l.jamSelesai || '';
-        let dur = Number(l.durasiJam || 0);
+    case 'saveLembur':
+    case 'saveLemburMultiple': {
+      const rawList = payload.lemburList || payload.list || (payload.lembur ? [payload.lembur] : [payload]);
+      const list = rawList.map(l => {
+        const jamM = l.jamMulai || l.jam_mulai || '';
+        const jamS = l.jamSelesai || l.jam_selesai || '';
+        let dur = Number(l.durasiJam || l.durasi_jam || 0);
         if ((!dur || dur === 0) && jamM && jamS) {
           const [h1, m1] = jamM.split(':').map(Number);
           const [h2, m2] = jamS.split(':').map(Number);
@@ -587,19 +595,23 @@ async function supabaseApiRequest(action, payload) {
             dur = mins / 60;
           }
         }
+        const emp = (state.users || []).find(u => String(u.nik) === String(l.nik)) || (state.currentUser && String(state.currentUser.nik) === String(l.nik) ? state.currentUser : null);
+        const rate = Number(l.rateLembur || l.rate_lembur || (emp ? emp.rateLembur || emp.rate_lembur : 0) || 25000);
+        const totalUang = Number(l.totalLembur || l.total_lembur || Math.round(dur * rate));
+
         return {
           id: l.id || 'LMB-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
           nik: l.nik,
-          nama: l.nama,
-          divisi: l.divisi,
-          tanggal: l.tanggal,
-          deskripsi: l.deskripsi,
-          jam_mulai: jamM.length === 5 ? jamM + ':00' : jamM,
-          jam_selesai: jamS.length === 5 ? jamS + ':00' : jamS,
-          durasi_jam: dur,
-          rate_lembur: Number(l.rateLembur || 0),
-          total_lembur: Number(l.totalLembur || (dur * Number(l.rateLembur || 0))),
-          status: 'Diajukan',
+          nama: l.nama || (emp ? emp.nama : l.nik),
+          divisi: l.divisi || (emp ? emp.divisi : ''),
+          tanggal: l.tanggal || new Date().toISOString().slice(0, 10),
+          deskripsi: l.deskripsi || l.keterangan || l.deskripsiPekerjaan || '-',
+          jam_mulai: jamM.length === 5 ? jamM + ':00' : (jamM || '00:00:00'),
+          jam_selesai: jamS.length === 5 ? jamS + ':00' : (jamS || '00:00:00'),
+          durasi_jam: Number(dur.toFixed(2)),
+          rate_lembur: rate,
+          total_lembur: totalUang,
+          status: l.status || 'Diajukan',
           catatan: l.catatan || ''
         };
       });
@@ -619,6 +631,45 @@ async function supabaseApiRequest(action, payload) {
       return { success: true, message: 'Pengajuan lembur berhasil disimpan' };
     }
 
+    case 'updateLembur':
+    case 'editLembur': {
+      const l = payload.lembur || payload;
+      const jamM = l.jamMulai || l.jam_mulai || '';
+      const jamS = l.jamSelesai || l.jam_selesai || '';
+      let dur = Number(l.durasiJam || l.durasi_jam || 0);
+      if ((!dur || dur === 0) && jamM && jamS) {
+        const [h1, m1] = jamM.split(':').map(Number);
+        const [h2, m2] = jamS.split(':').map(Number);
+        if (!isNaN(h1) && !isNaN(h2)) {
+          let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+          if (mins < 0) mins += 24 * 60;
+          dur = mins / 60;
+        }
+      }
+      const emp = (state.users || []).find(u => String(u.nik) === String(l.nik));
+      const rate = Number(l.rateLembur || l.rate_lembur || (emp ? emp.rateLembur : 0) || 25000);
+      const patchData = {
+        tanggal: l.tanggal,
+        deskripsi: l.deskripsi || l.keterangan || l.deskripsiPekerjaan || '-',
+        jam_mulai: jamM.length === 5 ? jamM + ':00' : jamM,
+        jam_selesai: jamS.length === 5 ? jamS + ':00' : jamS,
+        durasi_jam: Number(dur.toFixed(2)),
+        rate_lembur: rate,
+        total_lembur: Number(l.totalLembur || l.total_lembur || Math.round(dur * rate)),
+        catatan: l.catatan || ''
+      };
+      if (l.status) patchData.status = l.status;
+      if (l.approvedBy || l.approved_by) {
+        patchData.approved_by = l.approvedBy || l.approved_by;
+        patchData.approved_at = new Date().toISOString();
+      }
+      await supabaseFetch(`lembur?id=eq.${encodeURIComponent(l.id)}`, {
+        method: 'PATCH',
+        body: patchData
+      });
+      return { success: true, message: 'Data lembur berhasil diperbarui' };
+    }
+
     case 'updateLemburStatus': {
       await supabaseFetch(`lembur?id=eq.${encodeURIComponent(payload.id)}`, {
         method: 'PATCH',
@@ -631,78 +682,70 @@ async function supabaseApiRequest(action, payload) {
       return { success: true, message: `Status lembur berhasil diupdate menjadi ${payload.status}` };
     }
 
-    case 'editLembur': {
-      const l = payload.lembur || payload;
-      const jamM = l.jamMulai || '';
-      const jamS = l.jamSelesai || '';
-      let dur = Number(l.durasiJam || 0);
-      if ((!dur || dur === 0) && jamM && jamS) {
-        const [h1, m1] = jamM.split(':').map(Number);
-        const [h2, m2] = jamS.split(':').map(Number);
-        if (!isNaN(h1) && !isNaN(h2)) {
-          let mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
-          if (mins < 0) mins += 24 * 60;
-          dur = mins / 60;
-        }
-      }
-      await supabaseFetch(`lembur?id=eq.${encodeURIComponent(l.id)}`, {
-        method: 'PATCH',
-        body: {
-          tanggal: l.tanggal,
-          deskripsi: l.deskripsi,
-          jam_mulai: jamM.length === 5 ? jamM + ':00' : jamM,
-          jam_selesai: jamS.length === 5 ? jamS + ':00' : jamS,
-          durasi_jam: dur,
-          rate_lembur: Number(l.rateLembur || 0),
-          total_lembur: Number(l.totalLembur || (dur * Number(l.rateLembur || 0))),
-          catatan: l.catatan || ''
-        }
-      });
-      return { success: true, message: 'Data lembur berhasil diperbarui' };
-    }
-
     case 'deleteLembur': {
       await supabaseFetch(`lembur?id=eq.${encodeURIComponent(payload.id)}`, { method: 'DELETE' });
       return { success: true, message: 'Data lembur berhasil dihapus' };
     }
 
-    case 'getPerijinan': {
-      const data = await supabaseFetch('perijinan_cuti?order=tgl_mulai.desc');
+    case 'getPerijinan':
+    case 'getCuti': {
+      const filter = payload.nik ? `&nik=eq.${encodeURIComponent(payload.nik)}` : '';
+      const data = await supabaseFetch(`perijinan_cuti?order=tgl_mulai.desc${filter}`);
       return {
         success: true,
-        data: data.map(c => ({
+        data: (data || []).map(c => ({
           id: c.id,
           nik: c.nik,
           nama: c.nama,
           divisi: c.divisi,
-          jenis: c.jenis,
+          jenis: c.jenis || 'Cuti Tahunan',
           tglMulai: c.tgl_mulai,
           tglSelesai: c.tgl_selesai || c.tgl_mulai,
           tanggalMulai: c.tgl_mulai,
           tanggalSelesai: c.tgl_selesai || c.tgl_mulai,
-          jumlahHari: c.jumlah_hari,
+          jumlahHari: Number(c.jumlah_hari || 1),
           alasan: c.alasan,
-          status: c.status,
+          status: c.status || 'Diajukan',
           approvedBy: c.approved_by || '',
           catatan: c.catatan || ''
         }))
       };
     }
 
-    case 'savePerijinan': {
-      const list = (payload.cutiList || [payload.cuti || payload]).map(c => ({
-        id: c.id || 'CUTI-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        nik: c.nik,
-        nama: c.nama,
-        divisi: c.divisi,
-        jenis: c.jenis || 'Cuti Tahunan',
-        tgl_mulai: c.tglMulai,
-        tgl_selesai: c.tglSelesai || c.tglMulai,
-        jumlah_hari: Number(c.jumlahHari || 1),
-        alasan: c.alasan,
-        status: 'Diajukan',
-        catatan: c.catatan || ''
-      }));
+    case 'savePerijinan':
+    case 'savePerijinanMultiple':
+    case 'saveCuti':
+    case 'saveCutiMultiple': {
+      const rawList = payload.perijinanList || payload.cutiList || payload.list || (payload.cuti ? [payload.cuti] : (payload.perijinan ? [payload.perijinan] : [payload]));
+      const list = rawList.map(c => {
+        const tglMulai = c.tanggalMulai || c.tglMulai || c.tgl_mulai || new Date().toISOString().slice(0, 10);
+        const tglSelesai = c.tanggalSelesai || c.tglSelesai || c.tgl_selesai || tglMulai;
+        let days = Number(c.jumlahHari || c.jumlah_hari || 0);
+        if (!days && tglMulai && tglSelesai) {
+          const d1 = new Date(tglMulai);
+          const d2 = new Date(tglSelesai);
+          if (!isNaN(d1) && !isNaN(d2)) {
+            days = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1);
+          } else {
+            days = 1;
+          }
+        }
+        const emp = (state.users || []).find(u => String(u.nik) === String(c.nik)) || (state.currentUser && String(state.currentUser.nik) === String(c.nik) ? state.currentUser : null);
+
+        return {
+          id: c.id || 'CUTI-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          nik: c.nik,
+          nama: c.nama || (emp ? emp.nama : c.nik),
+          divisi: c.divisi || (emp ? emp.divisi : ''),
+          jenis: c.jenis || 'Cuti Tahunan',
+          tgl_mulai: tglMulai,
+          tgl_selesai: tglSelesai,
+          jumlah_hari: days || 1,
+          alasan: c.alasan || c.keterangan || '-',
+          status: c.status || 'Diajukan',
+          catatan: c.catatan || ''
+        };
+      });
       await supabaseFetch('perijinan_cuti?on_conflict=id', {
         method: 'POST',
         headers: { 'Prefer': 'resolution=merge-duplicates' },
@@ -716,7 +759,43 @@ async function supabaseApiRequest(action, payload) {
         body: new URLSearchParams({ data: JSON.stringify({ action: 'notifyCuti', cutiList: list }) }) 
       }).catch(() => {});
 
-      return { success: true, message: 'Pengajuan cuti berhasil disimpan' };
+      return { success: true, message: 'Pengajuan cuti / ijin berhasil disimpan' };
+    }
+
+    case 'updatePerijinan':
+    case 'updateCuti':
+    case 'editCuti': {
+      const c = payload.cuti || payload.perijinan || payload;
+      const tglMulai = c.tanggalMulai || c.tglMulai || c.tgl_mulai || '';
+      const tglSelesai = c.tanggalSelesai || c.tglSelesai || c.tgl_selesai || tglMulai;
+      let days = Number(c.jumlahHari || c.jumlah_hari || 0);
+      if (!days && tglMulai && tglSelesai) {
+        const d1 = new Date(tglMulai);
+        const d2 = new Date(tglSelesai);
+        if (!isNaN(d1) && !isNaN(d2)) {
+          days = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1);
+        } else {
+          days = 1;
+        }
+      }
+      const patchData = {
+        jenis: c.jenis || 'Cuti Tahunan',
+        tgl_mulai: tglMulai,
+        tgl_selesai: tglSelesai,
+        jumlah_hari: days || 1,
+        alasan: c.alasan || c.keterangan || '-',
+        status: c.status || 'Diajukan',
+        catatan: c.catatan || ''
+      };
+      if (c.approvedBy || c.approved_by) {
+        patchData.approved_by = c.approvedBy || c.approved_by;
+        patchData.approved_at = new Date().toISOString();
+      }
+      await supabaseFetch(`perijinan_cuti?id=eq.${encodeURIComponent(c.id)}`, {
+        method: 'PATCH',
+        body: patchData
+      });
+      return { success: true, message: 'Data perijinan/cuti berhasil diperbarui' };
     }
 
     case 'updateCutiStatus': {
@@ -732,9 +811,10 @@ async function supabaseApiRequest(action, payload) {
       return { success: true, message: `Status ijin/cuti berhasil diupdate menjadi ${payload.status}` };
     }
 
+    case 'deletePerijinan':
     case 'deleteCuti': {
       await supabaseFetch(`perijinan_cuti?id=eq.${encodeURIComponent(payload.id)}`, { method: 'DELETE' });
-      return { success: true, message: 'Data cuti berhasil dihapus' };
+      return { success: true, message: 'Data cuti / ijin berhasil dihapus' };
     }
 
     case 'getKasbon': {
@@ -2306,12 +2386,13 @@ const lemburContainer = document.getElementById('lemburListContainer');
 function addLemburRow() {
   if (!lemburContainer) return;
   const rowId = 'lembur_' + Date.now() + Math.floor(Math.random()*1000);
+  const today = new Date().toISOString().slice(0, 10);
   const div = document.createElement('div');
   div.className = 'dynamic-row grid two-columns';
   div.id = rowId;
   div.innerHTML = `
     <button type="button" class="remove-row-btn" title="Hapus Baris" onclick="document.getElementById('${rowId}').remove()">✕</button>
-    <label><span>Tanggal Lembur</span><input type="date" class="l_tanggal" required/></label>
+    <label><span>Tanggal Lembur</span><input type="date" class="l_tanggal" value="${today}" required/></label>
     <label><span>Deskripsi Pekerjaan</span><input type="text" class="l_deskripsi" placeholder="Detail pekerjaan..." required/></label>
     <label><span>Jam Mulai</span><input type="time" class="l_jamMulai" required/></label>
     <label><span>Jam Selesai</span><input type="time" class="l_jamSelesai" required/></label>
@@ -2325,6 +2406,7 @@ const cutiContainer = document.getElementById('cutiListContainer');
 function addCutiRow() {
   if (!cutiContainer) return;
   const rowId = 'cuti_' + Date.now() + Math.floor(Math.random()*1000);
+  const today = new Date().toISOString().slice(0, 10);
   const div = document.createElement('div');
   div.className = 'dynamic-row grid two-columns';
   div.id = rowId;
@@ -2338,8 +2420,8 @@ function addCutiRow() {
       </select>
     </label>
     <label><span>Alasan / Keterangan</span><input type="text" class="c_alasan" placeholder="Cth: Keperluan keluarga" required/></label>
-    <label><span>Tanggal Mulai</span><input type="date" class="c_tglMulai" required/></label>
-    <label><span>Tanggal Selesai</span><input type="date" class="c_tglSelesai" required/></label>
+    <label><span>Tanggal Mulai</span><input type="date" class="c_tglMulai" value="${today}" required/></label>
+    <label><span>Tanggal Selesai</span><input type="date" class="c_tglSelesai" value="${today}" required/></label>
   `;
   cutiContainer.appendChild(div);
 }
@@ -2354,7 +2436,9 @@ if (lemburF) {
     if (rows.length === 0) return showToast('Tambahkan minimal 1 baris lembur!', 'error');
 
     setButtonLoading(btn, true, 'Menyimpan Lembur...');
-    const nik = document.getElementById('l_nik').value;
+    const nik = document.getElementById('l_nik')?.value || (state.currentUser ? state.currentUser.nik : '');
+    const nama = document.getElementById('l_nama')?.value || (state.currentUser ? state.currentUser.nama : '');
+    const divisi = document.getElementById('l_divisi')?.value || (state.currentUser ? state.currentUser.divisi : '');
 
     const lemburList = rows.map(row => {
       const mulai = row.querySelector('.l_jamMulai').value;
@@ -2363,25 +2447,26 @@ if (lemburF) {
 
       return {
         nik, 
-        nama: document.getElementById('l_nama').value, 
-        divisi: document.getElementById('l_divisi').value,
+        nama, 
+        divisi,
         tanggal: row.querySelector('.l_tanggal').value,
         deskripsi: row.querySelector('.l_deskripsi').value,
         jamMulai: mulai, 
         jamSelesai: selesai, 
+        durasiJam: Number(totalJam),
         totalJam: `${totalJam} jam`,
-        catatan: row.querySelector('.l_catatan').value,
-        updatedBy: state.currentUser.username
+        catatan: row.querySelector('.l_catatan')?.value || '',
+        updatedBy: state.currentUser ? state.currentUser.username : ''
       };
     });
 
     const res = await apiRequest('saveLemburMultiple', { lemburList });
     setButtonLoading(btn, false);
-    if (res) {
-      showToast('Lembur berhasil disimpan!');
+    if (res && res.success !== false) {
+      showToast('Pengajuan lembur berhasil disimpan!');
       if (lemburContainer) lemburContainer.innerHTML = ''; 
       addLemburRow();
-      loadLembur(); 
+      await loadLembur(); 
       switchTab('statusLemburTab');
     }
   });
@@ -2396,26 +2481,28 @@ if (cutiF) {
     if (rows.length === 0) return showToast('Tambahkan minimal 1 baris Ijin/Cuti!', 'error');
 
     setButtonLoading(btn, true, 'Mengajukan...');
-    const nik = document.getElementById('c_nik').value;
+    const nik = document.getElementById('c_nik')?.value || (state.currentUser ? state.currentUser.nik : '');
+    const nama = document.getElementById('c_nama')?.value || (state.currentUser ? state.currentUser.nama : '');
+    const divisi = document.getElementById('c_divisi')?.value || (state.currentUser ? state.currentUser.divisi : '');
 
     const perijinanList = rows.map(row => ({
       nik, 
-      nama: document.getElementById('c_nama').value, 
-      divisi: document.getElementById('c_divisi').value,
+      nama, 
+      divisi,
       jenis: row.querySelector('.c_jenis').value, 
       alasan: row.querySelector('.c_alasan').value,
       tanggalMulai: row.querySelector('.c_tglMulai').value, 
       tanggalSelesai: row.querySelector('.c_tglSelesai').value,
-      updatedBy: state.currentUser.username
+      updatedBy: state.currentUser ? state.currentUser.username : ''
     }));
 
     const res = await apiRequest('savePerijinanMultiple', { perijinanList });
     setButtonLoading(btn, false);
-    if (res) {
-      showToast('Ijin/Cuti diajukan & notifikasi dikirim!');
+    if (res && res.success !== false) {
+      showToast('Ijin/Cuti berhasil diajukan!');
       if (cutiContainer) cutiContainer.innerHTML = ''; 
       addCutiRow();
-      loadCuti(); 
+      await loadCuti(); 
       switchTab('statusCutiTab');
     }
   });
@@ -3078,7 +3165,7 @@ function syncUserFields(selectId, namaId, divId) {
         if (divId) document.getElementById(divId).value = u.divisi; 
       }
     };
-    if (state.users.length && !select.value) select.dispatchEvent(new Event('change'));
+    if (state.users.length) select.dispatchEvent(new Event('change'));
   }
 }
 
@@ -3122,6 +3209,10 @@ async function startApp() {
 
     startLiveClock();
     
+    // Pastikan baris form lembur & cuti selalu siap minimal 1 baris
+    if (lemburContainer && lemburContainer.querySelectorAll('.dynamic-row').length === 0) addLemburRow();
+    if (cutiContainer && cutiContainer.querySelectorAll('.dynamic-row').length === 0) addCutiRow();
+
     // User diarahkan ke Presensi Harian, Admin diarahkan ke Dashboard
     if (state.currentUser && state.currentUser.role === 'admin') {
       switchTab('dashboardTab');
@@ -3426,17 +3517,103 @@ function updateInventorySummaryMetrics() {
   }
 }
 
+// 40 KATA KUNCI LOKASI & CHANNEL DEALPOS
+const DEALPOS_KEYWORD_MAP = {
+  'Inventory_Central Park Jakarta': { code: 'CPJ', group: 'RETAIL', label: 'Central Park Jakarta' },
+  'Inventory_Gading Serpong Tangerang': { code: 'GST', group: 'RETAIL', label: 'Gading Serpong Tangerang' },
+  'Inventory_Lippo Mall Puri': { code: 'LMP', group: 'RETAIL', label: 'Lippo Mall Puri' },
+  'Inventory_By The Sea PIK': { code: 'BTS', group: 'RETAIL', label: 'By The Sea PIK' },
+  'Inventory_Ciputra World Surabaya': { code: 'CWS', group: 'RETAIL', label: 'Ciputra World Surabaya' },
+  'Inventory_Deli Park Medan': { code: 'DPM', group: 'RETAIL', label: 'Deli Park Medan' },
+  'Inventory_Paskal Hyper Square Bandung': { code: 'PHB', group: 'RETAIL', label: 'Paskal Hyper Square Bandung' },
+  'Inventory_Pakuwon Mall Surabaya': { code: 'PMS', group: 'RETAIL', label: 'Pakuwon Mall Surabaya' },
+  'Inventory_Mall Kelapa Gading': { code: 'MKG', group: 'RETAIL', label: 'Mall Kelapa Gading' },
+  'Inventory_Living World Tangerang': { code: 'LWT', group: 'RETAIL', label: 'Living World Tangerang' },
+  'Inventory_Website': { code: 'WEB', group: 'MAP', label: 'Website' },
+  'Inventory_Marketplace': { code: 'MAP', group: 'MAP', label: 'Marketplace' },
+  'Inventory_Shopee': { code: 'SHP', group: 'MAP', label: 'Shopee' },
+  'Inventory_Tokopedia': { code: 'TPD', group: 'MAP', label: 'Tokopedia' },
+  'Inventory_TikTok': { code: 'TTK', group: 'MAP', label: 'TikTok' },
+  'Inventory_Lazada': { code: 'LZD', group: 'MAP', label: 'Lazada' },
+  'Inventory_Woocommerce': { code: 'WOO', group: 'MAP', label: 'Woocommerce' },
+  'Inventory_ChicShopee': { code: 'CSHP', group: 'MAP', label: 'ChicShopee' },
+  'Inventory_KYTE': { code: 'KYT', group: 'RETAIL', label: 'KYTE' },
+  'Inventory_Warehouse': { code: 'WH', group: 'WH', label: 'Warehouse Utama' },
+  'Inventory_Buying Staff': { code: 'BUY', group: 'STUDIO', label: 'Buying Staff' },
+  'Inventory_Diskon Defect': { code: 'DD', group: 'DEFECT', label: 'Diskon Defect' },
+  'Inventory_Endorsement': { code: 'END', group: 'STUDIO', label: 'Endorsement' },
+  'Inventory_Sample Studio': { code: 'STD', group: 'STUDIO', label: 'Sample Studio' },
+  'Inventory_Loss/Damage': { code: 'LND', group: 'DEFECT', label: 'Loss/Damage' },
+  'Inventory_Gudang Awal': { code: 'GA', group: 'GA', label: 'Gudang Awal' },
+  'Inventory_Gudang QC': { code: 'QC', group: 'QC', label: 'Gudang QC' },
+  'Inventory_Gudang Permak': { code: 'PMK', group: 'PERMAK', label: 'Gudang Permak' },
+  'Inventory_Gudang Retur': { code: 'RET', group: 'WH', label: 'Gudang Retur' },
+  'Inventory_Gudang Logistik': { code: 'LOG', group: 'WH', label: 'Gudang Logistik' },
+  'Inventory_Sample Live': { code: 'LIVE', group: 'LIVE', label: 'Sample Live' },
+  'Inventory_Neo Soho Jakarta': { code: 'NSJ', group: 'RETAIL', label: 'Neo Soho Jakarta' },
+  'Inventory_Bazaar Central Park': { code: 'BCPJ', group: 'RETAIL', label: 'Bazaar Central Park' },
+  'Inventory_Bazaar Lippo Mall Puri': { code: 'BLMP', group: 'RETAIL', label: 'Bazaar Lippo Mall Puri' },
+  'Inventory_Puri Indah Mall': { code: 'PIM', group: 'RETAIL', label: 'Puri Indah Mall' },
+  'Inventory_Shopee - Deli Park Medan': { code: 'SDPM', group: 'MAP', label: 'Shopee - Deli Park Medan' },
+  'Inventory_Shopee - Ciputra World Surabaya': { code: 'SCWS', group: 'MAP', label: 'Shopee - Ciputra World Surabaya' },
+  'Inventory_La Vela Tangerang': { code: 'LVT', group: 'RETAIL', label: 'La Vela Tangerang' },
+  'Inventory_Gaia Pontianak': { code: 'GAIA', group: 'RETAIL', label: 'Gaia Pontianak' },
+  'Inventory_Sun Plaza Medan': { code: 'SPM', group: 'RETAIL', label: 'Sun Plaza Medan' }
+};
+
+let stockSearchDebounceTimer = null;
+let isSearchingDatabase = false;
+
 function filterStockMatrix() {
-  const search = (document.getElementById('invStockSearchInput')?.value || '').toLowerCase().trim();
+  const searchInput = document.getElementById('invStockSearchInput');
+  const search = (searchInput?.value || '').trim();
   const areaFilter = document.getElementById('invFilterArea')?.value || '';
   const selisihFilter = document.getElementById('invFilterSelisih')?.value || '';
 
-  const filtered = currentInventoryStock.filter(item => {
-    const matchSearch = !search ||
-      (item.sku && item.sku.toLowerCase().includes(search)) ||
-      (item.nama_produk && item.nama_produk.toLowerCase().includes(search)) ||
-      (item.lokasi_rak && item.lokasi_rak.toLowerCase().includes(search));
+  // 1. PENCARIAN DINAMIS KE SELURUH DATABASE (28.335+ SKU) JIKA ADA KATA KUNCI
+  if (search.length >= 1) {
+    clearTimeout(stockSearchDebounceTimer);
+    stockSearchDebounceTimer = setTimeout(async () => {
+      const wrap = document.getElementById('invStockTableWrap');
+      if (wrap) {
+        wrap.innerHTML = `<div style="padding: 36px; text-align: center; color: var(--text-muted);">
+          <div style="font-size: 1.3rem; margin-bottom: 8px;">🔍</div>
+          <div>Mencari "<strong>${escapeHtml(search)}</strong>" di seluruh database (28.335 SKU)...</div>
+        </div>`;
+      }
 
+      isSearchingDatabase = true;
+      try {
+        const queryTerm = encodeURIComponent(search);
+        let url = `inv_stock?or=(sku.ilike.*${queryTerm}*,nama_produk.ilike.*${queryTerm}*,lokasi_rak.ilike.*${queryTerm}*)&order=qty_fisik.desc&limit=250`;
+        if (areaFilter) {
+          url += `&kategori_area=eq.${encodeURIComponent(areaFilter)}`;
+        }
+        const results = await supabaseFetch(url);
+        let items = results || [];
+
+        if (selisihFilter) {
+          items = items.filter(item => {
+            const diff = (Number(item.qty_fisik) || 0) - (Number(item.qty_dealpos) || 0);
+            if (selisihFilter === 'match') return diff === 0;
+            if (selisihFilter === 'minus') return diff < 0;
+            if (selisihFilter === 'plus') return diff > 0;
+            return true;
+          });
+        }
+
+        renderStockMatrixTable(items, true, search);
+      } catch (err) {
+        console.error('Error searching inventory database:', err);
+      } finally {
+        isSearchingDatabase = false;
+      }
+    }, 250);
+    return;
+  }
+
+  // 2. FILTER LOKAL UNTUK TAMPILAN AWAL JIKA SEARCH KOSONG
+  const filtered = currentInventoryStock.filter(item => {
     const matchArea = !areaFilter || item.kategori_area === areaFilter;
 
     const diff = (Number(item.qty_fisik) || 0) - (Number(item.qty_dealpos) || 0);
@@ -3445,39 +3622,49 @@ function filterStockMatrix() {
     else if (selisihFilter === 'minus') matchSelisih = diff < 0;
     else if (selisihFilter === 'plus') matchSelisih = diff > 0;
 
-    return matchSearch && matchArea && matchSelisih;
+    return matchArea && matchSelisih;
   });
 
-  renderStockMatrixTable(filtered);
+  renderStockMatrixTable(filtered, false);
 }
 
-function renderStockMatrixTable(data) {
+function renderStockMatrixTable(data, isLiveSearchResult = false, query = '') {
   const wrap = document.getElementById('invStockTableWrap');
   if (!wrap) return;
 
-  if (data.length === 0) {
-    wrap.innerHTML = '<p style="padding: 24px; text-align: center; color: var(--text-muted);">Tidak ada data stok yang sesuai dengan filter.</p>';
+  if (!data || data.length === 0) {
+    wrap.innerHTML = `<div style="padding: 36px; text-align: center; color: var(--text-muted);">
+      <p style="font-size: 1.1rem; margin-bottom: 6px;">Tidak ada produk ditemukan${query ? ` untuk "<strong>${escapeHtml(query)}</strong>"` : ''}.</p>
+      <small>Pastikan kata kunci SKU atau nama produk sudah sesuai.</small>
+    </div>`;
     return;
   }
 
-  // Batasi tampilan DOM 100 item pertama untuk performa kilat
-  const displayLimit = 100;
+  // Batasi tampilan DOM agar scrolling mulus
+  const displayLimit = 250;
   const itemsToRender = data.slice(0, displayLimit);
 
+  const statusText = isLiveSearchResult
+    ? `Ditemukan <strong>${data.length}</strong> produk untuk pencarian "<strong>${escapeHtml(query)}</strong>" (dari total <strong>${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU</strong>)`
+    : `Menampilkan <strong>${itemsToRender.length}</strong> dari <strong>${data.length.toLocaleString('id-ID')}</strong> produk aktif (Total Database: <strong>${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU</strong>)`;
+
   let html = `
-    <div style="padding: 10px 16px; background: var(--bg-app); border-bottom: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center;">
-      <span>Menampilkan <strong>${itemsToRender.length}</strong> dari <strong>${data.length.toLocaleString('id-ID')}</strong> hasil pencarian (Total Database: <strong>${totalDatabaseSkuCount.toLocaleString('id-ID')} SKU</strong>)</span>
+    <div style="padding: 10px 16px; background: var(--bg-app); border-bottom: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+      <span>${statusText}</span>
+      <small style="color: var(--text-muted);">Fisik = Sheet Stok (0 jika tidak ada) &bull; DP = Sheet Data DealPOS</small>
     </div>
     <div class="inv-matrix-wrap">
       <table class="inv-matrix-table">
         <thead>
           <tr>
-            <th rowspan="3" class="th-main" style="min-width: 220px; text-align: left;">NAMA PRODUK</th>
+            <th rowspan="3" class="th-main" style="min-width: 250px; text-align: left;">NAMA PRODUK</th>
             <th rowspan="3" class="th-main" style="width: 55px; text-align: center;">SIZE</th>
             <th rowspan="3" class="th-main" style="width: 140px; text-align: left;">SKU</th>
-            <th colspan="6" style="text-align: center;">ONLINE</th>
-            <th colspan="4" style="text-align: center;">PERBAIKAN</th>
-            <th colspan="6" style="text-align: center;">OFFLINE</th>
+            <th colspan="6" style="text-align: center; background: rgba(56, 189, 248, 0.08);">ONLINE</th>
+            <th colspan="4" style="text-align: center; background: rgba(245, 158, 11, 0.08);">PERBAIKAN</th>
+            <th colspan="6" style="text-align: center; background: rgba(16, 185, 129, 0.08);">OFFLINE / GUDANG</th>
+            <th colspan="3" style="text-align: center; background: rgba(139, 92, 246, 0.08);">TOTAL REKAP</th>
+            <th rowspan="3" class="th-main" style="width: 75px; text-align: center;">DETAIL</th>
           </tr>
           <tr>
             <th colspan="2" style="text-align: center;">MAP</th>
@@ -3488,6 +3675,9 @@ function renderStockMatrixTable(data) {
             <th colspan="2" style="text-align: center;">WH</th>
             <th colspan="2" style="text-align: center;">QC</th>
             <th colspan="2" style="text-align: center;">GA</th>
+            <th rowspan="2" style="text-align: center; font-size: 0.72rem; color: var(--primary);">FISIK</th>
+            <th rowspan="2" style="text-align: center; font-size: 0.72rem; color: #8B5CF6;">DP</th>
+            <th rowspan="2" style="text-align: center; font-size: 0.72rem;">SELISIH</th>
           </tr>
           <tr>
             <th class="th-sub-fisik">FISIK</th>
@@ -3519,8 +3709,8 @@ function renderStockMatrixTable(data) {
       } catch (e) {}
     }
 
-    const mapFisik = komparasi?.MAP?.fisik ?? item.qty_fisik ?? 0;
-    const mapDp = komparasi?.MAP?.dp ?? item.qty_dealpos ?? 0;
+    const mapFisik = komparasi?.MAP?.fisik ?? 0;
+    const mapDp = komparasi?.MAP?.dp ?? 0;
     const liveFisik = komparasi?.LIVE?.fisik ?? 0;
     const liveDp = komparasi?.LIVE?.dp ?? 0;
     const studioFisik = komparasi?.STUDIO?.fisik ?? 0;
@@ -3531,14 +3721,29 @@ function renderStockMatrixTable(data) {
     const defectDp = komparasi?.DEFECT?.dp ?? 0;
     const whFisik = komparasi?.WH?.fisik ?? 0;
     const whDp = komparasi?.WH?.dp ?? 0;
-    const qcFisik = komparasi?.QC?.fisik ?? 0;
+    const qcFisik = komparasi?.QC?.fisik ?? (Number(item.qty_fisik) || 0);
     const qcDp = komparasi?.QC?.dp ?? 0;
     const gaFisik = komparasi?.GA?.fisik ?? 0;
     const gaDp = komparasi?.GA?.dp ?? 0;
 
+    const totalFisik = Number(item.qty_fisik) || 0;
+    const totalDp = Number(item.qty_dealpos) || 0;
+    const diff = totalFisik - totalDp;
+
+    let selisihClass = 'selisih-match';
+    let selisihText = '0';
+    if (diff > 0) {
+      selisihClass = 'selisih-plus';
+      selisihText = `+${diff}`;
+    } else if (diff < 0) {
+      selisihClass = 'selisih-minus';
+      selisihText = `${diff}`;
+    }
+
     function renderCell(val) {
-      if (Number(val) > 0) {
-        return `<td><span class="val-active">${val}</span></td>`;
+      const num = Number(val || 0);
+      if (num > 0) {
+        return `<td><span class="val-active">${num}</span></td>`;
       }
       return `<td><span class="val-zero">0</span></td>`;
     }
@@ -3546,7 +3751,7 @@ function renderStockMatrixTable(data) {
     html += `
       <tr>
         <td class="cell-prod-name">
-          ${escapeHtml(item.nama_produk || item.sku)}
+          <strong>${escapeHtml(item.nama_produk || item.sku)}</strong>
           ${item.lokasi_rak ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">📍 ${escapeHtml(item.lokasi_rak)}</div>` : ''}
         </td>
         <td class="cell-size">${escapeHtml(item.size || '-')}</td>
@@ -3567,6 +3772,12 @@ function renderStockMatrixTable(data) {
         ${renderCell(qcDp)}
         ${renderCell(gaFisik)}
         ${renderCell(gaDp)}
+        <td class="cell-total-fisik">${totalFisik}</td>
+        <td class="cell-total-dp">${totalDp}</td>
+        <td class="cell-selisih ${selisihClass}">${selisihText}</td>
+        <td>
+          <button type="button" class="action-btn edit" style="padding: 4px 8px; font-size: 0.72rem;" onclick="openDetail40Lokasi('${escapeHtml(item.sku)}')">🔎 Toko</button>
+        </td>
       </tr>
     `;
   });
@@ -3580,13 +3791,302 @@ function renderStockMatrixTable(data) {
   wrap.innerHTML = html;
 }
 
+// 2. MODAL RINCIAN 40 LOKASI DEALPOS & FISIK
+window.openDetail40Lokasi = async function(sku) {
+  let item = currentInventoryStock.find(x => x.sku === sku);
+  if (!item) {
+    try {
+      const data = await supabaseFetch(`inv_stock?sku=eq.${encodeURIComponent(sku)}&limit=1`);
+      if (data && data.length > 0) item = data[0];
+    } catch(e) {}
+  }
+  if (!item) return showToast('Data produk tidak ditemukan', 'error');
+
+  const titleEl = document.getElementById('detailSkuTitle');
+  const subEl = document.getElementById('detailSkuSubtitle');
+  const contentEl = document.getElementById('detailChannelsContent');
+
+  if (titleEl) titleEl.textContent = item.nama_produk || item.sku;
+  if (subEl) subEl.textContent = `SKU: ${item.sku} | Size: ${item.size || '-'} | Lokasi Rak: ${item.lokasi_rak || '-'}`;
+
+  let komparasi = {};
+  if (item.keterangan && typeof item.keterangan === 'string' && item.keterangan.startsWith('{')) {
+    try { komparasi = JSON.parse(item.keterangan); } catch (e) {}
+  }
+
+  const channelsData = komparasi.channels || {};
+
+  // Kelompokkan 40 lokasi
+  const onlineKeywords = [];
+  const retailKeywords = [];
+  const internalKeywords = [];
+
+  Object.entries(DEALPOS_KEYWORD_MAP).forEach(([key, info]) => {
+    const val = Number(channelsData[info.code] ?? (komparasi[info.group]?.dp) ?? 0);
+    const itemObj = { key, code: info.code, label: info.label, val, group: info.group };
+    if (info.group === 'MAP' || info.group === 'LIVE' || info.group === 'STUDIO') {
+      onlineKeywords.push(itemObj);
+    } else if (info.group === 'RETAIL') {
+      retailKeywords.push(itemObj);
+    } else {
+      internalKeywords.push(itemObj);
+    }
+  });
+
+  function renderGrid(list) {
+    return `<div class="channel-grid">
+      ${list.map(c => `
+        <div class="channel-card">
+          <div>
+            <div class="channel-label">${c.label}</div>
+            <small style="color: var(--text-muted); font-size: 0.7rem; font-family: var(--font-mono);">${c.code}</small>
+          </div>
+          <div class="channel-val" style="color: ${c.val > 0 ? 'var(--primary)' : 'var(--text-muted)'};">${c.val}</div>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+
+  if (contentEl) {
+    contentEl.innerHTML = `
+      <div style="display: flex; gap: 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: var(--bg-app); border: 1px solid var(--border-subtle); justify-content: space-around;">
+        <div style="text-align: center;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">TOTAL STOK FISIK (Sheet Stok)</div>
+          <div style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">${item.qty_fisik || 0} Pcs</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">TOTAL DEALPOS (Sheet Data)</div>
+          <div style="font-size: 1.2rem; font-weight: 800; color: #8B5CF6;">${item.qty_dealpos || 0} Pcs</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">SELISIH (Fisik - DP)</div>
+          <div style="font-size: 1.2rem; font-weight: 800; color: ${((item.qty_fisik || 0) - (item.qty_dealpos || 0)) === 0 ? 'var(--success)' : 'var(--error)'};">
+            ${((item.qty_fisik || 0) - (item.qty_dealpos || 0)) > 0 ? '+' : ''}${(item.qty_fisik || 0) - (item.qty_dealpos || 0)} Pcs
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 0.88rem;">🌐 Channel Online & E-Commerce</h4>
+        ${renderGrid(onlineKeywords)}
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 0.88rem;">🏬 Offline Boutique & Retail Outlets</h4>
+        ${renderGrid(retailKeywords)}
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 0.88rem;">🏭 Gudang Internal & Perbaikan (QC, Permak, Defect, WH)</h4>
+        ${renderGrid(internalKeywords)}
+      </div>
+    `;
+  }
+
+  const modal = document.getElementById('modalDetailStockChannels');
+  if (modal) modal.classList.remove('hidden');
+};
+
+// 3. FITUR IMPORT DATA STOK (FISIK & DEALPOS)
+window.executeImportStockFisikDealpos = async function(e) {
+  e.preventDefault();
+  const fileDp = document.getElementById('fileImportDealposData')?.files[0];
+  const fileFisik = document.getElementById('fileImportStokFisik')?.files[0];
+  const btn = document.getElementById('btnSubmitImportInventory');
+  const statusWrap = document.getElementById('invImportStatusWrap');
+  const statusText = document.getElementById('invImportStatusText');
+  const progressBar = document.getElementById('invImportProgressBar');
+
+  if (!fileDp) return showToast('Pilih file export DealPOS (Sheet Data) terlebih dahulu!', 'error');
+
+  setButtonLoading(btn, true, 'Membaca file...');
+  if (statusWrap) statusWrap.style.display = 'block';
+
+  try {
+    // 1. Baca File Stok Fisik (jika diunggah)
+    const fisikMap = {};
+    if (fileFisik) {
+      if (statusText) statusText.textContent = 'Membaca data fisik (Sheet Stok)...';
+      const fisikContent = await fileFisik.text();
+      const fisikRows = parseCsvToArray(fisikContent);
+      if (fisikRows.length > 1) {
+        const headers = fisikRows[0].map(h => String(h || '').toLowerCase().trim());
+        const skuIdx = headers.findIndex(h => h.includes('sku') || h.includes('item code') || h.includes('kode'));
+        const fisikIdx = headers.findIndex(h => h.includes('fisik') || h.includes('qty') || h.includes('jumlah') || h.includes('stok'));
+        const rakIdx = headers.findIndex(h => h.includes('rak') || h.includes('lokasi') || h.includes('bin'));
+        const nameIdx = headers.findIndex(h => h.includes('nama') || h.includes('product') || h.includes('item name') || h.includes('deskripsi'));
+        const sizeIdx = headers.findIndex(h => h === 'size' || h.includes('ukuran'));
+
+        for (let i = 1; i < fisikRows.length; i++) {
+          const row = fisikRows[i];
+          const sku = String(row[skuIdx >= 0 ? skuIdx : 0] || '').trim();
+          if (!sku) continue;
+          const qty = Number(row[fisikIdx >= 0 ? fisikIdx : 1] || 0);
+          fisikMap[sku] = {
+            qtyFisik: isNaN(qty) ? 0 : qty,
+            lokasiRak: rakIdx >= 0 ? String(row[rakIdx] || '').trim() : '',
+            namaProduk: nameIdx >= 0 ? String(row[nameIdx] || '').trim() : '',
+            size: sizeIdx >= 0 ? String(row[sizeIdx] || '').trim() : ''
+          };
+        }
+      }
+    }
+
+    // 2. Baca File DealPOS (Sheet Data)
+    if (statusText) statusText.textContent = 'Membaca & memetakan 40 kata kunci DealPOS (Sheet Data)...';
+    const dpContent = await fileDp.text();
+    const dpRows = parseCsvToArray(dpContent);
+
+    if (dpRows.length < 2) throw new Error('File data DealPOS kosong atau tidak memiliki baris data.');
+
+    const dpHeaders = dpRows[0].map(h => String(h || '').trim());
+    const dpSkuIdx = dpHeaders.findIndex(h => h.toLowerCase().includes('sku') || h.toLowerCase().includes('item code') || h.toLowerCase() === 'code');
+    const dpNameIdx = dpHeaders.findIndex(h => h.toLowerCase().includes('item name') || h.toLowerCase().includes('nama') || h.toLowerCase().includes('product'));
+    const dpSizeIdx = dpHeaders.findIndex(h => h.toLowerCase() === 'size' || h.toLowerCase().includes('ukuran'));
+    const dpRakIdx = dpHeaders.findIndex(h => h.toLowerCase().includes('rak') || h.toLowerCase().includes('bin') || h.toLowerCase().includes('lokasi'));
+
+    // Petakan kolom header ke kata kunci DealPOS
+    const colKeywordMap = {};
+    dpHeaders.forEach((h, colIdx) => {
+      Object.entries(DEALPOS_KEYWORD_MAP).forEach(([key, info]) => {
+        if (h === key || h.toLowerCase().includes(info.label.toLowerCase()) || h.toUpperCase() === info.code) {
+          colKeywordMap[colIdx] = info;
+        }
+      });
+    });
+
+    const parsedItems = [];
+    const totalDpItems = dpRows.length - 1;
+
+    for (let i = 1; i < dpRows.length; i++) {
+      const row = dpRows[i];
+      const sku = String(row[dpSkuIdx >= 0 ? dpSkuIdx : 0] || '').trim();
+      if (!sku) continue;
+
+      const namaProduk = (dpNameIdx >= 0 ? String(row[dpNameIdx] || '') : '') || fisikMap[sku]?.namaProduk || sku;
+      const size = (dpSizeIdx >= 0 ? String(row[dpSizeIdx] || '') : '') || fisikMap[sku]?.size || '-';
+      const lokasiRak = (dpRakIdx >= 0 ? String(row[dpRakIdx] || '') : '') || fisikMap[sku]?.lokasiRak || 'RAK-GUDANG';
+
+      const channelsData = {};
+      const groupData = {
+        MAP: { fisik: 0, dp: 0 },
+        LIVE: { fisik: 0, dp: 0 },
+        STUDIO: { fisik: 0, dp: 0 },
+        PERMAK: { fisik: 0, dp: 0 },
+        DEFECT: { fisik: 0, dp: 0 },
+        WH: { fisik: 0, dp: 0 },
+        QC: { fisik: 0, dp: 0 },
+        GA: { fisik: 0, dp: 0 },
+        RETAIL: { fisik: 0, dp: 0 }
+      };
+
+      let sumDealpos = 0;
+      Object.entries(colKeywordMap).forEach(([colIdx, info]) => {
+        const val = Number(row[Number(colIdx)] || 0);
+        const cleanVal = isNaN(val) ? 0 : val;
+        channelsData[info.code] = cleanVal;
+        sumDealpos += cleanVal;
+        if (groupData[info.group]) {
+          groupData[info.group].dp += cleanVal;
+        }
+      });
+
+      // Aturan: Fisik = dari sheet stok, jika tidak ada di sheet stok = 0
+      const qtyFisik = Number(fisikMap[sku]?.qtyFisik || 0);
+      groupData.QC.fisik = qtyFisik; // QC/Fisik utama
+
+      const selisih = qtyFisik - sumDealpos;
+      const keteranganJson = JSON.stringify({
+        ...groupData,
+        channels: channelsData
+      });
+
+      parsedItems.push({
+        sku,
+        nama_produk: namaProduk,
+        size,
+        kategori: 'CLOTHING',
+        lokasi_rak: lokasiRak,
+        area: 'Gudang Utama',
+        kategori_area: 'ONLINE',
+        qty_fisik: qtyFisik,
+        qty_dealpos: sumDealpos,
+        selisih: selisih,
+        keterangan: keteranganJson,
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    if (parsedItems.length === 0) throw new Error('Tidak ada data produk yang berhasil diparsing.');
+
+    // 3. Simpan ke Supabase dalam batch
+    const batchSize = 250;
+    const totalBatches = Math.ceil(parsedItems.length / batchSize);
+
+    for (let b = 0; b < totalBatches; b++) {
+      const start = b * batchSize;
+      const end = Math.min(start + batchSize, parsedItems.length);
+      const batch = parsedItems.slice(start, end);
+
+      const percent = Math.round((end / parsedItems.length) * 100);
+      if (statusText) statusText.textContent = `Menyimpan ke database Supabase (${end}/${parsedItems.length} SKU - ${percent}%)...`;
+      if (progressBar) progressBar.style.width = `${percent}%`;
+
+      await supabaseFetch('inv_stock?on_conflict=sku', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: batch
+      });
+    }
+
+    showToast(`Berhasil mengimport dan memperbarui ${parsedItems.length} produk di database!`);
+    closeModal('modalImportInventoryStock');
+    await loadInventoryStock();
+  } catch (err) {
+    console.error('Import error:', err);
+    showToast(err.message || 'Gagal mengimport data stok', 'error');
+  } finally {
+    setButtonLoading(btn, false);
+    if (statusWrap) statusWrap.style.display = 'none';
+  }
+};
+
+function parseCsvToArray(strData, strDelimiter = ',') {
+  // Simple & robust CSV/TSV parser supporting quotes and delimiters
+  if (strData.includes('\t') && !strData.includes(',')) strDelimiter = '\t';
+  const objPattern = new RegExp((
+    '(\\' + strDelimiter + '|\\r?\\n|\\r|^)' +
+    '(?:"([^"]*(?:""[^"]*)*)"|' +
+    '([^"\\' + strDelimiter + '\\r\\n]*))'
+  ), 'gi');
+
+  const arrData = [[]];
+  let arrMatches = null;
+
+  while ((arrMatches = objPattern.exec(strData))) {
+    const strMatchedDelimiter = arrMatches[1];
+    if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter) {
+      arrData.push([]);
+    }
+    let strMatchedValue;
+    if (arrMatches[2]) {
+      strMatchedValue = arrMatches[2].replace(new RegExp('""', 'g'), '"');
+    } else {
+      strMatchedValue = arrMatches[3];
+    }
+    arrData[arrData.length - 1].push(strMatchedValue);
+  }
+  return arrData.filter(r => r.length > 1 || (r.length === 1 && r[0] !== ''));
+}
+
 function exportStockMatrixCsv() {
   if (!currentInventoryStock || currentInventoryStock.length === 0) {
     showToast('Tidak ada data stok untuk diekspor');
     return;
   }
   const headers = [
-    'SKU', 'Nama Produk', 'Size',
+    'SKU', 'Nama Produk', 'Size', 'Lokasi Rak',
+    'Total_Fisik', 'Total_DealPOS', 'Selisih',
     'Online_MAP_Fisik', 'Online_MAP_DP',
     'Online_Live_Fisik', 'Online_Live_DP',
     'Online_Studio_Fisik', 'Online_Studio_DP',
@@ -3605,6 +4105,10 @@ function exportStockMatrixCsv() {
       `"${s.sku}"`,
       `"${(s.nama_produk || '').replace(/"/g, '""')}"`,
       `"${s.size || ''}"`,
+      `"${s.lokasi_rak || ''}"`,
+      Number(s.qty_fisik || 0),
+      Number(s.qty_dealpos || 0),
+      Number(s.qty_fisik || 0) - Number(s.qty_dealpos || 0),
       k?.MAP?.fisik ?? 0, k?.MAP?.dp ?? 0,
       k?.LIVE?.fisik ?? 0, k?.LIVE?.dp ?? 0,
       k?.STUDIO?.fisik ?? 0, k?.STUDIO?.dp ?? 0,

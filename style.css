@@ -1948,9 +1948,12 @@ label {
   text-align: left;
   font-weight: 600;
   color: var(--text-primary);
-  min-width: 220px;
-  max-width: 280px;
+  min-width: 250px;
+  max-width: 380px;
   padding: 8px 12px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .inv-matrix-table td.cell-size {
@@ -1973,6 +1976,7 @@ label {
   width: 140px;
   min-width: 140px;
   padding: 8px 12px;
+  white-space: nowrap;
 }
 
 .inv-matrix-table td .val-active {
@@ -1990,6 +1994,65 @@ label {
   color: rgba(107, 130, 145, 0.35);
   font-family: var(--font-mono);
   font-size: 0.8rem;
+}
+
+.inv-matrix-table td.cell-total-fisik {
+  font-weight: 800;
+  color: var(--primary);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.inv-matrix-table td.cell-total-dp {
+  font-weight: 800;
+  color: #8B5CF6;
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.inv-matrix-table td.cell-selisih {
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.inv-matrix-table td.cell-selisih.selisih-match {
+  color: var(--success);
+}
+
+.inv-matrix-table td.cell-selisih.selisih-minus {
+  color: var(--error);
+}
+
+.inv-matrix-table td.cell-selisih.selisih-plus {
+  color: #F59E0B;
+}
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.channel-card {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.channel-card .channel-label {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.channel-card .channel-val {
+  font-weight: 800;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--text-primary);
 }
 
 .sps-item-row {
