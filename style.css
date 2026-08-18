@@ -1648,18 +1648,98 @@ label {
     margin-left: 0 !important;
   }
   .topbar {
-    padding: 0 16px;
+    padding: 0 14px;
+    height: 60px;
+  }
+  .topbar-page-title {
+    font-size: 1.05rem;
   }
   .topbar-search-wrap {
     display: none;
   }
   .app-content {
-    padding: 16px 12px;
+    padding: 14px 10px 40px;
   }
   .sections-container {
     grid-template-columns: 1fr;
   }
   .two-columns, .three-columns, .four-columns {
     grid-template-columns: 1fr;
+  }
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .panel-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 0 10px;
+  }
+  .topbar-page-title {
+    font-size: 0.95rem;
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .timeframe-group {
+    display: none;
+  }
+  .topbar-user-pill {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  .topbar-user-pill .user-role {
+    display: none;
+  }
+  .clock-display {
+    font-size: 1.95rem;
+    margin: 8px 0 14px;
+  }
+  .panel {
+    padding: 16px 12px;
+    border-radius: var(--radius-md);
+  }
+  .form-actions {
+    flex-direction: column;
+  }
+  .form-actions button {
+    width: 100%;
+  }
+  .table-wrap, .table-container, table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table th, table td {
+    padding: 10px 8px;
+    font-size: 0.8rem;
+  }
+  .modal-content {
+    padding: 18px 14px;
+    width: 95%;
+  }
+  .roster-timeline-grid {
+    gap: 8px;
+  }
+  .roster-day-card {
+    flex: 0 0 115px;
+    padding: 10px 6px;
+  }
+  .toast {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    font-size: 0.82rem;
+    justify-content: center;
   }
 }

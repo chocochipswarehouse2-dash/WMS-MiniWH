@@ -1226,7 +1226,7 @@ function renderUserAbsensi() {
 
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Tanggal</th><th>Shift</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Status</th><th>Keterlambatan</th></tr></thead>
+      <thead><tr><th>Tanggal</th><th>Shift</th><th>Presensi Masuk</th><th>Presensi Pulang</th><th>Status</th><th>Keterlambatan</th></tr></thead>
       <tbody>
         ${data.map(a => `
           <tr>
@@ -1254,7 +1254,7 @@ function renderAdminAbsensi() {
 
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Masuk</th><th>Pulang</th><th>Status</th><th>Terlambat</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Presensi Masuk</th><th>Presensi Pulang</th><th>Status</th><th>Terlambat</th><th>Aksi</th></tr></thead>
       <tbody>
         ${state.absensi.map(a => `
           <tr>
