@@ -89,12 +89,7 @@ window.toggleTaskCheck = (el) => {
   showToast(isDone ? '✅ Tugas berhasil diselesaikan!' : 'Tugas dikembalikan ke antrian.');
 };
 
-window.setTimeframeFilter = (filter) => {
-  const pills = document.querySelectorAll('.timeframe-pill');
-  pills.forEach(p => p.classList.remove('active'));
-  if (window.event && window.event.target) window.event.target.classList.add('active');
-  showToast(`Filter rentang waktu: ${filter.toUpperCase()}`);
-};
+
 
 // ================= UI HELPERS & LOADING STATE =================
 function showToast(msg, type = 'success') {
@@ -3738,7 +3733,7 @@ function renderInventoryTable(data, outlets) {
 
   // Build group header row
   const fixedCols = 6;
-  const rSpan = `<th colspan="${fixedCols}" class="sticky-col grp-sticky" style="left:0; z-index:12; background:var(--bg-sidebar); border-right:2px solid var(--border-subtle);"></th>`;
+  const rSpan = `<th colspan="${fixedCols}" class="sticky-col grp-sticky" style="left:0; z-index:25; background:var(--bg-panel); border-right:2px solid var(--border-color); border-bottom:1px solid var(--border-color);"></th>`;
   let groupRow = `<tr class="group-row">${rSpan}`;
   if (retailOutlets.length)  groupRow += `<th colspan="${retailOutlets.length}"  class="grp-retail">🏪 RETAIL (${retailOutlets.length})</th>`;
   if (onlineOutlets.length)  groupRow += `<th colspan="${onlineOutlets.length}"  class="grp-online">🛍️ ONLINE (${onlineOutlets.length})</th>`;
@@ -3747,14 +3742,14 @@ function renderInventoryTable(data, outlets) {
 
   // Build column header row
   let colRow = `<tr>
-    <th class="sticky-col col-no" style="left:0; z-index:11;">#</th>
-    <th class="sticky-col col-cat" style="left:40px; z-index:11;">Kategori</th>
-    <th class="sticky-col col-prod" style="left:150px; z-index:11;">Produk</th>
-    <th class="sticky-col col-var" style="left:330px; z-index:11;">Varian</th>
-    <th class="sticky-col col-sku" style="left:390px; z-index:11;">SKU</th>
-    <th class="sticky-col col-price" style="left:500px; z-index:11;">Harga</th>
+    <th class="sticky-col col-no" style="left:0; z-index:24; background:var(--bg-panel); color:var(--text-primary);">#</th>
+    <th class="sticky-col col-cat" style="left:40px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">Kategori</th>
+    <th class="sticky-col col-prod" style="left:150px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">Produk</th>
+    <th class="sticky-col col-var" style="left:330px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">Varian</th>
+    <th class="sticky-col col-sku" style="left:390px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">SKU</th>
+    <th class="sticky-col col-price" style="left:500px; z-index:24; background:var(--bg-panel); color:var(--text-primary); border-right:2px solid var(--border-color);">Harga</th>
   `;
-  outlets.forEach(o => { colRow += `<th class="qty-cell" title="${o.name}">${o.label}</th>`; });
+  outlets.forEach(o => { colRow += `<th class="qty-cell" title="${o.name}" style="background:var(--bg-panel); color:var(--text-primary);">${o.label}</th>`; });
   colRow += '</tr>';
   thead.innerHTML = groupRow + colRow;
 
@@ -3779,12 +3774,12 @@ function renderInventoryTable(data, outlets) {
   for (let i = startIdx; i < endIdx; i++) {
     const r = data[i];
     html += `<tr>
-      <td class="sticky-col col-no" style="left:0; z-index:8; background:var(--bg-card); position:sticky;">${i + 1}</td>
-      <td class="sticky-col col-cat" style="left:40px; z-index:8; background:var(--bg-card); position:sticky;">${r.category || ''}</td>
-      <td class="sticky-col col-prod" style="left:150px; z-index:8; background:var(--bg-card); position:sticky;" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
-      <td class="sticky-col col-var" style="left:330px; z-index:8; background:var(--bg-card); position:sticky;">${r.variant || ''}</td>
-      <td class="sticky-col col-sku" style="left:390px; z-index:8; background:var(--bg-card); position:sticky;">${r.sku || ''}</td>
-      <td class="sticky-col col-price" style="left:500px; z-index:8; background:var(--bg-card); position:sticky; border-right: 2px solid var(--border-subtle);">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
+      <td class="sticky-col col-no" style="left:0; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;">${i + 1}</td>
+      <td class="sticky-col col-cat" style="left:40px; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;">${r.category || ''}</td>
+      <td class="sticky-col col-prod" style="left:150px; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
+      <td class="sticky-col col-var" style="left:330px; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;">${r.variant || ''}</td>
+      <td class="sticky-col col-sku" style="left:390px; z-index:8; background:var(--bg-card); color:var(--text-muted); position:sticky;">${r.sku || ''}</td>
+      <td class="sticky-col col-price" style="left:500px; z-index:8; background:var(--bg-card); color:var(--text-secondary); position:sticky; border-right: 2px solid var(--border-color);">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
     `;
     outlets.forEach(o => {
       const qty = Number(r[o.col]) || 0;
