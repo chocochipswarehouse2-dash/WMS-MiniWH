@@ -1,109 +1,117 @@
 /* ==========================================================================
-   WAREHOUSE MANAGEMENT SYSTEM (WMS) — DESIGN SYSTEM
-   Theme: Slate Navy (#112E3B) + Golden Amber (#F4C430) + Clean Light (#F4F6F8)
-   Typography: DM Sans (UI) + JetBrains Mono (Data/Metrics)
+   WAREHOUSE MANAGEMENT — DESIGN SYSTEM
+   Inspired by Hello Monday: Editorial, Minimal, Monochromatic
+   Typography: DM Sans (UI) + DM Serif Display (Display) + JetBrains Mono (Data)
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
   /* Typography */
-  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  --font-main:    'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
 
-  /* LIGHT THEME */
-  --bg-app:            #F4F6F8;
-  --bg-sidebar:        #112E3B;
-  --bg-sidebar-hover:  rgba(255, 255, 255, 0.08);
-  --bg-panel:          #FFFFFF;
-  --bg-panel-hover:    #F8F9FA;
-  --bg-card:           #FFFFFF;
-  --bg-input:          #FFFFFF;
-  --bg-subtle:         #EAEFF4;
-  --bg-topbar:         #FFFFFF;
+  /* LIGHT MODE (Default) — Hello Monday Homepage (warm white editorial) */
+  --bg-app:         #f5f4f2;
+  --bg-sidebar:     #eeede9;
+  --bg-sidebar-hover: rgba(0, 0, 0, 0.04);
+  --bg-panel:       #ffffff;
+  --bg-panel-hover: #f0efe9;
+  --bg-card:        #ffffff;
+  --bg-input:       #f8f7f3;
+  --bg-subtle:      #e8e6e0;
+  --bg-topbar:      #ffffff;
 
-  --border-color:      #E2E8F0;
-  --border-subtle:     #EDF2F7;
-  --border-active:     #F4C430;
+  --border-color:  rgba(0, 0, 0, 0.10);
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-active: #111111;
 
-  --text-primary:      #112E3B;
-  --text-secondary:    #5B707B;
-  --text-muted:        #8E9EA7;
-  --text-on-navy:      #FFFFFF;
-  --text-on-navy-mute: #8CAAB9;
+  --text-primary:   #111111;
+  --text-secondary: #666666;
+  --text-muted:     #999999;
+  --text-on-navy:   #ffffff;
+  --text-on-navy-mute: #d0d0d0;
 
-  /* Brand Accents */
-  --accent-primary:       #F4C430;
-  --accent-primary-hover: #E2B21E;
-  --accent-primary-glow:  rgba(244, 196, 48, 0.25);
-  --accent-primary-text:  #112E3B;
+  /* Light mode: accent is black (Hello Monday style) */
+  --accent-primary:       #111111;
+  --accent-primary-hover: #333333;
+  --accent-primary-glow:  rgba(0, 0, 0, 0.06);
+  --accent-primary-text:  #f5f4f2;
 
-  --accent-navy:          #112E3B;
-  --accent-navy-light:    #1D4455;
+  --accent-navy:          #111111;
+  --accent-navy-light:    #333333;
 
-  /* Status Tokens */
-  --success:        #2EAA68;
-  --success-bg:     #E8F7EE;
-  --success-border: #B7E8CB;
+  --success:        #1a7f37;
+  --success-bg:     rgba(26, 127, 55, 0.10);
+  --success-border: rgba(26, 127, 55, 0.25);
 
-  --warning:        #E89A14;
-  --warning-bg:     #FEF5E7;
-  --warning-border: #FCD8A2;
+  --warning:        #9a6700;
+  --warning-bg:     rgba(154, 103, 0, 0.10);
+  --warning-border: rgba(154, 103, 0, 0.25);
 
-  --error:          #E64C4C;
-  --error-bg:       #FDF0F0;
-  --error-border:   #F8BDBD;
-
+  --error:        #c92c2c;
+  --error-bg:     rgba(201, 44, 44, 0.10);
+  --error-border: rgba(201, 44, 44, 0.25);
+  
   --info:           #3B82F6;
   --info-bg:        #EFF6FF;
   --info-border:    #BFDBFE;
-
+  
   --purple:         #8B5CF6;
   --purple-bg:      #F5F3FF;
 
-  --wa-green:       #25D366;
-  --wa-bg:          #E8F8EE;
+  --wa-green:  #128c7e;
+  --wa-bg:     rgba(18, 140, 126, 0.10);
 
-  /* Sizing & Elevations */
-  --sidebar-width:           280px;
-  --header-height:           72px;
+  /* Layout */
+  --sidebar-width:           256px;
+  --header-height:           58px;
 
-  --shadow-sm: 0 2px 8px rgba(17, 46, 59, 0.04);
-  --shadow-md: 0 6px 20px rgba(17, 46, 59, 0.06);
-  --shadow-lg: 0 16px 40px rgba(17, 46, 59, 0.09);
+  /* Shadows — very dark, editorial */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
 
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
+  /* Radius — slightly tighter = more editorial */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
 }
 
-/* ── DARK THEME ── */
+/* ── DARK THEME ── Hello Monday editorial black */
 [data-theme="dark"] {
-  --bg-app:            #0B161D;
-  --bg-sidebar:        #081218;
-  --bg-sidebar-hover:  rgba(255, 255, 255, 0.06);
-  --bg-panel:          #12222D;
-  --bg-panel-hover:    #182D3B;
-  --bg-card:           #12222D;
-  --bg-input:          #0E1B24;
-  --bg-subtle:         #192E3D;
-  --bg-topbar:         #12222D;
+  --bg-app:         #0e0e0e;
+  --bg-sidebar:     #111111;
+  --bg-sidebar-hover: rgba(255, 255, 255, 0.04);
+  --bg-panel:       #181818;
+  --bg-panel-hover: #1f1f1f;
+  --bg-card:        #161616;
+  --bg-input:       #0a0a0a;
+  --bg-subtle:      #242424;
+  --bg-topbar:      #111111;
 
-  --border-color:      rgba(255, 255, 255, 0.09);
-  --border-subtle:     rgba(255, 255, 255, 0.05);
-  --border-active:     #F4C430;
+  --border-color:  rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-active: #b8ff45;
 
-  --text-primary:      #F0F4F7;
-  --text-secondary:    #9CB3C2;
-  --text-muted:        #6B8291;
-  --text-on-navy:      #FFFFFF;
-  --text-on-navy-mute: #8CAAB9;
+  --text-primary:   #f0ede8;
+  --text-secondary: #888888;
+  --text-muted:     #555555;
+  --text-on-navy:   #000000;
+  --text-on-navy-mute: #333333;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+  /* Electric Lime accent — selective, premium */
+  --accent-primary:       #b8ff45;
+  --accent-primary-hover: #ccff66;
+  --accent-primary-glow:  rgba(184, 255, 69, 0.12);
+  --accent-primary-text:  #0e0e0e;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.8);
 }
 
 /* ================= Global Reset ================= */

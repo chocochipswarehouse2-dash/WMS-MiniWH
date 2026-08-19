@@ -1245,17 +1245,15 @@ function renderAdminRosterTable() {
 
   wrap.innerHTML = `
     <table>
-      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Aksi</th></tr></thead>
       <tbody>
         ${state.roster.map(r => `
           <tr>
             <td><strong>${r.nama || '-'}</strong><br><small class="mono-text">${r.nik}</small></td>
             <td><span class="mono-text">${r.tanggal}</span></td>
             <td><strong>${r.shift}</strong></td>
-            <td><span class="mono-text">${r.jamMasuk}</span></td>
-            <td><span class="mono-text">${r.jamPulang}</span></td>
-            <td>${r.keterangan || '-'}</td>
-            <td class="action-cell">
+            <td class="action-cell" style="display:flex; gap:8px;">
+              <button class="secondary-btn small-btn" onclick="openEditRosterModal('${r.id}')">Edit</button>
               <button class="action-btn delete" onclick="deleteRosterShiftRecord('${r.id}')">Hapus</button>
             </td>
           </tr>
@@ -3524,11 +3522,11 @@ function renderInventoryTable(data, outlets) {
   for (let i = startIdx; i < endIdx; i++) {
     const r = data[i];
     html += `<tr>
-      <td class="sticky-col col-no">${i + 1}</td>
-      <td class="sticky-col col-cat">${r.category || ''}</td>
+      <td class="sticky-col col-no" style="left:0; z-index:8; background:var(--bg-card); position:sticky;">${i + 1}</td>
+      <td class="sticky-col col-cat" style="left:40px; z-index:8; background:var(--bg-card); position:sticky;">${r.category || ''}</td>
       <td class="sticky-col col-prod" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
-      <td class="sticky-col col-var">${r.variant || ''}</td>
-      <td class="sticky-col col-sku">${r.sku || ''}</td>
+      <td class="sticky-col col-var" style="left:330px; z-index:8; background:var(--bg-card); position:sticky;">${r.variant || ''}</td>
+      <td class="sticky-col col-sku" style="left:390px; z-index:8; background:var(--bg-card); position:sticky;">${r.sku || ''}</td>
       <td class="sticky-col col-price">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
     `;
     outlets.forEach(o => {
@@ -3711,3 +3709,54 @@ if (savedUser) {
     localStorage.removeItem('currentUser');
   }
 }
+// ================= EDIT ROSTER MODAL =================
+window.openEditRosterModal = function(id) {
+  const r = state.roster.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('editRosterId').value = r.id;
+  document.getElementById('editRosterNama').value = r.nama + ' (' + r.nik + ')';
+  document.getElementById('editRosterTanggal').value = r.tanggal;
+  document.getElementById('editRosterShift').value = r.shift;
+  document.getElementById('editRosterJamMasuk').value = r.jamMasuk;
+  document.getElementById('editRosterJamPulang').value = r.jamPulang;
+  document.getElementById('editRosterKeterangan').value = r.keterangan || '';
+  openModal('modalEditRoster');
+};
+
+window.autoFillEditJam = function() {
+  const shift = document.getElementById('editRosterShift').value;
+  let jamMasuk = '', jamPulang = '';
+  if (shift === 'Shift 1') { jamMasuk = '08:00'; jamPulang = '17:00'; }
+  else if (shift === 'Shift 2') { jamMasuk = '09:00'; jamPulang = '18:00'; }
+  else if (shift === 'Shift 3') { jamMasuk = '12:00'; jamPulang = '21:00'; }
+  
+  if(jamMasuk) document.getElementById('editRosterJamMasuk').value = jamMasuk;
+  if(jamPulang) document.getElementById('editRosterJamPulang').value = jamPulang;
+};
+
+window.saveEditRoster = async function(e) {
+  e.preventDefault();
+  const id = document.getElementById('editRosterId').value;
+  const tanggal = document.getElementById('editRosterTanggal').value;
+  const shift = document.getElementById('editRosterShift').value;
+  const jamMasuk = document.getElementById('editRosterJamMasuk').value;
+  const jamPulang = document.getElementById('editRosterJamPulang').value;
+  const keterangan = document.getElementById('editRosterKeterangan').value;
+
+  showLoading();
+  try {
+    const { error } = await supabase.from('roster').update({
+      tanggal, shift, jam_masuk: jamMasuk, jam_pulang: jamPulang, keterangan
+    }).eq('id', id);
+
+    if (error) throw error;
+    alert('Roster berhasil diupdate!');
+    closeModal('modalEditRoster');
+    await fetchRoster();
+    renderAdminRosterTable();
+  } catch (err) {
+    alert('Gagal update roster: ' + err.message);
+  } finally {
+    hideLoading();
+  }
+};

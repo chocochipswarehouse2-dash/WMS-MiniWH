@@ -91,24 +91,15 @@
             <span class="nav-icon">👥</span>
             <span class="nav-label">Info Cuti Tim</span>
           </button>
-          <button class="nav-item" data-tab="slipGajiTab">
-            <span class="nav-icon">💰</span>
-            <span class="nav-label">Slip Gaji Saya</span>
-          </button>
+          
         </nav>
 
         <!-- 3. ADMIN MANAGEMENT (ADMIN ONLY) -->
         <div id="adminNavGroup" class="hidden">
           <div class="sidebar-section-title">Admin HR & Payroll</div>
           <nav class="sidebar-nav">
-            <button id="adminPayrollTabBtn" class="nav-item" data-tab="adminPayrollTab">
-              <span class="nav-icon">💵</span>
-              <span class="nav-label">Payroll Bulanan</span>
-            </button>
-            <button id="adminKasbonTabBtn" class="nav-item" data-tab="adminKasbonTab">
-              <span class="nav-icon">💳</span>
-              <span class="nav-label">Kasbon Karyawan</span>
-            </button>
+            
+            
             <button id="adminShiftAbsensiTabBtn" class="nav-item" data-tab="adminShiftAbsensiTab">
               <span class="nav-icon">🔄</span>
               <span class="nav-label">Master Shift & Roster</span>
@@ -370,77 +361,15 @@
         </section>
 
         <!-- TAB: SLIP GAJI SAYA (KARYAWAN) -->
-        <section id="slipGajiTab" class="tab-panel">
-          <div class="panel">
-            <div class="panel-header-row">
-              <h3>Daftar Slip Gaji Bulanan Saya</h3>
-              <button type="button" id="exportUserSlipGajiCsvBtn" class="secondary-btn small-btn">📤 Export CSV</button>
-            </div>
-            <div id="userSlipGajiTableWrap" class="table-wrap"></div>
-          </div>
-        </section>
+        
 
         <!-- ================= ADMIN TABS ================= -->
 
         <!-- TAB: ADMIN PAYROLL & REKAP GAJI FINANCE -->
-        <section id="adminPayrollTab" class="tab-panel">
-          <div class="panel" style="margin-bottom: 24px;">
-            <div class="panel-header-row">
-              <h3>Kalkulasi & Audit Payroll Bulanan Warehouse</h3>
-              <div class="submit-row" style="align-items: center; gap: 8px;">
-                <input type="month" id="payrollMonthPicker" style="width: auto; padding: 7px 12px;" />
-                <button type="button" id="btnGeneratePayroll" class="primary-btn small-btn">
-                  <span class="btn-text">⚡ Generate Payroll</span>
-                </button>
-                <button type="button" id="btnApprovePayrollFinance" class="secondary-btn small-btn" style="color: var(--success); border-color: var(--success);">
-                  <span class="btn-text">✅ Setujui & Ajukan ke Finance</span>
-                </button>
-                <button type="button" id="exportAdminPayrollCsvBtn" class="secondary-btn small-btn">📤 Export CSV Payroll</button>
-                <button type="button" id="btnDownloadFinanceSummaryPdf" class="secondary-btn small-btn">📑 Download PDF Finance</button>
-              </div>
-            </div>
-
-            <!-- METRIC STATS -->
-            <div class="grid four-columns" style="margin-bottom: 20px;">
-              <div class="stat-box">
-                <span class="stat-label">Total Pengeluaran Gaji Bersih</span>
-                <span id="sumGajiBersih" class="stat-value" style="color: var(--accent-primary);">Rp 0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Total Uang Lembur Dibayarkan</span>
-                <span id="sumUangLembur" class="stat-value" style="color: var(--success);">Rp 0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Total Potongan Kasbon</span>
-                <span id="sumPotonganKasbon" class="stat-value" style="color: var(--warning);">Rp 0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Status Payroll Periode</span>
-                <span id="payrollPeriodStatus" class="status diajukan">Draft</span>
-              </div>
-            </div>
-
-            <div class="panel-header-row">
-              <h3>Tabel Audit Payroll Karyawan</h3>
-              <small style="color: var(--text-muted);">Admin dapat mengklik "Audit/Edit" untuk mengoreksi angka gaji sebelum diajukan ke finance.</small>
-            </div>
-            <div id="adminPayrollTableWrap" class="table-wrap"></div>
-          </div>
-        </section>
+        
 
         <!-- TAB: ADMIN KASBON KARYAWAN -->
-        <section id="adminKasbonTab" class="tab-panel">
-          <div class="panel">
-            <div class="panel-header-row">
-              <h3>Manajemen Kasbon & Pinjaman Karyawan</h3>
-              <div class="submit-row" style="gap: 8px;">
-                <button type="button" id="exportAdminKasbonCsvBtn" class="secondary-btn small-btn">📤 Export CSV Kasbon</button>
-                <button type="button" id="btnOpenAddKasbonModal" class="primary-btn small-btn">+ Ajukan / Tambah Kasbon</button>
-              </div>
-            </div>
-            <div id="adminKasbonTableWrap" class="table-wrap"></div>
-          </div>
-        </section>
+        
 
         <!-- TAB: ADMIN MASTER SHIFT & ROSTER -->
         <section id="adminShiftAbsensiTab" class="tab-panel">
@@ -663,6 +592,55 @@
   </div>
 
   <!-- ================= MODALS ================= -->
+
+  <!-- MODAL EDIT ROSTER -->
+  <div id="modalEditRoster" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>Edit Roster Shift</h3>
+        <button class="close-modal" onclick="closeModal('modalEditRoster')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="editRosterForm" onsubmit="saveEditRoster(event)">
+          <input type="hidden" id="editRosterId" />
+          <div class="form-group">
+            <label>Karyawan</label>
+            <input type="text" id="editRosterNama" disabled />
+          </div>
+          <div class="form-group">
+            <label>Tanggal</label>
+            <input type="date" id="editRosterTanggal" required />
+          </div>
+          <div class="form-group">
+            <label>Shift</label>
+            <select id="editRosterShift" onchange="autoFillEditJam()">
+              <option value="Shift 1">Shift 1 (08.00 - 17.00)</option>
+              <option value="Shift 2">Shift 2 (09.00 - 18.00)</option>
+              <option value="Shift 3">Shift 3 (12.00 - 21.00)</option>
+              <option value="Off">Off / Libur</option>
+              <option value="Cuti">Cuti</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Izin">Izin</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Jam Masuk</label>
+            <input type="time" id="editRosterJamMasuk" />
+          </div>
+          <div class="form-group">
+            <label>Jam Pulang</label>
+            <input type="time" id="editRosterJamPulang" />
+          </div>
+          <div class="form-group">
+            <label>Keterangan</label>
+            <input type="text" id="editRosterKeterangan" />
+          </div>
+          <button type="submit" class="primary-btn w-100" style="margin-top: 16px;">Simpan Perubahan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
 
   <!-- MODAL DOWNLOAD TEMPLATE SHIFT RANGE TANGGAL -->
   <div id="downloadShiftTemplateModal" class="modal hidden">
