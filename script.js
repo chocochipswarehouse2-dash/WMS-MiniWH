@@ -217,6 +217,11 @@ async function apiRequest(action, payload = {}) {
     return await supabaseApiRequest(action, payload);
   } catch (err) {
     console.warn(`[Supabase API Error on ${action}]`, err);
+    // Jika error dari Supabase (validasi data, dsb), langsung throw agar tidak ditutupi error GAS
+    if (err.message && err.message.includes('Supabase API error')) {
+      showToast(err.message, 'error');
+      return null;
+    }
   }
 
   // 2. FALLBACK KE GOOGLE APPS SCRIPT JIKA DIPERLUKAN
@@ -229,9 +234,14 @@ async function apiRequest(action, payload = {}) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body
     });
-    const result = await res.json();
-    if (!result.success) throw new Error(result.message);
-    return result;
+    const resultText = await res.text();
+    try {
+      const result = JSON.parse(resultText);
+      if (!result.success) throw new Error(result.message);
+      return result;
+    } catch (e) {
+      throw new Error("Gagal memproses respon server. Pastikan URL Google Apps Script benar.");
+    }
   } catch (error) {
     showToast(error.message || 'Gagal terhubung ke server', 'error');
     return null;
@@ -1762,7 +1772,10 @@ if (shiftCsvInp) {
       return { shift: sName, jamMasuk: '08:00', jamPulang: '17:00' };
     }
 
-    const rawHeaders = lines[0].split(',').map(h => h.replace(/^["']|["']$/g, '').trim());
+    // Auto-detect separator: comma or semicolon
+    const separator = lines[0].includes(';') ? ';' : ',';
+
+    const rawHeaders = lines[0].split(separator).map(h => h.replace(/^["']|["']$/g, '').trim());
     const lowerHeaders = rawHeaders.map(h => h.toLowerCase());
     const parsed = [];
 
@@ -1787,7 +1800,7 @@ if (shiftCsvInp) {
       if (namaCol === -1) namaCol = 0;
 
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
+        const cols = lines[i].split(separator).map(c => c.replace(/^["']|["']$/g, '').trim());
         const nik = cols[nikCol] || '';
         const nama = cols[namaCol] || '';
         if (!nik) continue;
@@ -1811,13 +1824,22 @@ if (shiftCsvInp) {
     } else {
       // 2. FORMAT FLAT LIST: NIK, Nama, Tanggal, Shift, [JamMasuk, JamPulang, Keterangan]
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.replace(/^["']|["']$/g, '').trim());
+        const cols = lines[i].split(separator).map(c => c.replace(/^["']|["']$/g, '').trim());
         if (cols.length >= 3) {
           const nik = cols[0];
           const nama = cols[1] || '';
-          const tanggal = cols[2];
+          let tanggal = cols[2];
           const shiftName = cols[3] || 'Shift 1';
           const shiftInfo = resolveShiftHours(shiftName);
+          
+          // Basic Date Validation
+          if (/^\d{2}-\d{2}-\d{4}$/.test(tanggal)) {
+            const [d, m, y] = tanggal.split('-');
+            tanggal = `${y}-${m}-${d}`;
+          }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
+            continue; // Skip invalid rows entirely (like header row or bad data)
+          }
 
           parsed.push({
             nik,
