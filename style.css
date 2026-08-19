@@ -2302,9 +2302,10 @@ label {
 }
 .shift-block:hover { transform: scale(0.98); }
 .shift-time { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; }
-.shift-name { font-size: 0.65rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;}
+.shift-name { font-size: 0.68rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; }
 
-/* Shift Colors based on Theme (Hello Monday style / Reference image) */
-.shift-bg-1 { background: #dfa88d; color: #111; } 
-.shift-bg-3 { background: #405477; color: #fff; } 
-.shift-bg-off { background: var(--bg-subtle); color: var(--text-muted); }
+/* Shift Colors based on Shift Type */
+.shift-bg-1 { background: #e09f67; color: #111; } 
+.shift-bg-2 { background: #d4a373; color: #111; }
+.shift-bg-3 { background: #3d5a80; color: #fff; } 
+.shift-bg-off { background: var(--bg-subtle); color: var(--text-muted); border: 1px dashed var(--border-subtle); }

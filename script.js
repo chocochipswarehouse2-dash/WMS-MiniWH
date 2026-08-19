@@ -1335,19 +1335,28 @@ function renderAdminRosterTable() {
       const shiftData = state.roster.find(r => r.nik === emp.nik && r.tanggal === dateStr);
       
       if (shiftData) {
+        const sLower = (shiftData.shift || '').toLowerCase();
+        const isOff = sLower.includes('libur') || sLower === 'off' || sLower === 'cuti' || sLower === 'izin';
+        
         let bgClass = 'shift-bg-off';
-        if (shiftData.shift === 'Shift 1' || shiftData.shift === 'Shift 2') bgClass = 'shift-bg-1';
-        else if (shiftData.shift === 'Shift 3') bgClass = 'shift-bg-3';
+        if (!isOff) {
+          if (sLower.includes('shift 1') || sLower === '1') bgClass = 'shift-bg-1';
+          else if (sLower.includes('shift 2') || sLower === '2') bgClass = 'shift-bg-2';
+          else if (sLower.includes('shift 3') || sLower === '3') bgClass = 'shift-bg-3';
+          else bgClass = 'shift-bg-1';
+        }
+
+        const jam = (!isOff && shiftData.jamMasuk && shiftData.jamPulang) 
+          ? `${shiftData.jamMasuk.substring(0,5)} - ${shiftData.jamPulang.substring(0,5)}` 
+          : '';
         
-        let label = (shiftData.shift === 'Shift 3') ? 'NIGHT' : (shiftData.shift === 'Off' ? 'OFF' : 'DAY');
-        
-        const jam = (shiftData.jamMasuk && shiftData.jamPulang) ? `${shiftData.jamMasuk.substring(0,5)} - ${shiftData.jamPulang.substring(0,5)}` : shiftData.shift;
-        
+        const shiftNameDisplay = shiftData.shift || (isOff ? 'Libur' : '-');
+
         tableHtml += `
           <td style="padding: 2px;">
             <div class="shift-block ${bgClass}" onclick="openEditRosterModal('${shiftData.id}')">
-              <div class="shift-time">${jam}</div>
-              <div class="shift-name">${label}</div>
+              ${jam ? `<div class="shift-time">${jam}</div>` : ''}
+              <div class="shift-name" style="${!jam ? 'font-size:0.75rem; font-weight:700;' : ''}">${shiftNameDisplay}</div>
             </div>
           </td>
         `;
