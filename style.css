@@ -366,7 +366,7 @@ body {
   height: var(--header-height);
   background: var(--bg-topbar);
   border-bottom: 1px solid var(--border-color);
-  padding: 0 28px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -374,6 +374,8 @@ body {
   top: 0;
   z-index: 90;
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .topbar-left {
@@ -516,10 +518,11 @@ body {
 /* ================= App Content Canvas ================= */
 .app-content {
   flex: 1;
-  padding: 28px;
-  max-width: 1600px;
+  padding: 16px 20px;
   width: 100%;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .tab-panel {
