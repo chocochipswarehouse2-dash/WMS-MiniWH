@@ -1234,33 +1234,128 @@ function renderEmployeeShiftDashboard() {
   updateAttendanceStatusBox();
 }
 
+let currentRosterDate = new Date();
+
+window.prevRosterWeek = function() {
+  currentRosterDate.setDate(currentRosterDate.getDate() - 7);
+  renderAdminRosterTable();
+};
+window.nextRosterWeek = function() {
+  currentRosterDate.setDate(currentRosterDate.getDate() + 7);
+  renderAdminRosterTable();
+};
+
 function renderAdminRosterTable() {
   const wrap = document.getElementById('adminRosterTableWrap');
   if (!wrap) return;
 
-  if (!state.roster.length) {
-    wrap.innerHTML = `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada jadwal roster karyawan. Gunakan tombol <strong>Import CSV Roster</strong> di atas.</p>`;
+  // Calculate week dates (Monday to Sunday)
+  const d = new Date(currentRosterDate);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
+  const startOfWeek = new Date(d.setDate(diff));
+  
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const nd = new Date(startOfWeek);
+    nd.setDate(startOfWeek.getDate() + i);
+    dates.push(nd);
+  }
+
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  
+  const dateRangeStr = `${monthNames[dates[0].getMonth()]} ${dates[0].getDate()} - ${monthNames[dates[6].getMonth()]} ${dates[6].getDate()}`;
+
+  // Group unique employees from state.roster
+  const uniqueEmps = {};
+  state.roster.forEach(r => {
+    if (!uniqueEmps[r.nik]) {
+      uniqueEmps[r.nik] = { nik: r.nik, nama: r.nama || '-' };
+    }
+  });
+  
+  const empList = Object.values(uniqueEmps).sort((a,b) => a.nama.localeCompare(b.nama));
+
+  let html = `
+    <div class="roster-matrix-controls">
+      <div class="roster-matrix-date">${dateRangeStr}</div>
+      <div class="roster-matrix-nav">
+        <button onclick="prevRosterWeek()">&#10094;</button>
+        <button onclick="currentRosterDate = new Date(); renderAdminRosterTable()">TODAY</button>
+        <button onclick="nextRosterWeek()">&#10095;</button>
+      </div>
+    </div>
+  `;
+
+  if (empList.length === 0) {
+    html += `<p style="padding: 24px; text-align: center; color: var(--text-muted);">Belum ada data roster. Silakan import CSV terlebih dahulu.</p>`;
+    wrap.innerHTML = html;
     return;
   }
 
-  wrap.innerHTML = `
-    <table>
-      <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Shift</th><th>Aksi</th></tr></thead>
-      <tbody>
-        ${state.roster.map(r => `
-          <tr>
-            <td><strong>${r.nama || '-'}</strong><br><small class="mono-text">${r.nik}</small></td>
-            <td><span class="mono-text">${r.tanggal}</span></td>
-            <td><strong>${r.shift}</strong></td>
-            <td class="action-cell" style="display:flex; gap:8px;">
-              <button class="secondary-btn small-btn" onclick="openEditRosterModal('${r.id}')">Edit</button>
-              <button class="action-btn delete" onclick="deleteRosterShiftRecord('${r.id}')">Hapus</button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+  let tableHtml = `<div style="overflow-x: auto; overflow-y: hidden;"><table class="roster-matrix-table">
+    <thead>
+      <tr>
+        <th class="emp-col">EMPLOYEES</th>
+        ${dates.map(dt => `<th>${dayNames[dt.getDay()]} ${dt.getDate()}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
   `;
+
+  empList.forEach(emp => {
+    const avatar = emp.nama.substring(0, 2).toUpperCase();
+    tableHtml += `<tr>
+      <td class="emp-col">
+        <div class="emp-avatar">${avatar}</div>
+        <div style="line-height: 1.2;">
+           <span style="font-size:0.8rem">${emp.nama}</span><br>
+           <small style="font-size:0.65rem; color:var(--text-muted)">${emp.nik}</small>
+        </div>
+      </td>`;
+      
+    dates.forEach(dt => {
+      // formatted date YYYY-MM-DD
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const dStr = String(dt.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${dStr}`;
+      
+      const shiftData = state.roster.find(r => r.nik === emp.nik && r.tanggal === dateStr);
+      
+      if (shiftData) {
+        let bgClass = 'shift-bg-off';
+        if (shiftData.shift === 'Shift 1' || shiftData.shift === 'Shift 2') bgClass = 'shift-bg-1';
+        else if (shiftData.shift === 'Shift 3') bgClass = 'shift-bg-3';
+        
+        let label = (shiftData.shift === 'Shift 3') ? 'NIGHT' : (shiftData.shift === 'Off' ? 'OFF' : 'DAY');
+        
+        const jam = (shiftData.jamMasuk && shiftData.jamPulang) ? `${shiftData.jamMasuk.substring(0,5)} - ${shiftData.jamPulang.substring(0,5)}` : shiftData.shift;
+        
+        tableHtml += `
+          <td style="padding: 2px;">
+            <div class="shift-block ${bgClass}" onclick="openEditRosterModal('${shiftData.id}')">
+              <div class="shift-time">${jam}</div>
+              <div class="shift-name">${label}</div>
+            </div>
+          </td>
+        `;
+      } else {
+        tableHtml += `
+          <td style="padding: 0;">
+            <div class="roster-cell-empty" onclick="openAddRosterModal('${emp.nik}', '${emp.nama}', '${dateStr}')">+</div>
+          </td>
+        `;
+      }
+    });
+    
+    tableHtml += `</tr>`;
+  });
+
+  tableHtml += `</tbody></table></div>`;
+  html += tableHtml;
+  wrap.innerHTML = html;
 }
 
 window.deleteRosterShiftRecord = async (id) => {
@@ -3710,6 +3805,20 @@ if (savedUser) {
   }
 }
 // ================= EDIT ROSTER MODAL =================
+
+window.openAddRosterModal = function(nik, nama, date) {
+  document.getElementById('editRosterId').value = '';
+  document.getElementById('editRosterId').dataset.nik = nik;
+  document.getElementById('editRosterNama').value = nama + ' (' + nik + ')';
+  document.getElementById('editRosterTanggal').value = date;
+  document.getElementById('editRosterShift').value = 'Shift 1';
+  document.getElementById('editRosterJamMasuk').value = '08:00';
+  document.getElementById('editRosterJamPulang').value = '17:00';
+  document.getElementById('editRosterKeterangan').value = '';
+  document.getElementById('modalEditRoster').querySelector('.modal-header h3').innerText = 'Tambah Roster Shift';
+  openModal('modalEditRoster');
+};
+
 window.openEditRosterModal = function(id) {
   const r = state.roster.find(x => x.id === id);
   if (!r) return;
@@ -3745,9 +3854,21 @@ window.saveEditRoster = async function(e) {
 
   showLoading();
   try {
-    const { error } = await supabase.from('roster').update({
-      tanggal, shift, jam_masuk: jamMasuk, jam_pulang: jamPulang, keterangan
-    }).eq('id', id);
+    
+    let error;
+    if (id) {
+      const res = await supabase.from('roster_shift').update({
+        tanggal, shift, jam_masuk: jamMasuk, jam_pulang: jamPulang, keterangan
+      }).eq('id', id);
+      error = res.error;
+    } else {
+      const nik = document.getElementById('editRosterId').dataset.nik;
+      const res = await supabase.from('roster_shift').insert({
+        nik, tanggal, shift, jam_masuk: jamMasuk, jam_pulang: jamPulang, keterangan
+      });
+      error = res.error;
+    }
+
 
     if (error) throw error;
     alert('Roster berhasil diupdate!');

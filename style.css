@@ -2183,3 +2183,128 @@ label {
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+
+
+/* Roster Matrix View */
+.roster-matrix-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  background: var(--bg-card);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+.roster-matrix-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.roster-matrix-nav button {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+.roster-matrix-nav button:hover { background: var(--border-subtle); }
+.roster-matrix-date {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text-primary);
+}
+
+.roster-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.85rem;
+}
+.roster-matrix-table th, .roster-matrix-table td {
+  border: 1px solid var(--border-color);
+  text-align: left;
+  vertical-align: top;
+  padding: 4px;
+  height: 60px;
+}
+.roster-matrix-table th {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 8px;
+  text-align: center;
+  height: auto;
+}
+.roster-matrix-table th.emp-col {
+  width: 160px;
+  text-align: left;
+  background: var(--bg-card);
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+.roster-matrix-table td.emp-col {
+  background: var(--bg-card);
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  font-weight: 600;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 8px;
+}
+.roster-matrix-table .emp-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.roster-cell-empty {
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: transparent;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+.roster-cell-empty:hover {
+  background: var(--bg-sidebar-hover);
+  color: var(--text-muted);
+}
+.shift-block {
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: transform 0.1s;
+}
+.shift-block:hover { transform: scale(0.98); }
+.shift-time { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; }
+.shift-name { font-size: 0.65rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;}
+
+/* Shift Colors based on Theme (Hello Monday style / Reference image) */
+.shift-bg-1 { background: #dfa88d; color: #111; } 
+.shift-bg-3 { background: #405477; color: #fff; } 
+.shift-bg-off { background: var(--bg-subtle); color: var(--text-muted); }
