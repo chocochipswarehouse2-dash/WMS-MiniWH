@@ -1753,65 +1753,169 @@ if (shiftCsvInp) {
     const lines = text.split(/\r\n|\n/).map(l => l.trim()).filter(l => l !== '');
     if (lines.length < 2) return showToast('File CSV kosong atau tidak valid', 'error');
 
+    function parseFlexibleDate(str) {
+      if (!str) return null;
+      str = String(str).replace(/^["']|["']$/g, '').trim().replace(/^tgl[_\s:]*/i, '');
+      
+      // 1. YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+      let m = str.match(/^(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})$/);
+      if (m) {
+        const y = m[1];
+        const mo = String(m[2]).padStart(2, '0');
+        const d = String(m[3]).padStart(2, '0');
+        return `${y}-${mo}-${d}`;
+      }
+
+      // 2. DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+      m = str.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})$/);
+      if (m) {
+        const d = String(m[1]).padStart(2, '0');
+        const mo = String(m[2]).padStart(2, '0');
+        const y = m[3];
+        return `${y}-${mo}-${d}`;
+      }
+
+      // 3. DD/MM or DD-MM (assume current year 2026)
+      m = str.match(/^(\d{1,2})[-/. ](\d{1,2})$/);
+      if (m) {
+        const d = String(m[1]).padStart(2, '0');
+        const mo = String(m[2]).padStart(2, '0');
+        return `2026-${mo}-${d}`;
+      }
+
+      // 4. DD-MMM-YYYY or DD-MMM-YY
+      const monthMap = {
+        jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', may: '05', jun: '06',
+        jul: '07', agu: '08', ags: '08', aug: '08', sep: '09', okt: '10', oct: '10',
+        nov: '11', des: '12', dec: '12'
+      };
+      m = str.match(/^(\d{1,2})[-/\s]([a-zA-Z]{3,})[-/\s]?(\d{2,4})?$/);
+      if (m) {
+        const d = String(m[1]).padStart(2, '0');
+        const monStr = m[2].toLowerCase().slice(0, 3);
+        const mo = monthMap[monStr];
+        let y = m[3] || '2026';
+        if (y.length === 2) y = '20' + y;
+        if (mo) return `${y}-${mo}-${d}`;
+      }
+
+      // 5. Standard JS Date Parse
+      const dt = new Date(str);
+      if (!isNaN(dt.getTime()) && dt.getFullYear() > 2000 && dt.getFullYear() < 2100) {
+        const y = dt.getFullYear();
+        const mo = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${mo}-${d}`;
+      }
+
+      return null;
+    }
+
+    function parseCsvRow(rowStr, sep) {
+      const cells = [];
+      let inQuotes = false;
+      let curr = '';
+      for (let i = 0; i < rowStr.length; i++) {
+        const char = rowStr[i];
+        if (char === '"' || char === "'") {
+          inQuotes = !inQuotes;
+        } else if (char === sep && !inQuotes) {
+          cells.push(curr.trim().replace(/^["']|["']$/g, '').trim());
+          curr = '';
+        } else {
+          curr += char;
+        }
+      }
+      cells.push(curr.trim().replace(/^["']|["']$/g, '').trim());
+      return cells;
+    }
+
     // Helper untuk mencari jam masuk & pulang dari master_shift
     function resolveShiftHours(shiftName) {
       const sName = String(shiftName || '').trim();
-      const sLower = sName.toLowerCase();
-      if (!sName || sLower === '-' || sLower === 'libur' || sLower === 'off' || sLower === 'cuti') {
-        return { shift: sName || 'Libur', jamMasuk: '', jamPulang: '' };
+      const sLower = sName.toLowerCase().replace(/["']/g, '');
+      if (!sName || sLower === '-' || sLower === 'libur' || sLower === 'off' || sLower === 'l' || sLower === 'cuti' || sLower === 'ijin' || sLower === 'izin') {
+        return { shift: (sLower === 'cuti' ? 'Cuti' : (sLower === 'ijin' || sLower === 'izin' ? 'Izin' : 'Libur')), jamMasuk: '', jamPulang: '' };
       }
-      const matched = state.shifts.find(s => s.namaShift.toLowerCase().trim() === sLower);
-      if (matched) {
-        return { shift: matched.namaShift, jamMasuk: matched.jamMasuk, jamPulang: matched.jamPulang };
+      if (state.shifts && state.shifts.length) {
+        const matched = state.shifts.find(s => s.namaShift.toLowerCase().trim() === sLower);
+        if (matched) return { shift: matched.namaShift, jamMasuk: matched.jamMasuk, jamPulang: matched.jamPulang };
+        const partial = state.shifts.find(s => s.namaShift.toLowerCase().replace(/\s+/g, '') === sLower.replace(/\s+/g, ''));
+        if (partial) return { shift: partial.namaShift, jamMasuk: partial.jamMasuk, jamPulang: partial.jamPulang };
       }
-      // Partial match (e.g. "shift 1", "shift1", "1")
-      const partial = state.shifts.find(s => s.namaShift.toLowerCase().replace(/\s+/g, '') === sLower.replace(/\s+/g, ''));
-      if (partial) {
-        return { shift: partial.namaShift, jamMasuk: partial.jamMasuk, jamPulang: partial.jamPulang };
+      if (sLower === '1' || sLower === 'shift 1' || sLower === 'shift1' || sLower === 's1') {
+        return { shift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00' };
+      }
+      if (sLower === '2' || sLower === 'shift 2' || sLower === 'shift2' || sLower === 's2') {
+        return { shift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00' };
+      }
+      if (sLower === '3' || sLower === 'shift 3' || sLower === 'shift3' || sLower === 's3' || sLower === '3a' || sLower === 'shift 3a') {
+        return { shift: 'Shift 3', jamMasuk: '12:00', jamPulang: '21:00' };
       }
       return { shift: sName, jamMasuk: '08:00', jamPulang: '17:00' };
     }
 
-    // Auto-detect separator: comma or semicolon
-    const separator = lines[0].includes(';') ? ';' : ',';
+    // Auto-detect separator: comma or semicolon or tab
+    const firstLine = lines[0];
+    let separator = ',';
+    if (firstLine.includes('\t')) separator = '\t';
+    else if (firstLine.includes(';') && !firstLine.includes(',')) separator = ';';
+    else if (firstLine.includes(';')) {
+      const countSemi = (firstLine.match(/;/g) || []).length;
+      const countComma = (firstLine.match(/,/g) || []).length;
+      separator = countSemi > countComma ? ';' : ',';
+    }
 
-    const rawHeaders = lines[0].split(separator).map(h => h.replace(/^["']|["']$/g, '').trim());
+    const rawHeaders = parseCsvRow(lines[0], separator);
     const lowerHeaders = rawHeaders.map(h => h.toLowerCase());
     const parsed = [];
 
-    // Deteksi apakah format Matrix (ada kolom tanggal YYYY-MM-DD di header)
+    // Deteksi kolom tanggal
     const dateColIndexes = [];
+    const metaCols = [];
     rawHeaders.forEach((h, idx) => {
-      if (/\d{4}-\d{2}-\d{2}/.test(h) || /\d{2}-\d{2}-\d{4}/.test(h) || /tgl_\d{4}-\d{2}-\d{2}/i.test(h)) {
-        let dateStr = h.replace(/^tgl_/i, '').trim();
-        if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
-          const [d, m, y] = dateStr.split('-');
-          dateStr = `${y}-${m}-${d}`;
-        }
-        dateColIndexes.push({ idx, date: dateStr });
+      const parsedDate = parseFlexibleDate(h);
+      if (parsedDate) {
+        dateColIndexes.push({ idx, date: parsedDate });
+      } else {
+        metaCols.push(idx);
       }
     });
 
     if (dateColIndexes.length > 0) {
       // 1. FORMAT MATRIX: Nama, ID, Tgl1, Tgl2, ...
-      let nikCol = lowerHeaders.findIndex(h => h === 'id' || h === 'nik' || h === 'id karyawan' || h === 'nik karyawan');
-      let namaCol = lowerHeaders.findIndex(h => h === 'nama' || h === 'nama karyawan' || h === 'name');
-      if (nikCol === -1) nikCol = 1;
-      if (namaCol === -1) namaCol = 0;
+      let nikCol = lowerHeaders.findIndex(h => h === 'id' || h === 'nik' || h === 'id karyawan' || h === 'nik karyawan' || h === 'kode');
+      let namaCol = lowerHeaders.findIndex(h => h === 'nama' || h === 'nama karyawan' || h === 'name' || h === 'karyawan');
+      if (nikCol === -1 && namaCol === -1) {
+        if (metaCols.length >= 2) {
+          namaCol = metaCols[0];
+          nikCol = metaCols[1];
+        } else if (metaCols.length === 1) {
+          nikCol = metaCols[0];
+          namaCol = metaCols[0];
+        } else {
+          namaCol = 0;
+          nikCol = 1;
+        }
+      } else if (nikCol === -1) {
+        nikCol = metaCols.find(idx => idx !== namaCol) ?? (namaCol === 0 ? 1 : 0);
+      } else if (namaCol === -1) {
+        namaCol = metaCols.find(idx => idx !== nikCol) ?? (nikCol === 0 ? 1 : 0);
+      }
 
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(separator).map(c => c.replace(/^["']|["']$/g, '').trim());
+        const cols = parseCsvRow(lines[i], separator);
         const nik = cols[nikCol] || '';
         const nama = cols[namaCol] || '';
-        if (!nik) continue;
+        if (!nik && !nama) continue;
 
         dateColIndexes.forEach(({ idx, date }) => {
           const shiftVal = cols[idx];
           if (shiftVal && shiftVal !== '' && shiftVal !== '-') {
             const shiftInfo = resolveShiftHours(shiftVal);
             parsed.push({
-              nik,
-              nama,
+              nik: nik || nama,
+              nama: nama || nik,
               tanggal: date,
               shift: shiftInfo.shift,
               jamMasuk: shiftInfo.jamMasuk,
@@ -1823,32 +1927,44 @@ if (shiftCsvInp) {
       }
     } else {
       // 2. FORMAT FLAT LIST: NIK, Nama, Tanggal, Shift, [JamMasuk, JamPulang, Keterangan]
+      let nikCol = lowerHeaders.findIndex(h => h.includes('nik') || h === 'id');
+      let namaCol = lowerHeaders.findIndex(h => h.includes('nama') || h === 'name');
+      let tglCol = lowerHeaders.findIndex(h => h.includes('tgl') || h.includes('tanggal') || h.includes('date'));
+      let shiftCol = lowerHeaders.findIndex(h => h.includes('shift'));
+      let masukCol = lowerHeaders.findIndex(h => h.includes('masuk') || h.includes('start'));
+      let pulangCol = lowerHeaders.findIndex(h => h.includes('pulang') || h.includes('end') || h.includes('keluar'));
+      let ketCol = lowerHeaders.findIndex(h => h.includes('ket') || h.includes('keterangan') || h.includes('note'));
+
+      if (nikCol === -1) nikCol = 0;
+      if (namaCol === -1) namaCol = 1;
+      if (tglCol === -1) tglCol = 2;
+      if (shiftCol === -1) shiftCol = 3;
+      if (masukCol === -1) masukCol = 4;
+      if (pulangCol === -1) pulangCol = 5;
+      if (ketCol === -1) ketCol = 6;
+
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(separator).map(c => c.replace(/^["']|["']$/g, '').trim());
+        const cols = parseCsvRow(lines[i], separator);
         if (cols.length >= 3) {
-          const nik = cols[0];
-          const nama = cols[1] || '';
-          let tanggal = cols[2];
-          const shiftName = cols[3] || 'Shift 1';
+          const rawDate = cols[tglCol];
+          const tanggal = parseFlexibleDate(rawDate);
+          if (!tanggal) continue;
+
+          const nik = cols[nikCol] || '';
+          const nama = cols[namaCol] || '';
+          if (!nik && !nama) continue;
+
+          const shiftName = cols[shiftCol] || 'Shift 1';
           const shiftInfo = resolveShiftHours(shiftName);
-          
-          // Basic Date Validation
-          if (/^\d{2}-\d{2}-\d{4}$/.test(tanggal)) {
-            const [d, m, y] = tanggal.split('-');
-            tanggal = `${y}-${m}-${d}`;
-          }
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-            continue; // Skip invalid rows entirely (like header row or bad data)
-          }
 
           parsed.push({
-            nik,
-            nama,
+            nik: nik || nama,
+            nama: nama || nik,
             tanggal,
             shift: shiftInfo.shift,
-            jamMasuk: cols[4] || shiftInfo.jamMasuk,
-            jamPulang: cols[5] || shiftInfo.jamPulang,
-            keterangan: cols[6] || ''
+            jamMasuk: cols[masukCol] || shiftInfo.jamMasuk,
+            jamPulang: cols[pulangCol] || shiftInfo.jamPulang,
+            keterangan: cols[ketCol] || ''
           });
         }
       }
