@@ -3619,10 +3619,10 @@ function renderInventoryTable(data, outlets) {
     html += `<tr>
       <td class="sticky-col col-no" style="left:0; z-index:8; background:var(--bg-card); position:sticky;">${i + 1}</td>
       <td class="sticky-col col-cat" style="left:40px; z-index:8; background:var(--bg-card); position:sticky;">${r.category || ''}</td>
-      <td class="sticky-col col-prod" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
+      <td class="sticky-col col-prod" style="left:150px; z-index:8; background:var(--bg-card); position:sticky;" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
       <td class="sticky-col col-var" style="left:330px; z-index:8; background:var(--bg-card); position:sticky;">${r.variant || ''}</td>
       <td class="sticky-col col-sku" style="left:390px; z-index:8; background:var(--bg-card); position:sticky;">${r.sku || ''}</td>
-      <td class="sticky-col col-price">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
+      <td class="sticky-col col-price" style="left:500px; z-index:8; background:var(--bg-card); position:sticky; border-right: 2px solid var(--border-subtle);">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
     `;
     outlets.forEach(o => {
       const qty = Number(r[o.col]) || 0;
