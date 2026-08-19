@@ -1285,11 +1285,26 @@ function renderAdminRosterTable() {
     }
   });
   
-  const empList = Object.values(uniqueEmps).sort((a,b) => a.nama.localeCompare(b.nama));
+  window.rosterSortOrder = window.rosterSortOrder || 'nik';
+  let empList = Object.values(uniqueEmps);
+  if (window.rosterSortOrder === 'nama') {
+    empList.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+  } else {
+    empList.sort((a, b) => (a.nik || '').localeCompare(b.nik || '', undefined, { numeric: true, sensitivity: 'base' }) || (a.nama || '').localeCompare(b.nama || ''));
+  }
 
   let html = `
     <div class="roster-matrix-controls">
-      <div class="roster-matrix-date">${dateRangeStr}</div>
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="roster-matrix-date">${dateRangeStr}</div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-secondary);">
+          <span>Urutkan:</span>
+          <select onchange="window.rosterSortOrder = this.value; renderAdminRosterTable();" style="padding:4px 8px; font-size:0.75rem; border-radius:var(--radius-xs); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color); cursor:pointer;">
+            <option value="nik" ${window.rosterSortOrder === 'nik' ? 'selected' : ''}>NIK (WH0001, WH0002...)</option>
+            <option value="nama" ${window.rosterSortOrder === 'nama' ? 'selected' : ''}>Nama (A - Z)</option>
+          </select>
+        </div>
+      </div>
       <div class="roster-matrix-nav">
         <button onclick="prevRosterWeek()">&#10094;</button>
         <button onclick="currentRosterDate = new Date(); renderAdminRosterTable()">TODAY</button>
