@@ -544,6 +544,53 @@ async function supabaseApiRequest(action, payload) {
       return { success: true, message: 'Presensi berhasil disimpan' };
     }
 
+    case 'updateAbsensi':
+    case 'editAbsensi': {
+      const a = payload.absensi || payload;
+      const jamM = a.jamMasuk ? (a.jamMasuk.length === 5 ? a.jamMasuk + ':00' : a.jamMasuk) : null;
+      const jamP = a.jamPulang ? (a.jamPulang.length === 5 ? a.jamPulang + ':00' : a.jamPulang) : null;
+
+      const patchData = {
+        shift: a.shift || 'Shift 1',
+        status: a.status || 'Hadir',
+        jam_masuk: jamM,
+        jam_pulang: jamP,
+        catatan: a.catatan || ''
+      };
+      if (a.tanggal) patchData.tanggal = a.tanggal;
+
+      if (a.id && !isNaN(Number(a.id))) {
+        await supabaseFetch(`presensi?id=eq.${encodeURIComponent(a.id)}`, {
+          method: 'PATCH',
+          body: patchData
+        });
+      } else if (a.nik && a.tanggal) {
+        await supabaseFetch(`presensi?nik=eq.${encodeURIComponent(a.nik)}&tanggal=eq.${encodeURIComponent(a.tanggal)}`, {
+          method: 'PATCH',
+          body: patchData
+        });
+      } else if (a.id) {
+        await supabaseFetch(`presensi?id=eq.${encodeURIComponent(a.id)}`, {
+          method: 'PATCH',
+          body: patchData
+        });
+      } else {
+        throw new Error('ID atau NIK dan Tanggal presensi diperlukan untuk update.');
+      }
+      return { success: true, message: 'Data presensi berhasil diperbarui' };
+    }
+
+    case 'deleteAbsensi': {
+      if (payload.id && !isNaN(Number(payload.id))) {
+        await supabaseFetch(`presensi?id=eq.${encodeURIComponent(payload.id)}`, { method: 'DELETE' });
+      } else if (payload.nik && payload.tanggal) {
+        await supabaseFetch(`presensi?nik=eq.${encodeURIComponent(payload.nik)}&tanggal=eq.${encodeURIComponent(payload.tanggal)}`, { method: 'DELETE' });
+      } else if (payload.id) {
+        await supabaseFetch(`presensi?id=eq.${encodeURIComponent(payload.id)}`, { method: 'DELETE' });
+      }
+      return { success: true, message: 'Log presensi berhasil dihapus' };
+    }
+
     case 'getLembur': {
       const filter = payload.nik ? `&nik=eq.${encodeURIComponent(payload.nik)}` : '';
       const data = await supabaseFetch(`lembur?order=tanggal.desc${filter}`);
@@ -1237,6 +1284,7 @@ function renderEmployeeShiftDashboard() {
   }
 
   updateAttendanceStatusBox();
+  syncUserActiveShiftSelector();
 }
 
 let currentRosterDate = new Date();
@@ -1422,6 +1470,7 @@ async function loadShifts() {
 function renderShiftDropdowns() {
   const userSelect = document.getElementById('userActiveShiftSelect');
   const manualSelect = document.getElementById('m_abs_shift');
+  const editAbsSelect = document.getElementById('editAbs_shift');
   
   const shiftList = (state.shifts && state.shifts.length) ? state.shifts : [
     { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', toleransi: 15 },
@@ -1437,9 +1486,79 @@ function renderShiftDropdowns() {
 
   if (userSelect) {
     userSelect.innerHTML = optionsHtml;
+    syncUserActiveShiftSelector();
   }
   if (manualSelect) {
     manualSelect.innerHTML = optionsHtml;
+  }
+  if (editAbsSelect) {
+    editAbsSelect.innerHTML = optionsHtml;
+  }
+}
+
+function syncUserActiveShiftSelector() {
+  const userSelect = document.getElementById('userActiveShiftSelect');
+  const labelSpan = document.getElementById('userActiveShiftLabel');
+  if (!userSelect || !state.currentUser) return;
+
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const myRosterToday = (state.roster || []).find(r => 
+    String(r.nik).trim() === String(state.currentUser.nik).trim() && 
+    r.tanggal === todayStr
+  );
+
+  let targetShift = '';
+  let targetMasuk = '08:00';
+  let targetPulang = '17:00';
+
+  if (myRosterToday && myRosterToday.shift && !myRosterToday.shift.toLowerCase().includes('libur')) {
+    targetShift = myRosterToday.shift;
+    targetMasuk = myRosterToday.jamMasuk || '08:00';
+    targetPulang = myRosterToday.jamPulang || '17:00';
+  } else if (!myRosterToday) {
+    const sc = getShiftScheduleForDate('Shift 1', today);
+    if (!sc.isOff) {
+      targetShift = sc.shift;
+      targetMasuk = sc.masuk;
+      targetPulang = sc.pulang;
+    }
+  }
+
+  if (targetShift) {
+    let found = false;
+    for (let i = 0; i < userSelect.options.length; i++) {
+      const optVal = userSelect.options[i].value.toLowerCase();
+      if (optVal === targetShift.toLowerCase() || optVal.includes(targetShift.toLowerCase())) {
+        userSelect.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      const newOpt = document.createElement('option');
+      newOpt.value = targetShift;
+      newOpt.dataset.masuk = targetMasuk;
+      newOpt.dataset.pulang = targetPulang;
+      newOpt.dataset.tol = '15';
+      newOpt.textContent = `${targetShift} (${targetMasuk} - ${targetPulang})`;
+      userSelect.appendChild(newOpt);
+      userSelect.value = targetShift;
+    }
+  }
+
+  const isAdmin = state.currentUser.role === 'admin';
+  if (isAdmin) {
+    userSelect.disabled = false;
+    if (labelSpan) {
+      labelSpan.innerHTML = `Pilih Shift Kerja Hari Ini <span style="background:var(--accent-primary);color:#fff;font-size:0.72rem;padding:2px 7px;border-radius:12px;margin-left:6px;font-weight:600;">👑 Admin: Bebas Pilih</span>`;
+    }
+  } else {
+    userSelect.disabled = true;
+    if (labelSpan) {
+      labelSpan.innerHTML = `Shift Kerja Hari Ini <span style="background:var(--success);color:#fff;font-size:0.72rem;padding:2px 7px;border-radius:12px;margin-left:6px;font-weight:600;">🔒 Sesuai Jadwal Shift</span>`;
+    }
   }
 }
 
@@ -1491,13 +1610,16 @@ function renderAdminAbsensi() {
           <tr>
             <td><strong>${a.nama || '-'}</strong><br><small class="mono-text">${a.nik}</small></td>
             <td><span class="mono-text">${a.tanggal}</span></td>
-            <td>${a.shift}</td>
+            <td><strong>${a.shift}</strong></td>
             <td><span class="mono-text">${a.jamMasuk || '-'}</span></td>
             <td><span class="mono-text">${a.jamPulang || '-'}</span></td>
             <td><span class="status ${a.status === 'Hadir' ? 'disetujui' : 'ditolak'}">${a.status}</span></td>
             <td><span class="mono-text">${Number(a.keterlambatanMenit || 0) > 0 ? a.keterlambatanMenit + ' mnt' : '-'}</span></td>
             <td class="action-cell">
-              <button class="action-btn delete" onclick="deleteAbsensiRecord('${a.id}')">Hapus</button>
+              <div class="action-cell-group">
+                <button class="action-btn edit" onclick="openEditAbsensi('${a.id}')">✏️ Edit</button>
+                <button class="action-btn delete" onclick="deleteAbsensiRecord('${a.id}')">🗑️ Hapus</button>
+              </div>
             </td>
           </tr>
         `).join('')}
@@ -1552,6 +1674,132 @@ window.deleteAbsensiRecord = async (id) => {
     loadAbsensi();
   }
 };
+
+window.openEditAbsensi = function(id) {
+  const a = (state.absensi || []).find(x => String(x.id) === String(id));
+  if (!a) {
+    showToast('Data presensi tidak ditemukan', 'error');
+    return;
+  }
+
+  document.getElementById('editAbs_id').value = a.id || '';
+  document.getElementById('editAbs_nik').value = a.nik || '';
+  document.getElementById('editAbs_nama').value = a.nama ? `${a.nama} (${a.nik})` : a.nik;
+  document.getElementById('editAbs_tanggal').value = a.tanggal || '';
+  document.getElementById('editAbs_status').value = a.status || 'Hadir';
+  document.getElementById('editAbs_jamMasuk').value = a.jamMasuk || '';
+  document.getElementById('editAbs_jamPulang').value = (a.jamPulang && a.jamPulang !== '-') ? a.jamPulang : '';
+  document.getElementById('editAbs_keterlambatan').value = a.keterlambatanMenit || 0;
+  document.getElementById('editAbs_catatan').value = a.catatan || '';
+
+  // Populate shift dropdown
+  const shiftSelect = document.getElementById('editAbs_shift');
+  if (shiftSelect) {
+    const shiftList = (state.shifts && state.shifts.length) ? state.shifts : [
+      { namaShift: 'Shift 1', jamMasuk: '08:00', jamPulang: '17:00', toleransi: 15 },
+      { namaShift: 'Shift 2', jamMasuk: '09:00', jamPulang: '18:00', toleransi: 15 },
+      { namaShift: 'Shift 3', jamMasuk: '12:00', jamPulang: '21:00', toleransi: 15 }
+    ];
+
+    shiftSelect.innerHTML = shiftList.map(s => `
+      <option value="${s.namaShift}" data-masuk="${s.jamMasuk}" data-pulang="${s.jamPulang}" data-tol="${s.toleransi || s.toleransiMenit || 15}">
+        ${s.namaShift} (${s.jamMasuk} - ${s.jamPulang})
+      </option>
+    `).join('');
+
+    let matched = false;
+    for (let i = 0; i < shiftSelect.options.length; i++) {
+      if (shiftSelect.options[i].value.toLowerCase() === (a.shift || '').toLowerCase()) {
+        shiftSelect.selectedIndex = i;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched && a.shift) {
+      const opt = document.createElement('option');
+      opt.value = a.shift;
+      opt.textContent = a.shift;
+      shiftSelect.appendChild(opt);
+      shiftSelect.value = a.shift;
+    }
+  }
+
+  document.getElementById('editAbsensiModal').classList.remove('hidden');
+};
+
+window.onEditAbsensiShiftChanged = function() {
+  const shiftSelect = document.getElementById('editAbs_shift');
+  const opt = shiftSelect ? shiftSelect.selectedOptions[0] : null;
+  const jamMasukInput = document.getElementById('editAbs_jamMasuk');
+  const jamPulangInput = document.getElementById('editAbs_jamPulang');
+
+  if (opt && opt.dataset.masuk && !jamMasukInput.value) {
+    jamMasukInput.value = opt.dataset.masuk;
+  }
+  if (opt && opt.dataset.pulang && !jamPulangInput.value) {
+    jamPulangInput.value = opt.dataset.pulang;
+  }
+  recalcEditAbsensiLate();
+};
+
+window.recalcEditAbsensiLate = function() {
+  const shiftSelect = document.getElementById('editAbs_shift');
+  const opt = shiftSelect ? shiftSelect.selectedOptions[0] : null;
+  const jamMasuk = document.getElementById('editAbs_jamMasuk').value;
+  const statusSelect = document.getElementById('editAbs_status');
+  const ketInput = document.getElementById('editAbs_keterlambatan');
+
+  if (!jamMasuk || !opt || !opt.dataset.masuk) return;
+
+  const [jmH, jmM] = jamMasuk.split(':').map(Number);
+  const [shH, shM] = opt.dataset.masuk.split(':').map(Number);
+  const tol = Number(opt.dataset.tol || 15);
+
+  const masukTotal = jmH * 60 + (jmM || 0);
+  const shiftTotal = shH * 60 + (shM || 0);
+  const diff = masukTotal - shiftTotal;
+
+  if (diff > tol) {
+    ketInput.value = diff;
+    if (statusSelect.value === 'Hadir') {
+      statusSelect.value = 'Terlambat';
+    }
+  } else {
+    ketInput.value = 0;
+    if (statusSelect.value === 'Terlambat') {
+      statusSelect.value = 'Hadir';
+    }
+  }
+};
+
+const editAbsForm = document.getElementById('editAbsensiForm');
+if (editAbsForm) {
+  editAbsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveEditAbsensi');
+    setButtonLoading(btn, true, 'Menyimpan...');
+
+    const payload = {
+      id: document.getElementById('editAbs_id').value,
+      nik: document.getElementById('editAbs_nik').value,
+      tanggal: document.getElementById('editAbs_tanggal').value,
+      shift: document.getElementById('editAbs_shift').value,
+      status: document.getElementById('editAbs_status').value,
+      jamMasuk: document.getElementById('editAbs_jamMasuk').value,
+      jamPulang: document.getElementById('editAbs_jamPulang').value,
+      keterlambatanMenit: Number(document.getElementById('editAbs_keterlambatan').value || 0),
+      catatan: document.getElementById('editAbs_catatan').value
+    };
+
+    const res = await apiRequest('updateAbsensi', payload);
+    setButtonLoading(btn, false);
+    if (res) {
+      showToast('Data presensi berhasil diperbarui!');
+      closeModal('editAbsensiModal');
+      loadAbsensi();
+    }
+  });
+}
 
 // ================= SHIFT MASTER =================
 function renderShiftTable() {

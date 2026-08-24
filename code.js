@@ -52,6 +52,8 @@ function doPost(e) {
         return jsonResponse({ success: true, data: checkOutAbsensi(payload) });
       case 'saveAbsensiManual':
         return jsonResponse({ success: true, data: saveAbsensiManual(payload) });
+      case 'updateAbsensi':
+        return jsonResponse({ success: true, ok: updateAbsensi(payload) });
       case 'deleteAbsensi':
         return jsonResponse({ success: true, ok: deleteRowById('Data Absensi', payload.id) });
 
@@ -586,6 +588,28 @@ function saveAbsensiManual(payload) {
   ];
   sheet.appendRow(row);
   return { id, ...payload };
+}
+
+function updateAbsensi(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Absensi');
+  if (!sheet) return false;
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    const rowId = String(values[i][0]).trim();
+    const rowNik = String(values[i][1]).trim();
+    const rowDate = formatCellVal(values[i][3]);
+    if (rowId === String(payload.id).trim() || (rowNik === String(payload.nik).trim() && rowDate === String(payload.tanggal).trim())) {
+      if (payload.tanggal !== undefined) sheet.getRange(i + 1, 4).setValue(payload.tanggal);
+      if (payload.shift !== undefined) sheet.getRange(i + 1, 5).setValue(payload.shift);
+      if (payload.jamMasuk !== undefined) sheet.getRange(i + 1, 6).setValue(payload.jamMasuk);
+      if (payload.jamPulang !== undefined) sheet.getRange(i + 1, 7).setValue(payload.jamPulang);
+      if (payload.status !== undefined) sheet.getRange(i + 1, 8).setValue(payload.status);
+      if (payload.keterlambatanMenit !== undefined) sheet.getRange(i + 1, 9).setValue(Number(payload.keterlambatanMenit || 0));
+      if (payload.catatan !== undefined) sheet.getRange(i + 1, 10).setValue(payload.catatan);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ------------- LEMBUR (PRIVAT PER USER) -------------

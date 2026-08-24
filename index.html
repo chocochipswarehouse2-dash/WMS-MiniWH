@@ -218,7 +218,7 @@
               
               <div class="attendance-controls">
                 <label style="margin-bottom: 12px;">
-                  <span>Pilih Shift Kerja Hari Ini:</span>
+                  <span id="userActiveShiftLabel">Pilih Shift Kerja Hari Ini:</span>
                   <select id="userActiveShiftSelect"></select>
                 </label>
                 <div class="grid two-columns" style="gap: 12px;">
@@ -813,6 +813,62 @@
     </div>
   </div>
 
+  <!-- MODAL EDIT ABSENSI / PRESENSI (ADMIN ONLY) -->
+  <div id="editAbsensiModal" class="modal hidden">
+    <div class="modal-content" style="max-width: 560px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0;">Edit Data Presensi Karyawan</h3>
+          <small style="color: var(--text-muted);">Ubah shift, jam masuk, jam pulang, toleransi keterlambatan, atau status kehadiran.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('editAbsensiModal')">✕</button>
+      </div>
+      <form id="editAbsensiForm">
+        <input type="hidden" id="editAbs_id">
+        <input type="hidden" id="editAbs_nik">
+        
+        <div class="grid two-columns">
+          <label><span>Nama &amp; NIK Karyawan</span><input type="text" id="editAbs_nama" readonly style="background: var(--bg-app); font-weight: 600;"></label>
+          <label><span>Tanggal Presensi</span><input type="date" id="editAbs_tanggal" required></label>
+        </div>
+
+        <div class="grid two-columns">
+          <label><span>Pilih Shift</span>
+            <select id="editAbs_shift" required onchange="onEditAbsensiShiftChanged()">
+              <!-- Filled dynamically by JS -->
+            </select>
+          </label>
+          <label><span>Status Kehadiran</span>
+            <select id="editAbs_status" required>
+              <option value="Hadir">Hadir</option>
+              <option value="Terlambat">Terlambat</option>
+              <option value="Ijin">Ijin</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Alpha">Alpha</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid two-columns">
+          <label><span>Jam Masuk</span><input type="time" id="editAbs_jamMasuk" oninput="recalcEditAbsensiLate()"></label>
+          <label><span>Jam Pulang</span><input type="time" id="editAbs_jamPulang"></label>
+        </div>
+
+        <div class="grid two-columns">
+          <label><span>Keterlambatan (Menit)</span><input type="number" id="editAbs_keterlambatan" min="0" value="0"></label>
+          <label><span>Catatan / Keterangan</span><input type="text" id="editAbs_catatan" placeholder="Contoh: Koreksi jam masuk admin..."></label>
+        </div>
+
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSaveEditAbsensi" class="primary-btn">
+            <span class="btn-text">💾 Simpan Perubahan Presensi</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('editAbsensiModal')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL MASTER SHIFT -->
   <div id="addShiftModal" class="modal hidden">
     <div class="modal-content">
@@ -1230,6 +1286,6 @@
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=8.1" defer></script>
+  <script src="script.js?v=8.2" defer></script>
 </body>
 </html>
