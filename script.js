@@ -1407,7 +1407,8 @@ function renderAdminRosterTable() {
 
         tableHtml += `
           <td style="padding: 2px;">
-            <div class="shift-block ${bgClass}" onclick="openEditRosterModal('${shiftData.id}')">
+            <div class="shift-block ${bgClass}" onclick="openEditRosterModal('${shiftData.id}')" style="position: relative;">
+              <span style="position: absolute; top: 4px; right: 4px; font-size: 0.6rem; opacity: 0.5;">✏️</span>
               ${jam ? `<div class="shift-time">${jam}</div>` : ''}
               <div class="shift-name" style="${!jam ? 'font-size:0.75rem; font-weight:700;' : ''}">${shiftNameDisplay}</div>
             </div>
@@ -4216,6 +4217,8 @@ window.openAddRosterModal = function(nik, nama, date) {
   document.getElementById('editRosterJamPulang').value = '17:00';
   document.getElementById('editRosterKeterangan').value = '';
   document.getElementById('modalEditRoster').querySelector('.panel-header-row h3').innerText = 'Tambah Roster Shift';
+  const btnDel = document.getElementById('btnDeleteRoster');
+  if (btnDel) btnDel.style.display = 'none';
   openModal('modalEditRoster');
 };
 
@@ -4230,6 +4233,8 @@ window.openEditRosterModal = function(id) {
   document.getElementById('editRosterJamPulang').value = r.jamPulang;
   document.getElementById('editRosterKeterangan').value = r.keterangan || '';
   document.getElementById('modalEditRoster').querySelector('.panel-header-row h3').innerText = 'Edit Roster Shift';
+  const btnDel = document.getElementById('btnDeleteRoster');
+  if (btnDel) btnDel.style.display = 'inline-block';
   openModal('modalEditRoster');
 };
 
@@ -4242,6 +4247,26 @@ window.autoFillEditJam = function() {
   
   if(jamMasuk) document.getElementById('editRosterJamMasuk').value = jamMasuk;
   if(jamPulang) document.getElementById('editRosterJamPulang').value = jamPulang;
+};
+
+window.deleteRosterFromModal = async function() {
+  const id = document.getElementById('editRosterId').value;
+  if (!id) return;
+  if (!confirm('Apakah Anda yakin ingin menghapus jadwal shift ini?')) return;
+  
+  showLoading();
+  try {
+    const res = await supabase.from('roster_shift').delete().eq('id', id);
+    if (res.error) throw res.error;
+    alert('Jadwal berhasil dihapus!');
+    closeModal('modalEditRoster');
+    await fetchRoster();
+    renderAdminRosterTable();
+  } catch (err) {
+    alert('Gagal menghapus jadwal: ' + err.message);
+  } finally {
+    hideLoading();
+  }
 };
 
 window.saveEditRoster = async function(e) {
