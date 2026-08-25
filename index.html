@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9.5" />
+  <link rel="stylesheet" href="style.css?v=10.0" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -160,8 +160,26 @@
 
         <!-- ================= PILAR 1: EXECUTIVE DASHBOARD (IronNest Image 4) ================= -->
         <section id="presensiTab" class="tab-panel active">
+          
+          <!-- GATEKEEPER WARNING BOX (JIKA DATA DIRI BELUM LENGKAP) -->
+          <div id="gatekeeperAttendanceWarning" class="panel gatekeeper-warning-box hidden" style="margin-bottom: 24px;">
+            <div style="display: flex; align-items: flex-start; gap: 16px;">
+              <div style="font-size: 2.2rem; line-height: 1;">⚠️</div>
+              <div style="flex: 1;">
+                <h4 style="margin: 0 0 6px 0; color: #b45309; font-size: 1.05rem;">Akses Presensi Harian Masih Terkunci</h4>
+                <p style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 0.88rem; line-height: 1.4;">
+                  Sesuai kebijakan keselamatan kerja & HRD, Anda diwajibkan melengkapi <strong>Data Diri Wajib & Kontak Darurat</strong> terlebih dahulu sebelum dapat melakukan presensi kehadiran harian.
+                </p>
+                <div id="gatekeeperMissingList" style="margin-bottom: 12px; font-size: 0.82rem; color: #d97706; font-weight: 600;"></div>
+                <button type="button" class="primary-btn small-btn" onclick="switchTab('profileTab')" style="background: #d97706; border-color: #b45309;">
+                  📝 Lengkapi Data Diri Sekarang
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- DASHBOARD JADWAL SHIFT KARYAWAN -->
-          <div class="panel highlight-panel" style="margin-bottom: 24px;">
+          <div class="panel highlight-panel" id="employeeShiftDashboardPanel" style="margin-bottom: 24px;">
             <div class="panel-header-row">
               <div>
                 <h3 style="color: var(--accent-primary);">📅 Dashboard Jadwal Shift Saya</h3>
@@ -354,7 +372,7 @@
           <div class="panel profile-header-panel" style="margin-bottom: 24px;">
             <div class="profile-header-content">
               <div class="profile-avatar-box">
-                <div class="profile-avatar-large" id="profileBigAvatar">
+                <div class="profile-avatar-large cursor-pointer" id="profileBigAvatar" onclick="openPhotoViewer(state.currentUser)" title="Klik untuk melihat foto ukuran besar">
                   <span id="profileBigAvatarText">WH</span>
                   <img id="profileBigAvatarImg" src="" alt="Avatar" class="avatar-photo" style="display: none;" />
                 </div>
@@ -510,11 +528,14 @@
             <div class="panel-header-row">
               <div>
                 <h3 style="display: flex; align-items: center; gap: 8px;">
-                  <span>📝</span> Lengkapi Data Diri & Kontak Darurat
+                  <span>📝</span> Data Diri & Kontak Darurat Karyawan
                 </h3>
-                <small style="color: var(--text-muted);">Pastikan data diri Anda selalu terbarui untuk keperluan administrasi dan keselamatan kerja.</small>
+                <small style="color: var(--text-muted);">Data diri ini diverifikasi dan dikunci untuk keperluan keselamatan kerja dan administrasi resmi.</small>
               </div>
             </div>
+
+            <!-- DYNAMIC STATUS BANNER -->
+            <div id="profileStatusBanner" style="margin-bottom: 16px;"></div>
 
             <form id="profileBiodataForm" onsubmit="saveUserProfile(event)" class="grid two-columns" style="gap: 16px;">
               
@@ -531,7 +552,7 @@
               </label>
 
               <label>
-                <span>Nama Lengkap</span>
+                <span>Nama Lengkap <span class="badge-required-star">*</span></span>
                 <input type="text" id="profNama" required placeholder="Nama lengkap Anda..." />
               </label>
 
@@ -546,33 +567,33 @@
               </label>
 
               <label>
-                <span>Tanggal Bergabung (Masa Kerja)</span>
+                <span>Tanggal Bergabung <span class="badge-optional-text">(Masa Kerja)</span></span>
                 <input type="date" id="profTglBergabung" />
               </label>
 
               <label>
-                <span>Nomor WhatsApp / HP Aktif</span>
+                <span>Nomor WhatsApp / HP Aktif <span class="badge-required-star">*</span></span>
                 <input type="tel" id="profNoHp" required placeholder="Contoh: 08123456789" />
               </label>
 
               <label>
-                <span>Alamat Email</span>
+                <span>Alamat Email <span class="badge-optional-text">(Opsional)</span></span>
                 <input type="email" id="profEmail" placeholder="nama@email.com" />
               </label>
 
               <label>
-                <span>Tanggal Lahir</span>
-                <input type="date" id="profTglLahir" />
+                <span>Tanggal Lahir <span class="badge-required-star">*</span></span>
+                <input type="date" id="profTglLahir" required />
               </label>
 
               <label>
-                <span>Hobi / Minat</span>
+                <span>Hobi / Minat <span class="badge-optional-text">(Opsional)</span></span>
                 <input type="text" id="profHobi" placeholder="Contoh: Futsal, Membaca, Badminton" />
               </label>
 
               <label style="grid-column: 1 / -1;">
-                <span>Alamat Lengkap Domisili / Tempat Tinggal</span>
-                <textarea id="profAlamat" rows="3" placeholder="Alamat tempat tinggal saat ini (Jalan, RT/RW, Kelurahan, Kecamatan, Kota/Kabupaten)..." style="width: 100%; border-radius: 6px; padding: 10px; border: 1px solid var(--border-subtle); background: var(--bg-panel); color: var(--text-primary); font-family: inherit; resize: vertical;"></textarea>
+                <span>Alamat Lengkap Domisili / Tempat Tinggal <span class="badge-required-star">*</span></span>
+                <textarea id="profAlamat" rows="3" required placeholder="Alamat tempat tinggal saat ini (Jalan, RT/RW, Kelurahan, Kecamatan, Kota/Kabupaten)..." style="width: 100%; border-radius: 6px; padding: 10px; border: 1px solid var(--border-subtle); background: var(--bg-panel); color: var(--text-primary); font-family: inherit; resize: vertical;"></textarea>
               </label>
 
               <!-- KONTAK DARURAT -->
@@ -583,14 +604,13 @@
               </div>
 
               <label>
-                <span>Nama Kontak Darurat</span>
-                <input type="text" id="profEmergencyNama" placeholder="Nama keluarga / kerabat..." />
+                <span>Nama Kontak Darurat <span class="badge-required-star">*</span></span>
+                <input type="text" id="profEmergencyNama" required placeholder="Nama keluarga / kerabat..." />
               </label>
 
               <label>
-                <span>Hubungan / Relasi</span>
+                <span>Hubungan / Relasi <span class="badge-optional-text">(Opsional)</span></span>
                 <select id="profEmergencyHubungan">
-                  <option value="">Pilih Hubungan...</option>
                   <option value="Orang Tua">Orang Tua (Ayah / Ibu)</option>
                   <option value="Suami / Istri">Suami / Istri</option>
                   <option value="Saudara Kandung">Saudara Kandung (Kakak / Adik)</option>
@@ -600,13 +620,16 @@
               </label>
 
               <label style="grid-column: 1 / -1;">
-                <span>Nomor Telepon / WhatsApp Darurat</span>
-                <input type="tel" id="profEmergencyPhone" placeholder="Contoh: 081298765432" />
+                <span>Nomor Telepon / WhatsApp Darurat <span class="badge-required-star">*</span></span>
+                <input type="tel" id="profEmergencyPhone" required placeholder="Contoh: 081298765432" />
               </label>
 
-              <div class="submit-row action-bar" style="grid-column: 1 / -1; margin-top: 8px;">
+              <div class="submit-row action-bar" id="profileActionBar" style="grid-column: 1 / -1; margin-top: 8px;">
                 <button type="submit" id="btnSaveProfile" class="primary-btn">
-                  <span class="btn-text">💾 Simpan Perubahan Data Diri</span>
+                  <span class="btn-text">💾 Simpan & Kunci Data Diri</span>
+                </button>
+                <button type="button" id="btnOpenRequestChange" class="secondary-btn hidden" onclick="openRequestProfileChangeModal()">
+                  <span class="btn-text">📝 Ajukan Perubahan Data Profil</span>
                 </button>
               </div>
             </form>
@@ -740,6 +763,22 @@
               </div>
             </form>
             <div id="userFormMessage" class="message-box"></div>
+          </div>
+
+          <!-- PANEL DAFTAR PENGAJUAN PERUBAHAN DATA PROFIL KARYAWAN -->
+          <div class="panel" id="panelAdminProfileRequests" style="margin-bottom: 24px;">
+            <div class="panel-header-row">
+              <div>
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <span>📋</span> Pengajuan Perubahan Data Profil Karyawan
+                </h3>
+                <small style="color: var(--text-muted);">Persetujuan perubahan data diri, alamat, dan kontak darurat yang diajukan oleh staf.</small>
+              </div>
+              <span id="badgePendingProfileRequestsCount" class="status diajukan" style="display: none;">0 Pengajuan Menunggu</span>
+            </div>
+            <div id="adminProfileRequestsTableWrap" class="table-wrap">
+              <div style="padding: 24px; text-align: center; color: var(--text-muted);">Tidak ada pengajuan perubahan profil yang menunggu persetujuan.</div>
+            </div>
           </div>
 
           <div class="panel">
@@ -1426,6 +1465,75 @@
           <button type="button" class="secondary-btn" onclick="closeModal('modalQc')">Batal</button>
         </div>
       </form>
+  <!-- MODAL AJUKAN PERUBAHAN DATA PROFIL KARYAWAN -->
+  <div id="modalAjukanPerubahanProfil" class="modal hidden">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <div>
+          <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+            <span>📝</span> Ajukan Perubahan Data Profil
+          </h3>
+          <small style="color: var(--text-muted);">Perubahan data akan diverifikasi dan disetujui terlebih dahulu oleh Admin Warehouse.</small>
+        </div>
+        <button type="button" class="icon-btn" onclick="closeModal('modalAjukanPerubahanProfil')">✕</button>
+      </div>
+      <form id="formAjukanPerubahanProfil" onsubmit="submitProfileChangeRequest(event)">
+        <div class="grid two-columns">
+          <label><span>Nama Lengkap <span class="badge-required-star">*</span></span><input type="text" id="reqNama" required /></label>
+          <label><span>No. WhatsApp / HP Aktif <span class="badge-required-star">*</span></span><input type="tel" id="reqNoHp" required /></label>
+        </div>
+        <div class="grid two-columns">
+          <label><span>Alamat Email <span class="badge-optional-text">(Opsional)</span></span><input type="email" id="reqEmail" placeholder="nama@email.com" /></label>
+          <label><span>Tanggal Lahir <span class="badge-required-star">*</span></span><input type="date" id="reqTglLahir" required /></label>
+        </div>
+        <label><span>Alamat Lengkap Domisili <span class="badge-required-star">*</span></span>
+          <textarea id="reqAlamat" rows="2" required placeholder="Alamat tinggal baru..." style="width:100%; border-radius:6px; padding:10px; border:1px solid var(--border-subtle); background:var(--bg-panel); color:var(--text-primary); font-family:inherit;"></textarea>
+        </label>
+        <div class="grid two-columns">
+          <label><span>Nama Kontak Darurat <span class="badge-required-star">*</span></span><input type="text" id="reqEmergencyNama" required /></label>
+          <label><span>Hubungan Kerabat <span class="badge-optional-text">(Opsional)</span></span>
+            <select id="reqEmergencyHubungan">
+              <option value="Orang Tua">Orang Tua (Ayah / Ibu)</option>
+              <option value="Suami / Istri">Suami / Istri</option>
+              <option value="Saudara Kandung">Saudara Kandung (Kakak / Adik)</option>
+              <option value="Wali / Kerabat">Wali / Kerabat Dekat</option>
+              <option value="Teman / Rekan">Teman / Rekan</option>
+            </select>
+          </label>
+        </div>
+        <label><span>No. Telepon / WA Kontak Darurat <span class="badge-required-star">*</span></span><input type="tel" id="reqEmergencyPhone" required placeholder="08..." /></label>
+        <label><span>Hobi / Minat <span class="badge-optional-text">(Opsional)</span></span><input type="text" id="reqHobi" placeholder="Contoh: Badminton, Futsal" /></label>
+        <label><span>Alasan Pengajuan Perubahan Data <span class="badge-required-star">*</span></span>
+          <input type="text" id="reqAlasan" required placeholder="Contoh: Pindah alamat domisili, ganti nomor HP WhatsApp..." />
+        </label>
+        <div class="submit-row" style="margin-top: 18px;">
+          <button type="submit" id="btnSubmitProfileRequest" class="primary-btn">
+            <span class="btn-text">🚀 Kirim Pengajuan ke Admin</span>
+          </button>
+          <button type="button" class="secondary-btn" onclick="closeModal('modalAjukanPerubahanProfil')">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL PHOTO VIEWER / LIGHTBOX -->
+  <div id="modalPhotoViewer" class="modal hidden" onclick="if(event.target === this) closeModal('modalPhotoViewer')">
+    <div class="modal-content modal-photo-viewer">
+      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+        <h4 id="photoViewerTitle" style="margin: 0;">Foto Profil Karyawan</h4>
+        <button type="button" class="icon-btn" onclick="closeModal('modalPhotoViewer')">✕</button>
+      </div>
+      <div class="photo-lightbox-frame">
+        <img id="photoViewerImg" src="" alt="Foto Profil" style="display: none;" />
+        <div id="photoViewerInitials" class="photo-lightbox-initials">WH</div>
+      </div>
+      <div id="photoViewerMeta" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">
+        <strong id="photoViewerName" style="color: var(--text-primary); font-size: 1.05rem;">-</strong><br>
+        <span id="photoViewerNik">-</span>
+      </div>
+      <div style="margin-top: 16px;">
+        <button type="button" class="secondary-btn small-btn" onclick="closeModal('modalPhotoViewer')">Tutup</button>
+      </div>
     </div>
   </div>
 
@@ -1437,6 +1545,6 @@
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=9.5" defer></script>
+  <script src="script.js?v=10.0" defer></script>
 </body>
 </html>

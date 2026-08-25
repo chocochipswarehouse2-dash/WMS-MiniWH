@@ -26,6 +26,14 @@ function doPost(e) {
         return jsonResponse({ success: true, user: saveUser(payload) });
       case 'saveUserProfile':
         return jsonResponse({ success: true, result: saveUserProfile(payload) });
+      case 'getProfileRequests':
+        return jsonResponse({ success: true, data: getProfileRequests() });
+      case 'submitProfileChangeRequest':
+        return jsonResponse({ success: true, data: submitProfileChangeRequest(payload) });
+      case 'approveProfileChangeRequest':
+        return jsonResponse({ success: true, data: approveProfileChangeRequest(payload) });
+      case 'rejectProfileChangeRequest':
+        return jsonResponse({ success: true, data: rejectProfileChangeRequest(payload) });
       case 'importUsersBulk':
         return jsonResponse({ success: true, count: importUsersBulk(payload.userList) });
       case 'deleteUser':
@@ -486,6 +494,78 @@ function saveUserProfile(payload) {
   if (payload.kontakDarurat !== undefined) updateCol('kontakDarurat', payload.kontakDarurat);
 
   return { success: true, message: 'Data diri berhasil disimpan.' };
+}
+
+function getProfileRequests() {
+  return getSheetRows('Pengajuan Profil');
+}
+
+function submitProfileChangeRequest(payload) {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName('Pengajuan Profil');
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet('Pengajuan Profil');
+    sheet.appendRow(['ID', 'NIK', 'Nama Lama', 'Nama Baru', 'No HP Baru', 'Email Baru', 'Tgl Lahir Baru', 'Alamat Baru', 'Hobi Baru', 'Kontak Darurat Baru', 'Alasan', 'Status', 'Tanggal', 'Created At']);
+  }
+  const id = payload.id || ('REQ-' + Date.now());
+  sheet.appendRow([
+    id,
+    payload.nik || '',
+    payload.namaLama || '',
+    payload.namaBaru || '',
+    payload.noHpBaru || '',
+    payload.emailBaru || '',
+    payload.tglLahirBaru || '',
+    payload.alamatBaru || '',
+    payload.hobiBaru || '',
+    payload.kontakDaruratBaru || '',
+    payload.alasan || '',
+    payload.status || 'Diajukan',
+    payload.tanggal || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    new Date()
+  ]);
+  return { success: true, id: id };
+}
+
+function approveProfileChangeRequest(payload) {
+  const req = payload.approvedData || {};
+  if (req.nik) {
+    saveUserProfile({
+      nik: req.nik,
+      nama: req.namaBaru,
+      noHp: req.noHpBaru,
+      email: req.emailBaru,
+      tglLahir: req.tglLahirBaru,
+      alamat: req.alamatBaru,
+      hobi: req.hobiBaru,
+      kontakDarurat: req.kontakDaruratBaru
+    });
+  }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pengajuan Profil');
+  if (sheet) {
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]).trim() === String(payload.id).trim()) {
+        sheet.getRange(i + 1, 12).setValue('Disetujui');
+        break;
+      }
+    }
+  }
+  return { success: true };
+}
+
+function rejectProfileChangeRequest(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pengajuan Profil');
+  if (sheet) {
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]).trim() === String(payload.id).trim()) {
+        sheet.getRange(i + 1, 12).setValue('Ditolak');
+        break;
+      }
+    }
+  }
+  return { success: true };
 }
 
 function importUsersBulk(userList) {

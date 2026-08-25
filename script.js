@@ -128,6 +128,12 @@ function switchTab(tabId) {
   if (tabId === 'profileTab') {
     renderUserProfileTab();
   }
+  if (tabId === 'presensiTab') {
+    updateAttendanceGatekeeper();
+  }
+  if (tabId === 'settingTab' && state.currentUser && state.currentUser.role === 'admin') {
+    renderAdminProfileRequestsTable();
+  }
 
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
@@ -406,6 +412,114 @@ async function supabaseApiRequest(action, payload) {
     case 'deleteUser': {
       await supabaseFetch(`karyawan?nik=eq.${encodeURIComponent(payload.nik)}`, { method: 'DELETE' });
       return { success: true, message: 'Karyawan berhasil dihapus' };
+    }
+    case 'getProfileRequests': {
+      try {
+        const data = await supabaseFetch('pengajuan_profil?order=created_at.desc');
+        if (data && Array.isArray(data)) {
+          return {
+            success: true,
+            data: data.map(r => ({
+              id: r.id,
+              nik: r.nik,
+              namaLama: r.nama_lama,
+              namaBaru: r.nama_baru,
+              noHpBaru: r.no_hp_baru,
+              emailBaru: r.email_baru,
+              tglLahirBaru: r.tgl_lahir_baru,
+              alamatBaru: r.alamat_baru,
+              hobiBaru: r.hobi_baru,
+              kontakDaruratBaru: r.kontak_darurat_baru,
+              alasan: r.alasan,
+              status: r.status,
+              tanggal: r.tanggal,
+              createdAt: r.created_at
+            }))
+          };
+        }
+      } catch (e) {}
+      const localReqs = JSON.parse(localStorage.getItem('wms_profile_requests') || '[]');
+      return { success: true, data: localReqs };
+    }
+
+    case 'submitProfileChangeRequest': {
+      const row = {
+        id: payload.id || ('REQ-' + Date.now()),
+        nik: payload.nik,
+        nama_lama: payload.namaLama,
+        nama_baru: payload.namaBaru,
+        no_hp_baru: payload.noHpBaru,
+        email_baru: payload.emailBaru,
+        tgl_lahir_baru: payload.tglLahirBaru,
+        alamat_baru: payload.alamatBaru,
+        hobi_baru: payload.hobiBaru,
+        kontak_darurat_baru: payload.kontakDaruratBaru,
+        alasan: payload.alasan,
+        status: 'Diajukan',
+        tanggal: payload.tanggal || new Date().toISOString().split('T')[0],
+        created_at: new Date().toISOString()
+      };
+      try {
+        await supabaseFetch('pengajuan_profil', {
+          method: 'POST',
+          body: [row]
+        });
+      } catch (e) {}
+      const localReqs = JSON.parse(localStorage.getItem('wms_profile_requests') || '[]');
+      localReqs.unshift(payload);
+      localStorage.setItem('wms_profile_requests', JSON.stringify(localReqs));
+      return { success: true, data: payload };
+    }
+
+    case 'approveProfileChangeRequest': {
+      const req = payload.approvedData;
+      try {
+        await supabaseFetch(`pengajuan_profil?id=eq.${encodeURIComponent(payload.id)}`, {
+          method: 'PATCH',
+          body: { status: 'Disetujui', updated_at: new Date().toISOString() }
+        });
+      } catch(e) {}
+
+      if (req && req.nik) {
+        const userUpdate = {
+          nama: req.namaBaru,
+          no_hp: req.noHpBaru,
+          email: req.emailBaru,
+          tgl_lahir: req.tglLahirBaru,
+          alamat: req.alamatBaru,
+          hobi: req.hobiBaru,
+          kontak_darurat: req.kontakDaruratBaru,
+          updated_at: new Date().toISOString()
+        };
+        await supabaseFetch(`karyawan?nik=eq.${encodeURIComponent(req.nik)}`, {
+          method: 'PATCH',
+          body: userUpdate
+        });
+      }
+
+      const localReqs = JSON.parse(localStorage.getItem('wms_profile_requests') || '[]');
+      const target = localReqs.find(x => x.id === payload.id);
+      if (target) target.status = 'Disetujui';
+      localStorage.setItem('wms_profile_requests', JSON.stringify(localReqs));
+
+      return { success: true };
+    }
+
+    case 'rejectProfileChangeRequest': {
+      try {
+        await supabaseFetch(`pengajuan_profil?id=eq.${encodeURIComponent(payload.id)}`, {
+          method: 'PATCH',
+          body: { status: 'Ditolak', alasan_tolak: payload.alasanTolak || '', updated_at: new Date().toISOString() }
+        });
+      } catch(e) {}
+      const localReqs = JSON.parse(localStorage.getItem('wms_profile_requests') || '[]');
+      const target = localReqs.find(x => x.id === payload.id);
+      if (target) {
+        target.status = 'Ditolak';
+        target.alasanTolak = payload.alasanTolak;
+      }
+      localStorage.setItem('wms_profile_requests', JSON.stringify(localReqs));
+      return { success: true };
     }
 
     case 'getShifts': {
@@ -3324,8 +3438,8 @@ function renderUserTable() {
           const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
           const tenure = calculateTenure(u.tglBergabung || u.tgl_bergabung);
           const avatarHtml = u.foto ? 
-            `<div class="table-user-avatar"><img src="${u.foto}" alt="${u.nama}" /></div>` :
-            `<div class="table-user-avatar">${initials}</div>`;
+            `<div class="table-user-avatar cursor-pointer" onclick="openPhotoViewerByNik('${u.nik}')" title="Klik untuk lihat foto besar"><img src="${u.foto}" alt="${u.nama}" /></div>` :
+            `<div class="table-user-avatar cursor-pointer" onclick="openPhotoViewerByNik('${u.nik}')" title="Klik untuk lihat foto besar">${initials}</div>`;
 
           return `
           <tr>
@@ -3333,8 +3447,8 @@ function renderUserTable() {
               <div style="display: flex; align-items: center; gap: 10px;">
                 ${avatarHtml}
                 <div>
-                  <strong>${escapeHtml(u.nama)}</strong>
-                  ${u.alamat ? `<br><small style="color:var(--text-muted); font-size:0.72rem;">🏠 ${escapeHtml(u.alamat).substring(0, 22)}...</small>` : ''}
+                  <strong style="cursor: pointer;" onclick="openPhotoViewerByNik('${u.nik}')">${escapeHtml(u.nama)}</strong>
+                  ${u.alamat ? `<br><small style="color:var(--text-muted); font-size:0.72rem;">🏠 ${escapeHtml(u.alamat).substring(0, 24)}</small>` : ''}
                 </div>
               </div>
             </td>
@@ -3356,14 +3470,16 @@ function renderUserTable() {
             <td><span class="mono-text">${formatRupiah(u.gajiPokok)}</span></td>
             <td><span class="mono-text">${formatRupiah(u.rateLembur || 25000)}/jam</span></td>
             <td>
-              <small>${u.email || '-'}</small><br>
-              <small class="mono-text">${u.noHp || '-'}</small>
+              <span class="mono-text">${u.noHp || '-'}</span>
+              ${u.email ? `<br><small style="color:var(--text-muted);">${u.email}</small>` : ''}
             </td>
             <td><span class="status ${u.role === 'admin' ? 'disetujui' : 'diajukan'}">${u.role}</span></td>
             <td class="action-cell">
-              <button class="action-btn" style="background: rgba(99, 102, 241, 0.12); color: var(--accent, #6366f1); border: 1px solid var(--accent, #6366f1); margin-right: 4px;" onclick="openUserKpiDetail('${u.nik}')" title="Lihat Profil Lengkap & Evaluasi KPI">📊 KPI</button>
-              <button class="action-btn edit" onclick="editUser('${u.nik}')">Edit</button>
-              <button class="action-btn delete" onclick="deleteUserRecord('${u.nik}')">Hapus</button>
+              <div class="action-btn-group">
+                <button class="action-btn" style="background: rgba(99, 102, 241, 0.12); color: var(--accent, #6366f1); border: 1px solid var(--accent, #6366f1);" onclick="openUserKpiDetail('${u.nik}')" title="Lihat Profil Lengkap & Evaluasi KPI">📊 KPI</button>
+                <button class="action-btn edit" onclick="editUser('${u.nik}')">✏️ Edit</button>
+                <button class="action-btn delete" onclick="deleteUserRecord('${u.nik}')">🗑️ Hapus</button>
+              </div>
             </td>
           </tr>
         `}).join('')}
@@ -3837,6 +3953,7 @@ async function startApp() {
     // Load data in parallel for maximum speed
     await Promise.allSettled([
       loadUsersData(),
+      loadProfileRequests(),
       loadShifts(),
       loadRosterShifts(),
       loadAbsensi(),
@@ -3848,6 +3965,7 @@ async function startApp() {
 
     renderEmployeeShiftDashboard();
     renderUserProfileTab();
+    updateAttendanceGatekeeper();
   } catch (err) {
     console.error('Error starting app:', err);
   }
@@ -4139,6 +4257,110 @@ function updateUserInterfaceAvatars() {
   }
 }
 
+function checkProfileCompletion(u) {
+  if (!u) return { complete: false, missing: ['Data Profil'] };
+  const missing = [];
+  if (!u.nama || !u.nama.trim()) missing.push('Nama Lengkap');
+  if (!u.noHp && !u.nohp) missing.push('Nomor WhatsApp / HP');
+  if (!u.tglLahir && !u.tgllahir) missing.push('Tanggal Lahir');
+  if (!u.alamat || !u.alamat.trim()) missing.push('Alamat Lengkap Domisili');
+
+  const rawEmergency = u.kontakDarurat || u.kontakdarurat || '';
+  if (!rawEmergency || !rawEmergency.trim() || rawEmergency === '-') {
+    missing.push('Kontak Darurat');
+  }
+  return {
+    complete: missing.length === 0,
+    missing: missing
+  };
+}
+
+function updateAttendanceGatekeeper() {
+  const warningEl = document.getElementById('gatekeeperAttendanceWarning');
+  const missingListEl = document.getElementById('gatekeeperMissingList');
+  const btnIn = document.getElementById('btnCheckIn');
+  const btnOut = document.getElementById('btnCheckOut');
+
+  if (!state.currentUser) return;
+  if (state.currentUser.role === 'admin') {
+    if (warningEl) warningEl.classList.add('hidden');
+    if (btnIn) { btnIn.disabled = false; btnIn.style.opacity = '1'; btnIn.style.cursor = 'pointer'; }
+    if (btnOut) { btnOut.disabled = false; btnOut.style.opacity = '1'; btnOut.style.cursor = 'pointer'; }
+    return;
+  }
+
+  const check = checkProfileCompletion(state.currentUser);
+  if (!check.complete) {
+    if (warningEl) warningEl.classList.remove('hidden');
+    if (missingListEl) {
+      missingListEl.innerHTML = `⚠️ Kolom wajib belum diisi: <u>${check.missing.join(', ')}</u>`;
+    }
+    if (btnIn) {
+      btnIn.disabled = true;
+      btnIn.title = 'Lengkapi Data Diri terlebih dahulu untuk membuka akses presensi';
+      btnIn.style.opacity = '0.4';
+      btnIn.style.cursor = 'not-allowed';
+    }
+    if (btnOut) {
+      btnOut.disabled = true;
+      btnOut.title = 'Lengkapi Data Diri terlebih dahulu untuk membuka akses presensi';
+      btnOut.style.opacity = '0.4';
+      btnOut.style.cursor = 'not-allowed';
+    }
+  } else {
+    if (warningEl) warningEl.classList.add('hidden');
+    if (btnIn) {
+      btnIn.disabled = false;
+      btnIn.title = '';
+      btnIn.style.opacity = '1';
+      btnIn.style.cursor = 'pointer';
+    }
+    if (btnOut) {
+      btnOut.disabled = false;
+      btnOut.title = '';
+      btnOut.style.opacity = '1';
+      btnOut.style.cursor = 'pointer';
+    }
+  }
+}
+
+// ================= PHOTO VIEWER LIGHTBOX =================
+window.openPhotoViewer = function(user) {
+  if (!user) user = state.currentUser;
+  if (!user) return;
+
+  const modal = document.getElementById('modalPhotoViewer');
+  const img = document.getElementById('photoViewerImg');
+  const initials = document.getElementById('photoViewerInitials');
+  const nameEl = document.getElementById('photoViewerName');
+  const nikEl = document.getElementById('photoViewerNik');
+
+  if (nameEl) nameEl.textContent = user.nama || 'Karyawan';
+  if (nikEl) nikEl.textContent = `NIK: ${user.nik} • ${user.divisi || 'Warehouse'}`;
+
+  if (user.foto) {
+    if (img) {
+      img.src = user.foto;
+      img.style.display = 'block';
+    }
+    if (initials) initials.style.display = 'none';
+  } else {
+    if (img) img.style.display = 'none';
+    if (initials) {
+      initials.textContent = (user.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      initials.style.display = 'block';
+    }
+  }
+
+  if (modal) modal.classList.remove('hidden');
+};
+
+window.openPhotoViewerByNik = function(nik) {
+  const u = (state.users || []).find(x => String(x.nik).trim() === String(nik).trim());
+  if (u) openPhotoViewer(u);
+};
+
+// ================= PROFIL TAB & PENGAJUAN PERUBAHAN =================
 function renderUserProfileTab() {
   if (!state.currentUser) return;
   const u = state.currentUser;
@@ -4283,7 +4505,7 @@ function renderUserProfileTab() {
   const fAlamat = document.getElementById('profAlamat');
   if (fAlamat) fAlamat.value = u.alamat || '';
 
-  // Kontak Darurat (Parse jika disimpan format "Nama - Hubungan - NoTelp" atau plain)
+  // Kontak Darurat
   const fEmNama = document.getElementById('profEmergencyNama');
   const fEmHub = document.getElementById('profEmergencyHubungan');
   const fEmPhone = document.getElementById('profEmergencyPhone');
@@ -4292,12 +4514,92 @@ function renderUserProfileTab() {
   if (rawEmergency.includes(' - ')) {
     const parts = rawEmergency.split(' - ');
     if (fEmNama) fEmNama.value = parts[0] || '';
-    if (fEmHub) fEmHub.value = parts[1] || '';
+    if (fEmHub) fEmHub.value = parts[1] || 'Orang Tua';
     if (fEmPhone) fEmPhone.value = parts[2] || '';
   } else {
     if (fEmNama) fEmNama.value = rawEmergency;
     if (fEmPhone) fEmPhone.value = '';
   }
+
+  // 4. Status Kunci / Gatekeeper Evaluation
+  const check = checkProfileCompletion(u);
+  const bannerEl = document.getElementById('profileStatusBanner');
+  const btnSave = document.getElementById('btnSaveProfile');
+  const btnRequest = document.getElementById('btnOpenRequestChange');
+  const inputsToControl = [fNama, fNoHp, fEmail, fTglLahir, fHobi, fAlamat, fEmNama, fEmHub, fEmPhone, fJoin];
+
+  const pendingReq = (state.profileRequests || []).find(r => String(r.nik).trim() === String(u.nik).trim() && r.status === 'Diajukan');
+
+  if (u.role === 'admin') {
+    // Mode Administrator: Bebas edit kapan saja
+    if (bannerEl) {
+      bannerEl.innerHTML = `
+        <div class="profile-locked-banner" style="background: rgba(99, 102, 241, 0.08); border-color: rgba(99, 102, 241, 0.3);">
+          <span>👑 <strong>Mode Administrator:</strong> Anda memiliki akses bebas untuk mengedit data diri profil kapan saja.</span>
+        </div>
+      `;
+    }
+    inputsToControl.forEach(inp => { if (inp) inp.disabled = false; });
+    if (btnSave) btnSave.classList.remove('hidden');
+    if (btnRequest) btnRequest.classList.add('hidden');
+  } else if (!check.complete) {
+    // Mode Karyawan: Belum lengkap -> Wajib lengkapi & simpan
+    if (bannerEl) {
+      bannerEl.innerHTML = `
+        <div class="gatekeeper-warning-box" style="padding: 14px 16px; margin-bottom: 0;">
+          <div style="font-weight: 700; color: #b45309; margin-bottom: 4px;">⚠️ Data Diri Anda Belum Lengkap!</div>
+          <div style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.4;">
+            Mohon lengkapi semua kolom bertanda bintang (<span class="badge-required-star">*</span>) lalu klik tombol <strong>"💾 Simpan & Kunci Data Diri"</strong> di bawah untuk membuka akses presensi kehadiran.
+          </div>
+          <div style="font-size: 0.8rem; color: #d97706; font-weight: 600; margin-top: 6px;">
+            Kolom yang masih kosong: <u>${check.missing.join(', ')}</u>
+          </div>
+        </div>
+      `;
+    }
+    inputsToControl.forEach(inp => { if (inp) inp.disabled = false; });
+    if (btnSave) {
+      btnSave.classList.remove('hidden');
+      btnSave.querySelector('.btn-text').textContent = '💾 Simpan & Kunci Data Diri';
+    }
+    if (btnRequest) btnRequest.classList.add('hidden');
+  } else {
+    // Mode Karyawan: Sudah lengkap -> Terkunci (Read-Only)
+    if (pendingReq) {
+      if (bannerEl) {
+        bannerEl.innerHTML = `
+          <div class="profile-pending-banner">
+            <div>
+              <span style="font-weight: 700; color: var(--accent, #6366f1);">⏳ Pengajuan Perubahan Data Sedang Ditinjau Admin</span><br>
+              <small style="color: var(--text-muted);">Diajukan pada ${pendingReq.tanggal || '-'}. Alasan: "${escapeHtml(pendingReq.alasan || '-')}"</small>
+            </div>
+            <span class="status diajukan">Menunggu Approval</span>
+          </div>
+        `;
+      }
+    } else {
+      if (bannerEl) {
+        bannerEl.innerHTML = `
+          <div class="profile-locked-banner">
+            <div>
+              <span style="font-weight: 700; color: var(--success, #10b981);">🔒 Data Diri Terverifikasi & Terkunci</span><br>
+              <small style="color: var(--text-muted);">Data diri Anda telah lengkap. Untuk menjaga keaslian data, perubahan data wajib melalui persetujuan Admin.</small>
+            </div>
+            <button type="button" class="primary-btn small-btn" onclick="openRequestProfileChangeModal()" style="font-size: 0.8rem; padding: 6px 14px;">
+              📝 Ajukan Perubahan
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    // Kunci semua input agar tidak sembarangan diubah
+    inputsToControl.forEach(inp => { if (inp) inp.disabled = true; });
+    if (btnSave) btnSave.classList.add('hidden');
+    if (btnRequest) btnRequest.classList.remove('hidden');
+  }
+
+  updateAttendanceGatekeeper();
 }
 
 async function saveUserProfile(e) {
@@ -4305,7 +4607,7 @@ async function saveUserProfile(e) {
   const btn = document.getElementById('btnSaveProfile');
   const msg = document.getElementById('profileFormMessage');
   if (msg) msg.textContent = '';
-  setButtonLoading(btn, true, 'Menyimpan Data Diri...');
+  setButtonLoading(btn, true, 'Menyimpan & Mengunci Data...');
 
   const emNama = (document.getElementById('profEmergencyNama')?.value || '').trim();
   const emHub = (document.getElementById('profEmergencyHubungan')?.value || '').trim();
@@ -4341,12 +4643,13 @@ async function saveUserProfile(e) {
       const userInList = (state.users || []).find(x => x.nik === state.currentUser.nik);
       if (userInList) Object.assign(userInList, payload);
 
-      showToast('✅ Data diri Anda berhasil disimpan!');
+      showToast('🎉 Data diri berhasil disimpan & akses presensi aktif!');
       if (msg) {
-        msg.textContent = '✅ Data diri Anda berhasil disimpan & diperbarui di sistem!';
+        msg.textContent = '✅ Data diri Anda berhasil disimpan & terkunci di sistem.';
         msg.style.color = 'var(--success, #10b981)';
       }
       renderUserProfileTab();
+      updateAttendanceGatekeeper();
       if (state.currentUser.role === 'admin') renderUserTable();
     } else {
       throw new Error(res ? res.message : 'Gagal menyimpan');
@@ -4360,6 +4663,234 @@ async function saveUserProfile(e) {
     }
   }
 }
+
+// ================= PENGAJUAN PERUBAHAN PROFIL (KARYAWAN) =================
+window.openRequestProfileChangeModal = function() {
+  const u = state.currentUser;
+  if (!u) return;
+
+  const fNama = document.getElementById('reqNama');
+  const fNoHp = document.getElementById('reqNoHp');
+  const fEmail = document.getElementById('reqEmail');
+  const fTglLahir = document.getElementById('reqTglLahir');
+  const fAlamat = document.getElementById('reqAlamat');
+  const fHobi = document.getElementById('reqHobi');
+  const fAlasan = document.getElementById('reqAlasan');
+
+  if (fNama) fNama.value = u.nama || '';
+  if (fNoHp) fNoHp.value = u.noHp || u.nohp || '';
+  if (fEmail) fEmail.value = u.email || '';
+  if (fTglLahir) fTglLahir.value = u.tglLahir || u.tgllahir || '';
+  if (fAlamat) fAlamat.value = u.alamat || '';
+  if (fHobi) fHobi.value = u.hobi || '';
+  if (fAlasan) fAlasan.value = '';
+
+  const fEmNama = document.getElementById('reqEmergencyNama');
+  const fEmHub = document.getElementById('reqEmergencyHubungan');
+  const fEmPhone = document.getElementById('reqEmergencyPhone');
+
+  const rawEmergency = u.kontakDarurat || u.kontakdarurat || '';
+  if (rawEmergency.includes(' - ')) {
+    const parts = rawEmergency.split(' - ');
+    if (fEmNama) fEmNama.value = parts[0] || '';
+    if (fEmHub) fEmHub.value = parts[1] || 'Orang Tua';
+    if (fEmPhone) fEmPhone.value = parts[2] || '';
+  } else {
+    if (fEmNama) fEmNama.value = rawEmergency;
+    if (fEmPhone) fEmPhone.value = '';
+  }
+
+  const modal = document.getElementById('modalAjukanPerubahanProfil');
+  if (modal) modal.classList.remove('hidden');
+};
+
+async function submitProfileChangeRequest(e) {
+  if (e) e.preventDefault();
+  const btn = document.getElementById('btnSubmitProfileRequest');
+  setButtonLoading(btn, true, 'Mengirim Pengajuan...');
+
+  const emNama = (document.getElementById('reqEmergencyNama')?.value || '').trim();
+  const emHub = (document.getElementById('reqEmergencyHubungan')?.value || '').trim();
+  const emPhone = (document.getElementById('reqEmergencyPhone')?.value || '').trim();
+  const kontakDaruratStr = [emNama, emHub, emPhone].filter(Boolean).join(' - ');
+
+  const reqData = {
+    id: 'REQ-' + Date.now(),
+    nik: state.currentUser.nik,
+    namaLama: state.currentUser.nama,
+    namaBaru: (document.getElementById('reqNama')?.value || '').trim(),
+    noHpBaru: (document.getElementById('reqNoHp')?.value || '').trim(),
+    emailBaru: (document.getElementById('reqEmail')?.value || '').trim(),
+    tglLahirBaru: (document.getElementById('reqTglLahir')?.value || '').trim(),
+    alamatBaru: (document.getElementById('reqAlamat')?.value || '').trim(),
+    hobiBaru: (document.getElementById('reqHobi')?.value || '').trim(),
+    kontakDaruratBaru: kontakDaruratStr,
+    alasan: (document.getElementById('reqAlasan')?.value || '').trim(),
+    status: 'Diajukan',
+    tanggal: new Date().toISOString().split('T')[0],
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const res = await apiRequest('submitProfileChangeRequest', reqData);
+    setButtonLoading(btn, false);
+
+    if (res && res.success) {
+      if (!state.profileRequests) state.profileRequests = [];
+      state.profileRequests.unshift(reqData);
+      closeModal('modalAjukanPerubahanProfil');
+      showToast('✅ Pengajuan perubahan profil berhasil dikirim ke Admin!');
+      renderUserProfileTab();
+      if (state.currentUser.role === 'admin') renderAdminProfileRequestsTable();
+    } else {
+      throw new Error(res ? res.message : 'Gagal mengirim pengajuan');
+    }
+  } catch (err) {
+    setButtonLoading(btn, false);
+    showToast('Gagal mengajukan perubahan profil: ' + err.message, 'error');
+  }
+}
+
+// ================= ADMIN PROFILE REQUESTS TABLE & APPROVAL =================
+async function loadProfileRequests() {
+  const res = await apiRequest('getProfileRequests');
+  if (res && res.data) {
+    state.profileRequests = res.data || [];
+    if (state.currentUser && state.currentUser.role === 'admin') {
+      renderAdminProfileRequestsTable();
+    }
+  }
+}
+
+function renderAdminProfileRequestsTable() {
+  const wrap = document.getElementById('adminProfileRequestsTableWrap');
+  const badge = document.getElementById('badgePendingProfileRequestsCount');
+  if (!wrap) return;
+
+  const requests = (state.profileRequests || []).filter(r => r.status === 'Diajukan');
+  if (badge) {
+    if (requests.length > 0) {
+      badge.textContent = `${requests.length} Pengajuan Menunggu`;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  if (!requests.length) {
+    wrap.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted);">Tidak ada pengajuan perubahan profil yang menunggu persetujuan.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Karyawan (NIK)</th>
+          <th>Perubahan yang Diajukan</th>
+          <th>Alasan Karyawan</th>
+          <th>Status</th>
+          <th>Aksi Verifikasi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${requests.map(r => `
+          <tr>
+            <td><span class="mono-text">${r.tanggal || '-'}</span></td>
+            <td>
+              <strong>${escapeHtml(r.namaLama || r.namaBaru)}</strong><br>
+              <small class="mono-text">${r.nik}</small>
+            </td>
+            <td>
+              <div style="font-size: 0.8rem; line-height: 1.45;">
+                ${r.namaBaru !== r.namaLama ? `<div>👤 <strong>Nama Baru:</strong> ${escapeHtml(r.namaBaru)}</div>` : ''}
+                <div>📱 <strong>WhatsApp:</strong> ${escapeHtml(r.noHpBaru)}</div>
+                ${r.emailBaru ? `<div>✉️ <strong>Email:</strong> ${escapeHtml(r.emailBaru)}</div>` : ''}
+                ${r.tglLahirBaru ? `<div>🎂 <strong>Tgl Lahir:</strong> ${r.tglLahirBaru}</div>` : ''}
+                <div>🏠 <strong>Alamat:</strong> ${escapeHtml(r.alamatBaru)}</div>
+                <div>🚨 <strong>Kontak Darurat:</strong> ${escapeHtml(r.kontakDaruratBaru)}</div>
+              </div>
+            </td>
+            <td><em>"${escapeHtml(r.alasan || '-')}"</em></td>
+            <td><span class="status diajukan">${r.status}</span></td>
+            <td class="action-cell">
+              <div class="action-btn-group">
+                <button type="button" class="action-btn" style="background: var(--success, #10b981); color:#fff;" onclick="approveProfileChangeRequest('${r.id}')">✅ Setujui</button>
+                <button type="button" class="action-btn delete" onclick="rejectProfileChangeRequest('${r.id}')">❌ Tolak</button>
+              </div>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+window.approveProfileChangeRequest = async function(reqId) {
+  const req = (state.profileRequests || []).find(r => r.id === reqId);
+  if (!req) return;
+
+  if (!confirm(`Setujui pembaruan profil untuk ${req.namaLama || req.nik}? Data profil karyawan akan langsung diperbarui.`)) return;
+
+  try {
+    const res = await apiRequest('approveProfileChangeRequest', { id: reqId, nik: req.nik, approvedData: req });
+    if (res && res.success) {
+      req.status = 'Disetujui';
+
+      // Update state.users
+      const u = (state.users || []).find(x => x.nik === req.nik);
+      if (u) {
+        u.nama = req.namaBaru;
+        u.noHp = req.noHpBaru;
+        u.email = req.emailBaru;
+        u.tglLahir = req.tglLahirBaru;
+        u.alamat = req.alamatBaru;
+        u.hobi = req.hobiBaru;
+        u.kontakDarurat = req.kontakDaruratBaru;
+      }
+
+      if (state.currentUser && state.currentUser.nik === req.nik) {
+        Object.assign(state.currentUser, {
+          nama: req.namaBaru, noHp: req.noHpBaru, email: req.emailBaru,
+          tglLahir: req.tglLahirBaru, alamat: req.alamatBaru, hobi: req.hobiBaru,
+          kontakDarurat: req.kontakDaruratBaru
+        });
+        localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+      }
+
+      showToast('✅ Pengajuan perubahan profil disetujui & data karyawan diperbarui!');
+      renderAdminProfileRequestsTable();
+      renderUserTable();
+    } else {
+      throw new Error(res ? res.message : 'Gagal menyetujui');
+    }
+  } catch (err) {
+    showToast('Gagal menyetujui: ' + err.message, 'error');
+  }
+};
+
+window.rejectProfileChangeRequest = async function(reqId) {
+  const req = (state.profileRequests || []).find(r => r.id === reqId);
+  if (!req) return;
+
+  const reason = prompt('Masukkan alasan penolakan pengajuan profil:');
+  if (reason === null) return;
+
+  try {
+    const res = await apiRequest('rejectProfileChangeRequest', { id: reqId, nik: req.nik, alasanTolak: reason });
+    if (res && res.success) {
+      req.status = 'Ditolak';
+      req.alasanTolak = reason;
+      showToast('❌ Pengajuan perubahan profil ditolak.');
+      renderAdminProfileRequestsTable();
+    } else {
+      throw new Error(res ? res.message : 'Gagal menolak');
+    }
+  } catch (err) {
+    showToast('Gagal menolak: ' + err.message, 'error');
+  }
+};
 
 // Modal Admin untuk Melihat Detail KPI & Profil Staf
 window.openUserKpiDetail = function(nik, period = 'thisMonth') {
