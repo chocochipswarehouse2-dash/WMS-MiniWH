@@ -357,6 +357,7 @@ function loginUser(username, password) {
     username: match.username, role: match.role || 'user',
     email: match.email || '', noHp: match.noHp || '',
     alamat: match.alamat || '', tglLahir: match.tglLahir || '',
+    tglBergabung: match.tglBergabung || '', foto: match.foto || '',
     hobi: match.hobi || '', kontakDarurat: match.kontakDarurat || '',
     gajiPokok: match.gajiPokok || 0, tunjangan: match.tunjangan || 0, rateLembur: match.rateLembur || 0
   };
@@ -377,6 +378,8 @@ function getUsers() {
       noHp: String(u.noHp || u.nohp || u.telepon || u.hp || '').trim(),
       alamat: String(u.alamat || '').trim(),
       tglLahir: String(u.tglLahir || u.tgllahir || u.tanggalLahir || '').trim(),
+      tglBergabung: String(u.tglBergabung || u.tglbergabung || u.tanggalBergabung || '').trim(),
+      foto: String(u.foto || u.fotoUrl || '').trim(),
       hobi: String(u.hobi || '').trim(),
       kontakDarurat: String(u.kontakDarurat || u.kontakdarurat || '').trim(),
       gajiPokok: Number(u.gajiPokok || u.gajpokok || u.gajipokok || u.gapok || 0),
@@ -415,8 +418,10 @@ function saveUser(payload) {
     'Aktif', 
     payload.alamat || '',
     payload.tglLahir || '',
+    payload.tglBergabung || '',
     payload.hobi || '',
     payload.kontakDarurat || '',
+    payload.foto || '',
     new Date().toISOString()
   ];
 
@@ -436,6 +441,8 @@ function saveUser(payload) {
     noHp: payload.noHp,
     alamat: payload.alamat,
     tglLahir: payload.tglLahir,
+    tglBergabung: payload.tglBergabung,
+    foto: payload.foto,
     hobi: payload.hobi,
     kontakDarurat: payload.kontakDarurat,
     gajiPokok: payload.gajiPokok,
@@ -473,6 +480,8 @@ function saveUserProfile(payload) {
   if (payload.noHp !== undefined) updateCol('noHp', payload.noHp);
   if (payload.alamat !== undefined) updateCol('alamat', payload.alamat);
   if (payload.tglLahir !== undefined) updateCol('tglLahir', payload.tglLahir);
+  if (payload.tglBergabung !== undefined) updateCol('tglBergabung', payload.tglBergabung);
+  if (payload.foto !== undefined) updateCol('foto', payload.foto);
   if (payload.hobi !== undefined) updateCol('hobi', payload.hobi);
   if (payload.kontakDarurat !== undefined) updateCol('kontakDarurat', payload.kontakDarurat);
 
@@ -1046,5 +1055,259 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
   } catch (err) {
     Logger.log('Gagal mengirim email ke karyawan: ' + err.message);
   }
+}
+
+// ================= SINKRONISASI & BACKUP DARI SUPABASE KE GOOGLE SHEET =================
+const SUPABASE_CONFIG = {
+  url: 'https://rmrbfecagwcojtoqeovk.supabase.co',
+  anonKey: 'sb_publishable_zOn1y93MF0x3CIy8MJ7I8Q_fQMkJ8x9'
+};
+
+function onOpen() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    ui.createMenu('🔄 WMS Backup & Sync')
+      .addItem('⚡ Backup Sekarang (Tarik Data dari Supabase)', 'backupAllDataFromSupabase')
+      .addItem('⏰ Pasang Auto-Backup Berkala (Setiap Jam)', 'installAutoBackupTrigger')
+      .addToUi();
+  } catch (e) {
+    Logger.log('onOpen notice: ' + e.message);
+  }
+}
+
+function installAutoBackupTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'backupAllDataFromSupabase') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('backupAllDataFromSupabase')
+    .timeBased()
+    .everyHours(1)
+    .create();
+
+  try {
+    SpreadsheetApp.getUi().alert('✅ Auto-Backup berhasil dipasang!\nGoogle Sheet akan menyalin data terbaru dari Supabase secara otomatis setiap 1 jam.');
+  } catch(e) {}
+}
+
+function fetchSupabaseTable(endpoint) {
+  const res = UrlFetchApp.fetch(SUPABASE_CONFIG.url + '/rest/v1/' + endpoint, {
+    method: 'get',
+    headers: {
+      'apikey': SUPABASE_CONFIG.anonKey,
+      'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey
+    },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() >= 200 && res.getResponseCode() < 300) {
+    return JSON.parse(res.getContentText());
+  }
+  return [];
+}
+
+function backupAllDataFromSupabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureSheets();
+
+  let log = [];
+
+  // 1. BACKUP DATA KARYAWAN
+  try {
+    const users = fetchSupabaseTable('karyawan?order=nik.asc');
+    if (users && users.length > 0) {
+      const sh = ss.getSheetByName('Data Karyawan');
+      const headers = ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'Alamat', 'TglLahir', 'TglBergabung', 'Hobi', 'KontakDarurat', 'Foto', 'UpdatedAt'];
+      const rows = [headers];
+      users.forEach(u => {
+        rows.push([
+          u.nik || '',
+          u.nama || '',
+          u.divisi || 'Warehouse',
+          u.username || u.nik || '',
+          u.password || '',
+          u.role || 'user',
+          u.email || '',
+          u.no_hp || '',
+          Number(u.gaji_pokok || 0),
+          Number(u.tunjangan || 0),
+          Number(u.rate_lembur || 25000),
+          Number(u.saldo_kasbon || 0),
+          u.status || 'Aktif',
+          u.alamat || '',
+          u.tgl_lahir || '',
+          u.tgl_bergabung || '',
+          u.hobi || '',
+          u.kontak_darurat || '',
+          u.foto || '',
+          u.updated_at || new Date().toISOString()
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Karyawan: ${users.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Karyawan: ` + err.message);
+  }
+
+  // 2. BACKUP DATA ABSENSI
+  try {
+    const absensi = fetchSupabaseTable('presensi?order=tanggal.desc');
+    if (absensi && absensi.length > 0) {
+      const sh = ss.getSheetByName('Data Absensi');
+      const headers = ['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Shift', 'Jam Masuk', 'Jam Pulang', 'Status Kehadiran', 'Keterlambatan (Menit)', 'Latitude Masuk', 'Longitude Masuk', 'Foto Presensi Masuk', 'Latitude Pulang', 'Longitude Pulang', 'Foto Presensi Pulang', 'Catatan', 'Tanggal Input'];
+      const rows = [headers];
+      absensi.forEach(a => {
+        rows.push([
+          a.id || '',
+          a.nik || '',
+          a.nama || '',
+          a.divisi || '',
+          a.tanggal || '',
+          a.shift || '',
+          a.jam_masuk || '',
+          a.jam_pulang || '',
+          a.status || '',
+          Number(a.keterlambatan_menit || 0),
+          a.lat_masuk || '',
+          a.long_masuk || '',
+          a.foto_masuk || '',
+          a.lat_pulang || '',
+          a.long_pulang || '',
+          a.foto_pulang || '',
+          a.catatan || '',
+          a.created_at || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Absensi: ${absensi.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Absensi: ` + err.message);
+  }
+
+  // 3. BACKUP JADWAL ROSTER SHIFT
+  try {
+    const roster = fetchSupabaseTable('roster_shift?order=tanggal.desc');
+    if (roster && roster.length > 0) {
+      const sh = ss.getSheetByName('Jadwal Shift');
+      const headers = ['ID', 'NIK', 'Tanggal', 'Shift', 'JamMasuk', 'JamPulang', 'Keterangan'];
+      const rows = [headers];
+      roster.forEach(r => {
+        rows.push([
+          r.id || `ROSTER-${r.nik}-${r.tanggal}`,
+          r.nik || '',
+          r.tanggal || '',
+          r.shift || '',
+          r.jam_masuk || '',
+          r.jam_pulang || '',
+          r.keterangan || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Jadwal Shift: ${roster.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Jadwal Shift: ` + err.message);
+  }
+
+  // 4. BACKUP DATA LEMBUR
+  try {
+    const lembur = fetchSupabaseTable('lembur?order=tanggal.desc');
+    if (lembur && lembur.length > 0) {
+      const sh = ss.getSheetByName('Data Lembur');
+      const headers = ['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Catatan', 'Tanggal Input', 'Status', 'UpdatedBy'];
+      const rows = [headers];
+      lembur.forEach(l => {
+        rows.push([
+          l.id || '',
+          l.nik || '',
+          l.nama || '',
+          l.divisi || '',
+          l.tanggal || '',
+          l.deskripsi || '',
+          l.jam_mulai || '',
+          l.jam_selesai || '',
+          Number(l.total_jam || 0),
+          l.catatan || '',
+          l.created_at || '',
+          l.status || 'Diajukan',
+          l.approved_by || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Lembur: ${lembur.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Lembur: ` + err.message);
+  }
+
+  // 5. BACKUP DATA PERIJINAN
+  try {
+    const cuti = fetchSupabaseTable('cuti?order=tanggal_mulai.desc');
+    if (cuti && cuti.length > 0) {
+      const sh = ss.getSheetByName('Data Perijinan');
+      const headers = ['ID', 'NIK', 'Nama', 'Divisi', 'Jenis', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Tanggal Input', 'Status', 'UpdatedBy'];
+      const rows = [headers];
+      cuti.forEach(c => {
+        rows.push([
+          c.id || '',
+          c.nik || '',
+          c.nama || '',
+          c.divisi || '',
+          c.jenis || '',
+          c.tanggal_mulai || '',
+          c.tanggal_selesai || '',
+          c.alasan || '',
+          c.created_at || '',
+          c.status || 'Diajukan',
+          c.approved_by || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Perijinan: ${cuti.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Perijinan: ` + err.message);
+  }
+
+  // 6. BACKUP DATA MASTER SHIFT
+  try {
+    const shifts = fetchSupabaseTable('master_shift?order=id.asc');
+    if (shifts && shifts.length > 0) {
+      const sh = ss.getSheetByName('Data Shift');
+      const headers = ['ID', 'NamaShift', 'JamMasuk', 'JamPulang', 'ToleransiMenit', 'Status'];
+      const rows = [headers];
+      shifts.forEach(s => {
+        rows.push([
+          s.id || '',
+          s.nama_shift || '',
+          s.jam_masuk || '',
+          s.jam_pulang || '',
+          Number(s.toleransi_menit || 15),
+          s.status || 'Aktif'
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Master Shift: ${shifts.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Master Shift: ` + err.message);
+  }
+
+  const resultMsg = 'Sinkronisasi Backup Selesai:\n' + log.join('\n');
+  Logger.log(resultMsg);
+  try {
+    SpreadsheetApp.getUi().alert(resultMsg);
+  } catch(e) {}
+  return { success: true, log: log };
 }
 

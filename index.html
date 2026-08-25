@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9.0" />
+  <link rel="stylesheet" href="style.css?v=9.5" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -354,7 +354,14 @@
           <div class="panel profile-header-panel" style="margin-bottom: 24px;">
             <div class="profile-header-content">
               <div class="profile-avatar-box">
-                <div class="profile-avatar-large" id="profileBigAvatar">WH</div>
+                <div class="profile-avatar-large" id="profileBigAvatar">
+                  <span id="profileBigAvatarText">WH</span>
+                  <img id="profileBigAvatarImg" src="" alt="Avatar" class="avatar-photo" style="display: none;" />
+                </div>
+                <button type="button" class="btn-avatar-upload" onclick="document.getElementById('profilePhotoInput').click()" title="Ganti Foto Profil (Kamera / Galeri)">
+                  📷
+                </button>
+                <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;" onchange="handleProfilePhotoUpload(event)" />
                 <div class="profile-status-dot" title="Status Akun: Aktif"></div>
               </div>
               <div class="profile-title-meta">
@@ -363,9 +370,10 @@
                   <span id="profileRoleBadge" class="badge-role">Staff Warehouse</span>
                   <span id="profileKpiGradeBadge" class="badge-kpi-grade">Grade A</span>
                 </div>
-                <div class="profile-subinfo" style="margin-top: 6px; color: var(--text-muted); font-size: 0.9rem;">
+                <div class="profile-subinfo" style="margin-top: 6px; color: var(--text-muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;">
                   <span>🆔 <strong id="profileDisplayNik">WH0000</strong></span> • 
                   <span>🏢 <span id="profileDisplayDivisi">Warehouse</span></span> • 
+                  <span>📅 Masuk: <strong id="profileDisplayJoinDate">-</strong> (<span id="profileDisplayTenure" class="badge-tenure">-</span>)</span> • 
                   <span>📱 <span id="profileDisplayPhone">-</span></span> • 
                   <span>✉️ <span id="profileDisplayEmail">-</span></span>
                 </div>
@@ -538,6 +546,11 @@
               </label>
 
               <label>
+                <span>Tanggal Bergabung (Masa Kerja)</span>
+                <input type="date" id="profTglBergabung" />
+              </label>
+
+              <label>
                 <span>Nomor WhatsApp / HP Aktif</span>
                 <input type="tel" id="profNoHp" required placeholder="Contoh: 08123456789" />
               </label>
@@ -696,6 +709,7 @@
               <label><span>NIK Karyawan</span><input id="userNIK" placeholder="Contoh: WH0001" required/></label>
               <label><span>Nama Lengkap</span><input id="userName" placeholder="Nama karyawan..." required/></label>
               <label><span>Divisi / Unit</span><input id="userDivisi" placeholder="Contoh: Warehouse, QC, Staging" required/></label>
+              <label><span>Tanggal Bergabung</span><input id="userTglBergabung" type="date"/></label>
               <label><span>Username Login</span><input id="userUsername" placeholder="Username login..." required/></label>
               <label>
                 <span>Password</span>
@@ -706,6 +720,7 @@
               </label>
               <label><span>Email Notifikasi</span><input id="userEmail" type="email" placeholder="email@perusahaan.com"/></label>
               <label><span>No. WhatsApp (Aktif)</span><input id="userNoHp" placeholder="08123456789"/></label>
+              <label><span>Tanggal Lahir</span><input id="userTglLahir" type="date"/></label>
               <label><span>Gaji Pokok (Rp)</span><input id="userGajiPokok" type="number" placeholder="Contoh: 3500000"/></label>
               <label><span>Tunjangan Tetap (Rp)</span><input id="userTunjangan" type="number" placeholder="Contoh: 500000"/></label>
               <label><span>Rate Lembur / Jam (Rp)</span><input id="userRateLembur" type="number" value="25000"/></label>
@@ -1422,6 +1437,6 @@
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=9.0" defer></script>
+  <script src="script.js?v=9.5" defer></script>
 </body>
 </html>

@@ -1052,7 +1052,7 @@ function notifyEmployeeLeaveStatus(id, newStatus, adminUsername) {
   }
 }
 
-// ================= INVENTORY SPREADSHEET CONNECTOR & SUPABASE SYNC =================
+// ================= SINKRONISASI & BACKUP DARI SUPABASE KE GOOGLE SHEET =================
 const SUPABASE_CONFIG = {
   url: 'https://rmrbfecagwcojtoqeovk.supabase.co',
   anonKey: 'sb_publishable_zOn1y93MF0x3CIy8MJ7I8Q_fQMkJ8x9'
@@ -1061,219 +1061,247 @@ const SUPABASE_CONFIG = {
 function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu('📦 WMS Mini')
-      .addItem('⚡ Sinkronkan Inventory ke Supabase', 'syncAllInventoryToSupabase')
-      .addItem('🔄 Pasang Auto-Trigger Sinkronisasi (15 Menit)', 'installInventorySyncTrigger')
+    ui.createMenu('🔄 WMS Backup & Sync')
+      .addItem('⚡ Backup Sekarang (Tarik Data dari Supabase)', 'backupAllDataFromSupabase')
+      .addItem('⏰ Pasang Auto-Backup Berkala (Setiap Jam)', 'installAutoBackupTrigger')
       .addToUi();
   } catch (e) {
     Logger.log('onOpen notice: ' + e.message);
   }
 }
 
-function installInventorySyncTrigger() {
+function installAutoBackupTrigger() {
   const triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(t => {
-    if (t.getHandlerFunction() === 'syncAllInventoryToSupabase') {
+    if (t.getHandlerFunction() === 'backupAllDataFromSupabase') {
       ScriptApp.deleteTrigger(t);
     }
   });
 
-  ScriptApp.newTrigger('syncAllInventoryToSupabase')
+  ScriptApp.newTrigger('backupAllDataFromSupabase')
     .timeBased()
-    .everyMinutes(15)
+    .everyHours(1)
     .create();
 
   try {
-    SpreadsheetApp.getUi().alert('Auto-Trigger berhasil dipasang! Sinkronisasi otomatis berjalan setiap 15 menit.');
+    SpreadsheetApp.getUi().alert('✅ Auto-Backup berhasil dipasang!\nGoogle Sheet akan menyalin data terbaru dari Supabase secara otomatis setiap 1 jam.');
   } catch(e) {}
 }
 
-function inspectInventorySpreadsheet(spreadsheetId) {
-  try {
-    const ss = SpreadsheetApp.openById(spreadsheetId);
-    const sheets = ss.getSheets();
-    const result = [];
-    sheets.forEach(sh => {
-      const name = sh.getName();
-      const values = sh.getDataRange().getValues();
-      const headers = values.length > 0 ? values[0] : [];
-      const sampleRow = values.length > 1 ? values[1] : [];
-      result.push({
-        sheetName: name,
-        rowCount: values.length,
-        headers: headers,
-        sampleRow: sampleRow
-      });
-    });
-    return { success: true, spreadsheetTitle: ss.getName(), sheets: result };
-  } catch (e) {
-    return { success: false, error: e.message };
+function fetchSupabaseTable(endpoint) {
+  const res = UrlFetchApp.fetch(SUPABASE_CONFIG.url + '/rest/v1/' + endpoint, {
+    method: 'get',
+    headers: {
+      'apikey': SUPABASE_CONFIG.anonKey,
+      'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey
+    },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() >= 200 && res.getResponseCode() < 300) {
+    return JSON.parse(res.getContentText());
   }
+  return [];
 }
 
-function syncAllInventoryToSupabase(spreadsheetId) {
+function backupAllDataFromSupabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureSheets();
+
+  let log = [];
+
+  // 1. BACKUP DATA KARYAWAN
   try {
-    const ss = spreadsheetId ? SpreadsheetApp.openById(spreadsheetId) : SpreadsheetApp.getActiveSpreadsheet();
-    const sheetStok = ss.getSheetByName('stok');
-    const sheetData = ss.getSheetByName('data');
-
-    if (!sheetData) throw new Error('Sheet "data" tidak ditemukan');
-
-    const fisikMap = {};
-    if (sheetStok) {
-      const stokVals = sheetStok.getDataRange().getValues();
-      if (stokVals.length > 1) {
-        const headers = stokVals[0].map(h => String(h).trim().toUpperCase());
-        const skuIdx = headers.findIndex(h => h.includes('SKU'));
-        const locIdx = headers.findIndex(h => h.includes('LOKASI UPDATE') || h.includes('LOKASI'));
-        const nameIdx = headers.findIndex(h => h.includes('NAMA'));
-        const sizeIdx = headers.findIndex(h => h.includes('SIZE'));
-
-        for (let i = 1; i < stokVals.length; i++) {
-          const row = stokVals[i];
-          const sku = String(row[skuIdx >= 0 ? skuIdx : 0] || '').trim();
-          if (!sku) continue;
-          const loc = String(row[locIdx >= 0 ? locIdx : 1] || '').trim();
-          const nama = String(row[nameIdx >= 0 ? nameIdx : 3] || '').trim();
-          const size = String(row[sizeIdx >= 0 ? sizeIdx : 4] || '').trim();
-
-          if (!fisikMap[sku]) {
-            fisikMap[sku] = { qty: 0, lokasi: loc, nama: nama !== 'SKU Tidak ditemukan' ? nama : '', size: size !== 'NO DATA' ? size : '' };
-          }
-          fisikMap[sku].qty += 1;
-          if (loc && !fisikMap[sku].lokasi) fisikMap[sku].lokasi = loc;
-        }
-      }
-    }
-
-    const dataVals = sheetData.getDataRange().getValues();
-    if (dataVals.length < 2) throw new Error('Sheet "data" kosong');
-
-    const headers = dataVals[0].map(h => String(h).trim());
-    const KEYWORD_MAP = {
-      'Inventory_Central Park Jakarta': { code: 'CPJ', group: 'RETAIL' },
-      'Inventory_Gading Serpong Tangerang': { code: 'GST', group: 'RETAIL' },
-      'Inventory_Lippo Mall Puri': { code: 'LMP', group: 'RETAIL' },
-      'Inventory_By The Sea PIK': { code: 'BTS', group: 'RETAIL' },
-      'Inventory_Ciputra World Surabaya': { code: 'CWS', group: 'RETAIL' },
-      'Inventory_Deli Park Medan': { code: 'DPM', group: 'RETAIL' },
-      'Inventory_Paskal Hyper Square Bandung': { code: 'PHB', group: 'RETAIL' },
-      'Inventory_Pakuwon Mall Surabaya': { code: 'PMS', group: 'RETAIL' },
-      'Inventory_Mall Kelapa Gading': { code: 'MKG', group: 'RETAIL' },
-      'Inventory_Living World Tangerang': { code: 'LWT', group: 'RETAIL' },
-      'Inventory_Website': { code: 'WEB', group: 'MAP' },
-      'Inventory_Marketplace': { code: 'MAP', group: 'MAP' },
-      'Inventory_Shopee': { code: 'SHP', group: 'MAP' },
-      'Inventory_Tokopedia': { code: 'TPD', group: 'MAP' },
-      'Inventory_TikTok': { code: 'TTK', group: 'MAP' },
-      'Inventory_Lazada': { code: 'LZD', group: 'MAP' },
-      'Inventory_Woocommerce': { code: 'WOO', group: 'MAP' },
-      'Inventory_ChicShopee': { code: 'CSHP', group: 'MAP' },
-      'Inventory_KYTE': { code: 'KYT', group: 'RETAIL' },
-      'Inventory_Warehouse': { code: 'WH', group: 'WH' },
-      'Inventory_Buying Staff': { code: 'BUY', group: 'STUDIO' },
-      'Inventory_Diskon Defect': { code: 'DD', group: 'DEFECT' },
-      'Inventory_Endorsement': { code: 'END', group: 'STUDIO' },
-      'Inventory_Sample Studio': { code: 'STD', group: 'STUDIO' },
-      'Inventory_Loss/Damage': { code: 'LND', group: 'DEFECT' },
-      'Inventory_Gudang Awal': { code: 'GA', group: 'GA' },
-      'Inventory_Gudang QC': { code: 'QC', group: 'QC' },
-      'Inventory_Gudang Permak': { code: 'PMK', group: 'PERMAK' },
-      'Inventory_Gudang Retur': { code: 'RET', group: 'WH' },
-      'Inventory_Gudang Logistik': { code: 'LOG', group: 'WH' },
-      'Inventory_Sample Live': { code: 'LIVE', group: 'LIVE' },
-      'Inventory_Neo Soho Jakarta': { code: 'NSJ', group: 'RETAIL' },
-      'Inventory_Bazaar Central Park': { code: 'BCPJ', group: 'RETAIL' },
-      'Inventory_Bazaar Lippo Mall Puri': { code: 'BLMP', group: 'RETAIL' },
-      'Inventory_Puri Indah Mall': { code: 'PIM', group: 'RETAIL' },
-      'Inventory_Shopee - Deli Park Medan': { code: 'SDPM', group: 'MAP' },
-      'Inventory_Shopee - Ciputra World Surabaya': { code: 'SCWS', group: 'MAP' },
-      'Inventory_La Vela Tangerang': { code: 'LVT', group: 'RETAIL' },
-      'Inventory_Gaia Pontianak': { code: 'GAIA', group: 'RETAIL' },
-      'Inventory_Sun Plaza Medan': { code: 'SPM', group: 'RETAIL' }
-    };
-
-    const colMap = {};
-    headers.forEach((h, idx) => {
-      if (KEYWORD_MAP[h]) colMap[idx] = KEYWORD_MAP[h];
-    });
-
-    const records = [];
-    for (let i = 1; i < dataVals.length; i++) {
-      const row = dataVals[i];
-      const sku = String(row[4] || '').trim();
-      if (!sku) continue;
-
-      const kategori = String(row[0] || 'CLOTHING').trim();
-      const nama = String(row[1] || sku).trim();
-      const variant = String(row[3] || '-').trim();
-      const fInfo = fisikMap[sku];
-      const qtyFisik = fInfo ? fInfo.qty : 0;
-      const lokasiRak = fInfo && fInfo.lokasi ? fInfo.lokasi : '';
-
-      const channelsData = {};
-      const groupData = {
-        MAP: { fisik: 0, dp: 0 },
-        LIVE: { fisik: 0, dp: 0 },
-        STUDIO: { fisik: 0, dp: 0 },
-        PERMAK: { fisik: 0, dp: 0 },
-        DEFECT: { fisik: 0, dp: 0 },
-        WH: { fisik: 0, dp: 0 },
-        QC: { fisik: 0, dp: 0 },
-        GA: { fisik: 0, dp: 0 },
-        RETAIL: { fisik: 0, dp: 0 }
-      };
-
-      let totalDp = 0;
-      Object.entries(colMap).forEach(([cIdx, info]) => {
-        const val = Number(row[Number(cIdx)] || 0);
-        const cleanVal = isNaN(val) ? 0 : val;
-        channelsData[info.code] = cleanVal;
-        totalDp += cleanVal;
-        if (groupData[info.group]) groupData[info.group].dp += cleanVal;
+    const users = fetchSupabaseTable('karyawan?order=nik.asc');
+    if (users && users.length > 0) {
+      const sh = ss.getSheetByName('Data Karyawan');
+      const headers = ['NIK', 'Nama', 'Divisi', 'Username', 'Password', 'Role', 'Email', 'NoHP', 'GajiPokok', 'Tunjangan', 'RateLembur', 'SaldoKasbon', 'Status', 'Alamat', 'TglLahir', 'TglBergabung', 'Hobi', 'KontakDarurat', 'Foto', 'UpdatedAt'];
+      const rows = [headers];
+      users.forEach(u => {
+        rows.push([
+          u.nik || '',
+          u.nama || '',
+          u.divisi || 'Warehouse',
+          u.username || u.nik || '',
+          u.password || '',
+          u.role || 'user',
+          u.email || '',
+          u.no_hp || '',
+          Number(u.gaji_pokok || 0),
+          Number(u.tunjangan || 0),
+          Number(u.rate_lembur || 25000),
+          Number(u.saldo_kasbon || 0),
+          u.status || 'Aktif',
+          u.alamat || '',
+          u.tgl_lahir || '',
+          u.tgl_bergabung || '',
+          u.hobi || '',
+          u.kontak_darurat || '',
+          u.foto || '',
+          u.updated_at || new Date().toISOString()
+        ]);
       });
-
-      groupData.QC.fisik = qtyFisik;
-      records.push({
-        sku: sku,
-        nama_produk: nama,
-        size: variant,
-        kategori: kategori,
-        lokasi_rak: lokasiRak,
-        area: 'Gudang Utama',
-        kategori_area: 'ONLINE',
-        qty_fisik: qtyFisik,
-        qty_dealpos: totalDp,
-        keterangan: JSON.stringify({ ...groupData, channels: channelsData }),
-        updated_at: new Date().toISOString()
-      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Karyawan: ${users.length} data`);
     }
-
-    // Clear old & batch post
-    UrlFetchApp.fetch(SUPABASE_CONFIG.url + '/rest/v1/inv_stock?id=gt.0', {
-      method: 'delete',
-      headers: {
-        'apikey': SUPABASE_CONFIG.anonKey,
-        'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey
-      }
-    });
-
-    const batchSize = 400;
-    for (let b = 0; b < records.length; b += batchSize) {
-      const batch = records.slice(b, b + batchSize);
-      UrlFetchApp.fetch(SUPABASE_CONFIG.url + '/rest/v1/inv_stock', {
-        method: 'post',
-        headers: {
-          'apikey': SUPABASE_CONFIG.anonKey,
-          'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey,
-          'Content-Type': 'application/json'
-        },
-        payload: JSON.stringify(batch)
-      });
-    }
-
-    return { success: true, count: records.length, message: records.length + ' SKU berhasil disinkronkan ke Supabase' };
-  } catch (e) {
-    return { success: false, error: e.message };
+  } catch(err) {
+    log.push(`❌ Data Karyawan: ` + err.message);
   }
+
+  // 2. BACKUP DATA ABSENSI
+  try {
+    const absensi = fetchSupabaseTable('presensi?order=tanggal.desc');
+    if (absensi && absensi.length > 0) {
+      const sh = ss.getSheetByName('Data Absensi');
+      const headers = ['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Shift', 'Jam Masuk', 'Jam Pulang', 'Status Kehadiran', 'Keterlambatan (Menit)', 'Latitude Masuk', 'Longitude Masuk', 'Foto Presensi Masuk', 'Latitude Pulang', 'Longitude Pulang', 'Foto Presensi Pulang', 'Catatan', 'Tanggal Input'];
+      const rows = [headers];
+      absensi.forEach(a => {
+        rows.push([
+          a.id || '',
+          a.nik || '',
+          a.nama || '',
+          a.divisi || '',
+          a.tanggal || '',
+          a.shift || '',
+          a.jam_masuk || '',
+          a.jam_pulang || '',
+          a.status || '',
+          Number(a.keterlambatan_menit || 0),
+          a.lat_masuk || '',
+          a.long_masuk || '',
+          a.foto_masuk || '',
+          a.lat_pulang || '',
+          a.long_pulang || '',
+          a.foto_pulang || '',
+          a.catatan || '',
+          a.created_at || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Absensi: ${absensi.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Absensi: ` + err.message);
+  }
+
+  // 3. BACKUP JADWAL ROSTER SHIFT
+  try {
+    const roster = fetchSupabaseTable('roster_shift?order=tanggal.desc');
+    if (roster && roster.length > 0) {
+      const sh = ss.getSheetByName('Jadwal Shift');
+      const headers = ['ID', 'NIK', 'Tanggal', 'Shift', 'JamMasuk', 'JamPulang', 'Keterangan'];
+      const rows = [headers];
+      roster.forEach(r => {
+        rows.push([
+          r.id || `ROSTER-${r.nik}-${r.tanggal}`,
+          r.nik || '',
+          r.tanggal || '',
+          r.shift || '',
+          r.jam_masuk || '',
+          r.jam_pulang || '',
+          r.keterangan || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Jadwal Shift: ${roster.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Jadwal Shift: ` + err.message);
+  }
+
+  // 4. BACKUP DATA LEMBUR
+  try {
+    const lembur = fetchSupabaseTable('lembur?order=tanggal.desc');
+    if (lembur && lembur.length > 0) {
+      const sh = ss.getSheetByName('Data Lembur');
+      const headers = ['ID', 'NIK', 'Nama', 'Divisi', 'Tanggal', 'Deskripsi', 'Jam Mulai', 'Jam Selesai', 'Total Jam', 'Catatan', 'Tanggal Input', 'Status', 'UpdatedBy'];
+      const rows = [headers];
+      lembur.forEach(l => {
+        rows.push([
+          l.id || '',
+          l.nik || '',
+          l.nama || '',
+          l.divisi || '',
+          l.tanggal || '',
+          l.deskripsi || '',
+          l.jam_mulai || '',
+          l.jam_selesai || '',
+          Number(l.total_jam || 0),
+          l.catatan || '',
+          l.created_at || '',
+          l.status || 'Diajukan',
+          l.approved_by || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Lembur: ${lembur.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Lembur: ` + err.message);
+  }
+
+  // 5. BACKUP DATA PERIJINAN
+  try {
+    const cuti = fetchSupabaseTable('cuti?order=tanggal_mulai.desc');
+    if (cuti && cuti.length > 0) {
+      const sh = ss.getSheetByName('Data Perijinan');
+      const headers = ['ID', 'NIK', 'Nama', 'Divisi', 'Jenis', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Tanggal Input', 'Status', 'UpdatedBy'];
+      const rows = [headers];
+      cuti.forEach(c => {
+        rows.push([
+          c.id || '',
+          c.nik || '',
+          c.nama || '',
+          c.divisi || '',
+          c.jenis || '',
+          c.tanggal_mulai || '',
+          c.tanggal_selesai || '',
+          c.alasan || '',
+          c.created_at || '',
+          c.status || 'Diajukan',
+          c.approved_by || ''
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Data Perijinan: ${cuti.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Data Perijinan: ` + err.message);
+  }
+
+  // 6. BACKUP DATA MASTER SHIFT
+  try {
+    const shifts = fetchSupabaseTable('master_shift?order=id.asc');
+    if (shifts && shifts.length > 0) {
+      const sh = ss.getSheetByName('Data Shift');
+      const headers = ['ID', 'NamaShift', 'JamMasuk', 'JamPulang', 'ToleransiMenit', 'Status'];
+      const rows = [headers];
+      shifts.forEach(s => {
+        rows.push([
+          s.id || '',
+          s.nama_shift || '',
+          s.jam_masuk || '',
+          s.jam_pulang || '',
+          Number(s.toleransi_menit || 15),
+          s.status || 'Aktif'
+        ]);
+      });
+      sh.clear();
+      sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+      log.push(`✅ Master Shift: ${shifts.length} data`);
+    }
+  } catch(err) {
+    log.push(`❌ Master Shift: ` + err.message);
+  }
+
+  const resultMsg = 'Sinkronisasi Backup Selesai:\n' + log.join('\n');
+  Logger.log(resultMsg);
+  try {
+    SpreadsheetApp.getUi().alert(resultMsg);
+  } catch(e) {}
+  return { success: true, log: log };
 }

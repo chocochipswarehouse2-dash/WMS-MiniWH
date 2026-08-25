@@ -210,7 +210,12 @@ async function supabaseFetch(tableAndQuery, options = {}) {
 async function apiRequest(action, payload = {}) {
   // 1. UTAMAKAN SUPABASE UNTUK KECEPATAN INSTAN (<50ms)
   try {
-    return await supabaseApiRequest(action, payload);
+    const result = await supabaseApiRequest(action, payload);
+    if (result && result.success !== false) {
+      // Trigger background sync ke Google Sheet sebagai data backup (fire-and-forget)
+      triggerBackgroundSheetBackup(action, payload);
+    }
+    return result;
   } catch (err) {
     console.warn(`[Supabase API Error on ${action}]`, err);
     // Jika error dari Supabase (validasi data, dsb), langsung throw agar tidak ditutupi error GAS
@@ -241,6 +246,31 @@ async function apiRequest(action, payload = {}) {
   } catch (error) {
     showToast(error.message || 'Gagal terhubung ke server', 'error');
     return null;
+  }
+}
+
+// Background fire-and-forget sync to Google Sheets for live backup
+function triggerBackgroundSheetBackup(action, payload) {
+  const mutatingActions = [
+    'saveUser', 'saveUserProfile', 'checkInAbsensi', 'checkOutAbsensi', 
+    'saveAbsensiManual', 'updateAbsensi', 'deleteAbsensi', 'saveLemburMultiple', 
+    'updateLembur', 'deleteLembur', 'savePerijinanMultiple', 'approvePerijinan', 
+    'rejectPerijinan', 'deletePerijinan', 'saveRosterBulk', 'deleteRosterShift', 
+    'saveShift', 'deleteShift', 'saveKasbon', 'deleteKasbon', 
+    'generateMonthlyPayroll', 'savePayrollAdjustment'
+  ];
+  if (!mutatingActions.includes(action)) return;
+
+  try {
+    const postData = JSON.stringify({ action, ...payload });
+    const body = new URLSearchParams({ data: postData }).toString();
+    fetch(GOOGLE_SHEET_WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    }).catch(e => console.warn('[Background Sheet Backup Notice]', e));
+  } catch (e) {
+    // Ignore background backup errors
   }
 }
 
@@ -286,6 +316,8 @@ async function supabaseApiRequest(action, payload) {
           noHp: user.no_hp || '',
           alamat: user.alamat || '',
           tglLahir: user.tgl_lahir || '',
+          tglBergabung: user.tgl_bergabung || '',
+          foto: user.foto || '',
           hobi: user.hobi || '',
           kontakDarurat: user.kontak_darurat || ''
         }
@@ -311,6 +343,8 @@ async function supabaseApiRequest(action, payload) {
           noHp: u.no_hp || '',
           alamat: u.alamat || '',
           tglLahir: u.tgl_lahir || '',
+          tglBergabung: u.tgl_bergabung || '',
+          foto: u.foto || '',
           hobi: u.hobi || '',
           kontakDarurat: u.kontak_darurat || ''
         }))
@@ -334,6 +368,8 @@ async function supabaseApiRequest(action, payload) {
         no_hp: u.noHp || '',
         alamat: u.alamat || '',
         tgl_lahir: u.tglLahir || '',
+        tgl_bergabung: u.tglBergabung || u.tgl_bergabung || '',
+        foto: u.foto || '',
         hobi: u.hobi || '',
         kontak_darurat: u.kontakDarurat || '',
         updated_at: new Date().toISOString()
@@ -354,6 +390,8 @@ async function supabaseApiRequest(action, payload) {
       if (p.noHp !== undefined) patchData.no_hp = p.noHp;
       if (p.alamat !== undefined) patchData.alamat = p.alamat;
       if (p.tglLahir !== undefined) patchData.tgl_lahir = p.tglLahir;
+      if (p.tglBergabung !== undefined) patchData.tgl_bergabung = p.tglBergabung;
+      if (p.foto !== undefined) patchData.foto = p.foto;
       if (p.hobi !== undefined) patchData.hobi = p.hobi;
       if (p.kontakDarurat !== undefined) patchData.kontak_darurat = p.kontakDarurat;
       patchData.updated_at = new Date().toISOString();
@@ -3266,9 +3304,10 @@ function renderUserTable() {
     <table>
       <thead>
         <tr>
-          <th>Nama Lengkap</th>
+          <th>Karyawan</th>
           <th>ID (NIK)</th>
           <th>Divisi</th>
+          <th>Masa Kerja</th>
           <th>Username</th>
           <th>Password</th>
           <th>KPI Kehadiran</th>
@@ -3282,16 +3321,33 @@ function renderUserTable() {
       <tbody>
         ${state.users.map(u => {
           const kpi = calculateKPI(u.nik, 'thisMonth') || { totalScore: 0, grade: 'C', gradeClass: 'badge-kpi-grade-c' };
+          const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+          const tenure = calculateTenure(u.tglBergabung || u.tgl_bergabung);
+          const avatarHtml = u.foto ? 
+            `<div class="table-user-avatar"><img src="${u.foto}" alt="${u.nama}" /></div>` :
+            `<div class="table-user-avatar">${initials}</div>`;
+
           return `
           <tr>
             <td>
-              <strong>${u.nama}</strong>
-              ${u.alamat ? `<br><small style="color:var(--text-muted); font-size:0.75rem;">🏠 ${escapeHtml(u.alamat).substring(0, 25)}...</small>` : ''}
+              <div style="display: flex; align-items: center; gap: 10px;">
+                ${avatarHtml}
+                <div>
+                  <strong>${escapeHtml(u.nama)}</strong>
+                  ${u.alamat ? `<br><small style="color:var(--text-muted); font-size:0.72rem;">🏠 ${escapeHtml(u.alamat).substring(0, 22)}...</small>` : ''}
+                </div>
+              </div>
             </td>
             <td><span class="mono-text">${u.nik}</span></td>
-            <td>${u.divisi}</td>
-            <td><span class="mono-text">${u.username}</span></td>
-            <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${u.password || '-'}</span></td>
+            <td>${escapeHtml(u.divisi || 'Warehouse')}</td>
+            <td>
+              <span class="badge-tenure" title="Tgl Masuk: ${u.tglBergabung || u.tgl_bergabung || '-'}">
+                ${tenure}
+              </span>
+              ${u.tglBergabung || u.tgl_bergabung ? `<br><small style="color: var(--text-muted); font-size: 0.7rem;">${u.tglBergabung || u.tgl_bergabung}</small>` : ''}
+            </td>
+            <td><span class="mono-text">${escapeHtml(u.username)}</span></td>
+            <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${escapeHtml(u.password || '-')}</span></td>
             <td>
               <span class="badge-kpi-grade ${kpi.gradeClass}" style="cursor:pointer;" onclick="openUserKpiDetail('${u.nik}')" title="Klik untuk lihat rincian KPI">
                 ${kpi.grade} • ${kpi.totalScore}%
@@ -3323,6 +3379,8 @@ window.editUser = (nik) => {
   document.getElementById('userNIK').value = u.nik;
   document.getElementById('userName').value = u.nama;
   document.getElementById('userDivisi').value = u.divisi;
+  if (document.getElementById('userTglBergabung')) document.getElementById('userTglBergabung').value = u.tglBergabung || u.tgl_bergabung || '';
+  if (document.getElementById('userTglLahir')) document.getElementById('userTglLahir').value = u.tglLahir || u.tgl_lahir || '';
   document.getElementById('userUsername').value = u.username;
   document.getElementById('userPassword').value = u.password;
   document.getElementById('userGajiPokok').value = u.gajiPokok || 0;
@@ -3360,6 +3418,8 @@ if (userF) {
       nik: document.getElementById('userNIK').value.trim(),
       nama: document.getElementById('userName').value.trim(),
       divisi: document.getElementById('userDivisi').value.trim(),
+      tglBergabung: (document.getElementById('userTglBergabung')?.value || '').trim(),
+      tglLahir: (document.getElementById('userTglLahir')?.value || '').trim(),
       username: document.getElementById('userUsername').value.trim(),
       password: document.getElementById('userPassword').value.trim(),
       gajiPokok: document.getElementById('userGajiPokok').value,
@@ -3739,11 +3799,7 @@ async function startApp() {
 
     // User Labels & Badges
     if (state.currentUser) {
-      const initials = (state.currentUser.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-      const sAvatar = document.getElementById('sidebarAvatarInitial');
-      const tAvatar = document.getElementById('topbarAvatarInitial');
-      if (sAvatar) sAvatar.textContent = initials;
-      if (tAvatar) tAvatar.textContent = initials;
+      updateUserInterfaceAvatars();
 
       const userLabel = document.getElementById('loggedUserLabel');
       if (userLabel) userLabel.textContent = state.currentUser.nama || 'Pengguna';
@@ -3962,14 +4018,148 @@ function calculateKPI(nik, period = 'thisMonth') {
   };
 }
 
+function calculateTenure(joinDateStr) {
+  if (!joinDateStr) return '-';
+  const start = new Date(joinDateStr);
+  if (isNaN(start.getTime())) return '-';
+  const now = new Date();
+  if (start > now) return 'Baru bergabung';
+
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  let days = now.getDate() - start.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} Thn`);
+  if (months > 0) parts.push(`${months} Bln`);
+  if (parts.length === 0) {
+    if (days > 0) parts.push(`${days} Hari`);
+    else parts.push('< 1 Bln');
+  }
+  return parts.join(' ');
+}
+
+window.handleProfilePhotoUpload = function(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    return showToast('Harap pilih file gambar (JPG/PNG/WEBP)', 'error');
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Compress with Canvas (max 400x400)
+      const canvas = document.createElement('canvas');
+      const maxDimension = 400;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        }
+      } else {
+        if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.82);
+
+      // 1. Update Preview DOM
+      const avatarImg = document.getElementById('profileBigAvatarImg');
+      const avatarText = document.getElementById('profileBigAvatarText');
+      if (avatarImg) {
+        avatarImg.src = base64;
+        avatarImg.style.display = 'block';
+      }
+      if (avatarText) avatarText.style.display = 'none';
+
+      // 2. Update state.currentUser
+      state.currentUser.foto = base64;
+      localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+
+      const uInList = (state.users || []).find(x => x.nik === state.currentUser.nik);
+      if (uInList) uInList.foto = base64;
+
+      // 3. Save to Supabase & GAS
+      apiRequest('saveUserProfile', { nik: state.currentUser.nik, foto: base64 });
+
+      // 4. Update sidebar avatar & user table
+      updateUserInterfaceAvatars();
+      if (state.currentUser.role === 'admin') renderUserTable();
+
+      showToast('📸 Foto profil berhasil diperbarui!');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+function updateUserInterfaceAvatars() {
+  if (!state.currentUser) return;
+  const u = state.currentUser;
+  const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  const sAvatar = document.getElementById('sidebarAvatarInitial');
+  if (sAvatar) {
+    if (u.foto) {
+      sAvatar.innerHTML = `<img src="${u.foto}" alt="${u.nama}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;" />`;
+    } else {
+      sAvatar.textContent = initials;
+    }
+  }
+
+  const tAvatar = document.getElementById('topbarAvatarInitial');
+  if (tAvatar) {
+    if (u.foto) {
+      tAvatar.innerHTML = `<img src="${u.foto}" alt="${u.nama}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;" />`;
+    } else {
+      tAvatar.textContent = initials;
+    }
+  }
+}
+
 function renderUserProfileTab() {
   if (!state.currentUser) return;
   const u = state.currentUser;
 
-  // 1. Header Profile Box
+  // 1. Header Profile Box & Avatar
   const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const bigAvatar = document.getElementById('profileBigAvatar');
-  if (bigAvatar) bigAvatar.textContent = initials;
+  const avatarImg = document.getElementById('profileBigAvatarImg');
+  const avatarText = document.getElementById('profileBigAvatarText');
+  if (avatarImg && avatarText) {
+    if (u.foto) {
+      avatarImg.src = u.foto;
+      avatarImg.style.display = 'block';
+      avatarText.style.display = 'none';
+    } else {
+      avatarImg.style.display = 'none';
+      avatarText.textContent = initials;
+      avatarText.style.display = 'inline-block';
+    }
+  }
+
+  updateUserInterfaceAvatars();
 
   const dName = document.getElementById('profileDisplayName');
   if (dName) dName.textContent = u.nama || 'Pengguna';
@@ -3979,6 +4169,13 @@ function renderUserProfileTab() {
 
   const dDiv = document.getElementById('profileDisplayDivisi');
   if (dDiv) dDiv.textContent = u.divisi || 'Warehouse';
+
+  const joinDate = u.tglBergabung || u.tgl_bergabung || '';
+  const dJoin = document.getElementById('profileDisplayJoinDate');
+  if (dJoin) dJoin.textContent = joinDate || '-';
+
+  const dTenure = document.getElementById('profileDisplayTenure');
+  if (dTenure) dTenure.textContent = calculateTenure(joinDate);
 
   const dPhone = document.getElementById('profileDisplayPhone');
   if (dPhone) dPhone.textContent = u.noHp || u.nohp || '-';
@@ -4068,6 +4265,9 @@ function renderUserProfileTab() {
   const fRole = document.getElementById('profRole');
   if (fRole) fRole.value = u.role === 'admin' ? 'Administrator' : 'Karyawan / User';
 
+  const fJoin = document.getElementById('profTglBergabung');
+  if (fJoin) fJoin.value = u.tglBergabung || u.tgl_bergabung || '';
+
   const fNoHp = document.getElementById('profNoHp');
   if (fNoHp) fNoHp.value = u.noHp || u.nohp || '';
 
@@ -4119,6 +4319,7 @@ async function saveUserProfile(e) {
   const payload = {
     nik: state.currentUser.nik,
     nama: (document.getElementById('profNama')?.value || '').trim(),
+    tglBergabung: (document.getElementById('profTglBergabung')?.value || '').trim(),
     noHp: (document.getElementById('profNoHp')?.value || '').trim(),
     email: (document.getElementById('profEmail')?.value || '').trim(),
     tglLahir: (document.getElementById('profTglLahir')?.value || '').trim(),
@@ -4174,6 +4375,10 @@ window.openUserKpiDetail = function(nik, period = 'thisMonth') {
   };
 
   const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const tenure = calculateTenure(u.tglBergabung || u.tgl_bergabung);
+  const avatarHtml = u.foto ? 
+    `<div style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid var(--accent, #6366f1);"><img src="${u.foto}" alt="${u.nama}" style="width:100%; height:100%; object-fit:cover;" /></div>` :
+    `<div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; flex-shrink: 0;">${initials}</div>`;
 
   const bodyEl = document.getElementById('modalDetailKpiUserBody');
   if (!bodyEl) return;
@@ -4181,19 +4386,18 @@ window.openUserKpiDetail = function(nik, period = 'thisMonth') {
   bodyEl.innerHTML = `
     <!-- PROFILE HEADER IN MODAL -->
     <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-subtle);">
-      <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700; flex-shrink: 0;">
-        ${initials}
-      </div>
+      ${avatarHtml}
       <div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <h3 style="margin: 0;">${escapeHtml(u.nama)}</h3>
           <span class="badge-role">${escapeHtml(u.divisi || 'Warehouse')}</span>
           <span class="badge-kpi-grade ${kpi.gradeClass}">Grade ${kpi.grade} (${kpi.totalScore}%)</span>
         </div>
-        <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">
-          <span>NIK: <strong>${u.nik}</strong></span> • 
-          <span>WhatsApp: <strong>${u.noHp || '-'}</strong></span> • 
-          <span>Email: <strong>${u.email || '-'}</strong></span>
+        <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px 12px;">
+          <span>🆔 NIK: <strong>${u.nik}</strong></span> • 
+          <span>📅 Masuk: <strong>${u.tglBergabung || u.tgl_bergabung || '-'}</strong> (${tenure})</span> • 
+          <span>📱 WhatsApp: <strong>${u.noHp || '-'}</strong></span> • 
+          <span>✉️ Email: <strong>${u.email || '-'}</strong></span>
         </div>
       </div>
     </div>
