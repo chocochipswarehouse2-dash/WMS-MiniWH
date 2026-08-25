@@ -4215,7 +4215,7 @@ window.openAddRosterModal = function(nik, nama, date) {
   document.getElementById('editRosterJamMasuk').value = '08:00';
   document.getElementById('editRosterJamPulang').value = '17:00';
   document.getElementById('editRosterKeterangan').value = '';
-  document.getElementById('modalEditRoster').querySelector('.modal-header h3').innerText = 'Tambah Roster Shift';
+  document.getElementById('modalEditRoster').querySelector('.panel-header-row h3').innerText = 'Tambah Roster Shift';
   openModal('modalEditRoster');
 };
 
@@ -4229,6 +4229,7 @@ window.openEditRosterModal = function(id) {
   document.getElementById('editRosterJamMasuk').value = r.jamMasuk;
   document.getElementById('editRosterJamPulang').value = r.jamPulang;
   document.getElementById('editRosterKeterangan').value = r.keterangan || '';
+  document.getElementById('modalEditRoster').querySelector('.panel-header-row h3').innerText = 'Edit Roster Shift';
   openModal('modalEditRoster');
 };
 
