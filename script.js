@@ -28,7 +28,6 @@ const panels = document.querySelectorAll('.tab-panel');
 const topbarPageTitle = document.getElementById('topbarPageTitle');
 
 const tabTitles = {
-  inventoryTab: 'Inventory Matrix – Stock Semua Outlet',
   presensiTab: 'Presensi Harian Warehouse',
   formLemburTab: 'Form Pengajuan Lembur',
   statusLemburTab: 'Status Lembur Saya',
@@ -123,10 +122,6 @@ function switchTab(tabId) {
   if (navItem) navItem.classList.add('active');
   if (topbarPageTitle && tabTitles[tabId]) {
     topbarPageTitle.textContent = tabTitles[tabId];
-  }
-  // Auto-load inventory data when switching to inventoryTab
-  if (tabId === 'inventoryTab' && invAllData.length === 0) {
-    loadInventoryData();
   }
 
   const sidebar = document.getElementById('sidebar');
