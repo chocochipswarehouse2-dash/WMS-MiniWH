@@ -4223,7 +4223,7 @@ window.openAddRosterModal = function(nik, nama, date) {
 };
 
 window.openEditRosterModal = function(id) {
-  const r = state.roster.find(x => x.id === id);
+  const r = state.roster.find(x => String(x.id) === String(id));
   if (!r) return;
   document.getElementById('editRosterId').value = r.id;
   document.getElementById('editRosterNama').value = r.nama + ' (' + r.nik + ')';
@@ -4256,11 +4256,11 @@ window.deleteRosterFromModal = async function() {
   
   showLoading();
   try {
-    const res = await supabase.from('roster_shift').delete().eq('id', id);
-    if (res.error) throw res.error;
+    const res = await apiRequest('deleteRosterShift', { id });
+    if (!res || !res.success) throw new Error(res ? res.message : 'Unknown error');
     alert('Jadwal berhasil dihapus!');
     closeModal('modalEditRoster');
-    await fetchRoster();
+    await loadRosterShifts();
     renderAdminRosterTable();
   } catch (err) {
     alert('Gagal menghapus jadwal: ' + err.message);
@@ -4277,29 +4277,17 @@ window.saveEditRoster = async function(e) {
   const jamMasuk = document.getElementById('editRosterJamMasuk').value;
   const jamPulang = document.getElementById('editRosterJamPulang').value;
   const keterangan = document.getElementById('editRosterKeterangan').value;
+  const nik = id ? state.roster.find(x => String(x.id) === String(id)).nik : document.getElementById('editRosterId').dataset.nik;
 
   showLoading();
   try {
-    
-    let error;
-    if (id) {
-      const res = await supabase.from('roster_shift').update({
-        tanggal, shift, jam_masuk: jamMasuk, jam_pulang: jamPulang, keterangan
-      }).eq('id', id);
-      error = res.error;
-    } else {
-      const nik = document.getElementById('editRosterId').dataset.nik;
-      const res = await supabase.from('roster_shift').insert({
-        nik, tanggal, shift, jam_masuk: jamMasuk, jam_pulang: jamPulang, keterangan
-      });
-      error = res.error;
-    }
+    const rosterList = [{ nik, tanggal, shift, jamMasuk, jamPulang, keterangan }];
+    const res = await apiRequest('saveRosterBulk', { rosterList });
+    if (!res || !res.success) throw new Error(res ? res.message : 'Unknown error');
 
-
-    if (error) throw error;
     alert('Roster berhasil diupdate!');
     closeModal('modalEditRoster');
-    await fetchRoster();
+    await loadRosterShifts();
     renderAdminRosterTable();
   } catch (err) {
     alert('Gagal update roster: ' + err.message);
