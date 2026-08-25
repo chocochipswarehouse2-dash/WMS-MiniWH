@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=8.5" />
+  <link rel="stylesheet" href="style.css?v=8.6" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -485,48 +485,43 @@
   <!-- ================= MODALS ================= -->
 
   <!-- MODAL EDIT ROSTER -->
-  <div id="modalEditRoster" class="modal-overlay">
-    <div class="modal-container">
-      <div class="modal-header">
-        <h3>Edit Roster Shift</h3>
-        <button class="close-modal" onclick="closeModal('modalEditRoster')">✕</button>
+  <div id="modalEditRoster" class="modal hidden">
+    <div class="modal-content">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <h3 style="margin: 0;">Edit Roster Shift</h3>
+        <button type="button" class="icon-btn" onclick="closeModal('modalEditRoster')">✕</button>
       </div>
       <div class="modal-body">
         <form id="editRosterForm" onsubmit="saveEditRoster(event)">
           <input type="hidden" id="editRosterId" />
-          <div class="form-group">
-            <label>Karyawan</label>
-            <input type="text" id="editRosterNama" disabled />
+          <div class="grid two-columns">
+            <label><span>Karyawan</span><input type="text" id="editRosterNama" disabled style="background: var(--bg-app); font-weight: 600;"/></label>
+            <label><span>Tanggal</span><input type="date" id="editRosterTanggal" required /></label>
           </div>
-          <div class="form-group">
-            <label>Tanggal</label>
-            <input type="date" id="editRosterTanggal" required />
+          <div class="grid two-columns">
+            <label><span>Shift</span>
+              <select id="editRosterShift" onchange="autoFillEditJam()">
+                <option value="Shift 1">Shift 1 (08.00 - 17.00)</option>
+                <option value="Shift 2">Shift 2 (09.00 - 18.00)</option>
+                <option value="Shift 3">Shift 3 (12.00 - 21.00)</option>
+                <option value="Off">Off / Libur</option>
+                <option value="Cuti">Cuti</option>
+                <option value="Sakit">Sakit</option>
+                <option value="Izin">Izin</option>
+              </select>
+            </label>
+            <label><span>Keterangan</span><input type="text" id="editRosterKeterangan" placeholder="Alasan perubahan shift..."/></label>
           </div>
-          <div class="form-group">
-            <label>Shift</label>
-            <select id="editRosterShift" onchange="autoFillEditJam()">
-              <option value="Shift 1">Shift 1 (08.00 - 17.00)</option>
-              <option value="Shift 2">Shift 2 (09.00 - 18.00)</option>
-              <option value="Shift 3">Shift 3 (12.00 - 21.00)</option>
-              <option value="Off">Off / Libur</option>
-              <option value="Cuti">Cuti</option>
-              <option value="Sakit">Sakit</option>
-              <option value="Izin">Izin</option>
-            </select>
+          <div class="grid two-columns">
+            <label><span>Jam Masuk</span><input type="time" id="editRosterJamMasuk" /></label>
+            <label><span>Jam Pulang</span><input type="time" id="editRosterJamPulang" /></label>
           </div>
-          <div class="form-group">
-            <label>Jam Masuk</label>
-            <input type="time" id="editRosterJamMasuk" />
+          <div class="submit-row" style="margin-top: 18px;">
+            <button type="submit" class="primary-btn">
+              <span class="btn-text">💾 Simpan Perubahan</span>
+            </button>
+            <button type="button" class="secondary-btn" onclick="closeModal('modalEditRoster')">Batal</button>
           </div>
-          <div class="form-group">
-            <label>Jam Pulang</label>
-            <input type="time" id="editRosterJamPulang" />
-          </div>
-          <div class="form-group">
-            <label>Keterangan</label>
-            <input type="text" id="editRosterKeterangan" />
-          </div>
-          <button type="submit" class="primary-btn w-100" style="margin-top: 16px;">Simpan Perubahan</button>
         </form>
       </div>
     </div>
@@ -1154,6 +1149,6 @@
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=8.5" defer></script>
+  <script src="script.js?v=8.6" defer></script>
 </body>
 </html>
