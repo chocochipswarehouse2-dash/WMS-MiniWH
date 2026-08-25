@@ -24,6 +24,8 @@ function doPost(e) {
         return jsonResponse({ success: true, users: getUsers() });
       case 'saveUser':
         return jsonResponse({ success: true, user: saveUser(payload) });
+      case 'saveUserProfile':
+        return jsonResponse({ success: true, result: saveUserProfile(payload) });
       case 'importUsersBulk':
         return jsonResponse({ success: true, count: importUsersBulk(payload.userList) });
       case 'deleteUser':
@@ -353,7 +355,9 @@ function loginUser(username, password) {
   return {
     nik: match.nik, nama: match.nama, divisi: match.divisi,
     username: match.username, role: match.role || 'user',
-    email: match.email || '', noHp: match.noHp || match.nohp || '',
+    email: match.email || '', noHp: match.noHp || '',
+    alamat: match.alamat || '', tglLahir: match.tglLahir || '',
+    hobi: match.hobi || '', kontakDarurat: match.kontakDarurat || '',
     gajiPokok: match.gajiPokok || 0, tunjangan: match.tunjangan || 0, rateLembur: match.rateLembur || 0
   };
 }
@@ -371,6 +375,10 @@ function getUsers() {
       role: String(u.role || 'user').trim(),
       email: String(u.email || '').trim(),
       noHp: String(u.noHp || u.nohp || u.telepon || u.hp || '').trim(),
+      alamat: String(u.alamat || '').trim(),
+      tglLahir: String(u.tglLahir || u.tgllahir || u.tanggalLahir || '').trim(),
+      hobi: String(u.hobi || '').trim(),
+      kontakDarurat: String(u.kontakDarurat || u.kontakdarurat || '').trim(),
       gajiPokok: Number(u.gajiPokok || u.gajpokok || u.gajipokok || u.gapok || 0),
       tunjangan: Number(u.tunjangan || 0),
       rateLembur: Number(u.rateLembur || u.ratelembur || 25000),
@@ -405,6 +413,10 @@ function saveUser(payload) {
     Number(payload.rateLembur || 25000),
     Number(payload.saldoKasbon || 0),
     'Aktif', 
+    payload.alamat || '',
+    payload.tglLahir || '',
+    payload.hobi || '',
+    payload.kontakDarurat || '',
     new Date().toISOString()
   ];
 
@@ -422,11 +434,49 @@ function saveUser(payload) {
     role: payload.role,
     email: payload.email,
     noHp: payload.noHp,
+    alamat: payload.alamat,
+    tglLahir: payload.tglLahir,
+    hobi: payload.hobi,
+    kontakDarurat: payload.kontakDarurat,
     gajiPokok: payload.gajiPokok,
     tunjangan: payload.tunjangan,
     rateLembur: payload.rateLembur,
     saldoKasbon: payload.saldoKasbon
   };
+}
+
+function saveUserProfile(payload) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Data Karyawan');
+  const values = sheet.getDataRange().getValues();
+  const targetNIK = String(payload.nik || '').trim();
+  if (!targetNIK) throw new Error('NIK tidak valid.');
+
+  const headers = values[0].map(h => normalizeHeaderName(h));
+  let rowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]).trim() === targetNIK) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  if (rowIndex === -1) throw new Error('Karyawan tidak ditemukan.');
+
+  const updateCol = (colKey, val) => {
+    const colIdx = headers.indexOf(colKey);
+    if (colIdx >= 0) {
+      sheet.getRange(rowIndex, colIdx + 1).setValue(val);
+    }
+  };
+
+  if (payload.nama !== undefined) updateCol('nama', payload.nama);
+  if (payload.email !== undefined) updateCol('email', payload.email);
+  if (payload.noHp !== undefined) updateCol('noHp', payload.noHp);
+  if (payload.alamat !== undefined) updateCol('alamat', payload.alamat);
+  if (payload.tglLahir !== undefined) updateCol('tglLahir', payload.tglLahir);
+  if (payload.hobi !== undefined) updateCol('hobi', payload.hobi);
+  if (payload.kontakDarurat !== undefined) updateCol('kontakDarurat', payload.kontakDarurat);
+
+  return { success: true, message: 'Data diri berhasil disimpan.' };
 }
 
 function importUsersBulk(userList) {

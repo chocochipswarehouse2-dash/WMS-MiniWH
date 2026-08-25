@@ -33,6 +33,7 @@ const tabTitles = {
   statusLemburTab: 'Status Lembur Saya',
   formCutiTab: 'Form Pengajuan Ijin / Cuti',
   statusCutiTab: 'Info Ijin & Cuti Tim',
+  profileTab: 'Profil & Penilaian KPI Karyawan',
   slipGajiTab: 'Slip Gaji Bulanan Saya',
   adminPayrollTab: 'Payroll Bulanan & Finance',
   adminKasbonTab: 'Manajemen Kasbon Karyawan',
@@ -124,6 +125,10 @@ function switchTab(tabId) {
     topbarPageTitle.textContent = tabTitles[tabId];
   }
 
+  if (tabId === 'profileTab') {
+    renderUserProfileTab();
+  }
+
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
   if (sidebar && overlay && window.innerWidth <= 768) {
@@ -131,6 +136,7 @@ function switchTab(tabId) {
     overlay.classList.add('hidden');
   }
 }
+window.switchTab = switchTab;
 
 // ================= SIDEBAR CONTROLS =================
 function toggleSidebar() {
@@ -277,7 +283,11 @@ async function supabaseApiRequest(action, payload) {
           rateLembur: Number(user.rate_lembur || 0),
           saldoKasbon: Number(user.saldo_kasbon || 0),
           email: user.email || '',
-          noHp: user.no_hp || ''
+          noHp: user.no_hp || '',
+          alamat: user.alamat || '',
+          tglLahir: user.tgl_lahir || '',
+          hobi: user.hobi || '',
+          kontakDarurat: user.kontak_darurat || ''
         }
       };
     }
@@ -298,7 +308,11 @@ async function supabaseApiRequest(action, payload) {
           rateLembur: Number(u.rate_lembur || 0),
           saldoKasbon: Number(u.saldo_kasbon || 0),
           email: u.email || '',
-          noHp: u.no_hp || ''
+          noHp: u.no_hp || '',
+          alamat: u.alamat || '',
+          tglLahir: u.tgl_lahir || '',
+          hobi: u.hobi || '',
+          kontakDarurat: u.kontak_darurat || ''
         }))
       };
     }
@@ -318,6 +332,10 @@ async function supabaseApiRequest(action, payload) {
         saldo_kasbon: Number(u.saldoKasbon || 0),
         email: u.email || '',
         no_hp: u.noHp || '',
+        alamat: u.alamat || '',
+        tgl_lahir: u.tglLahir || '',
+        hobi: u.hobi || '',
+        kontak_darurat: u.kontakDarurat || '',
         updated_at: new Date().toISOString()
       };
       await supabaseFetch('karyawan?on_conflict=nik', {
@@ -326,6 +344,25 @@ async function supabaseApiRequest(action, payload) {
         body: [row]
       });
       return { success: true, message: 'Data karyawan berhasil disimpan' };
+    }
+
+    case 'saveUserProfile': {
+      const p = payload;
+      const patchData = {};
+      if (p.nama !== undefined) patchData.nama = p.nama;
+      if (p.email !== undefined) patchData.email = p.email;
+      if (p.noHp !== undefined) patchData.no_hp = p.noHp;
+      if (p.alamat !== undefined) patchData.alamat = p.alamat;
+      if (p.tglLahir !== undefined) patchData.tgl_lahir = p.tglLahir;
+      if (p.hobi !== undefined) patchData.hobi = p.hobi;
+      if (p.kontakDarurat !== undefined) patchData.kontak_darurat = p.kontakDarurat;
+      patchData.updated_at = new Date().toISOString();
+
+      await supabaseFetch(`karyawan?nik=eq.${encodeURIComponent(p.nik)}`, {
+        method: 'PATCH',
+        body: patchData
+      });
+      return { success: true, message: 'Data diri berhasil diperbarui' };
     }
 
     case 'deleteUser': {
@@ -3234,6 +3271,7 @@ function renderUserTable() {
           <th>Divisi</th>
           <th>Username</th>
           <th>Password</th>
+          <th>KPI Kehadiran</th>
           <th>Gaji Pokok</th>
           <th>Rate Lembur</th>
           <th>Kontak</th>
@@ -3242,13 +3280,23 @@ function renderUserTable() {
         </tr>
       </thead>
       <tbody>
-        ${state.users.map(u => `
+        ${state.users.map(u => {
+          const kpi = calculateKPI(u.nik, 'thisMonth') || { totalScore: 0, grade: 'C', gradeClass: 'badge-kpi-grade-c' };
+          return `
           <tr>
-            <td><strong>${u.nama}</strong></td>
+            <td>
+              <strong>${u.nama}</strong>
+              ${u.alamat ? `<br><small style="color:var(--text-muted); font-size:0.75rem;">🏠 ${escapeHtml(u.alamat).substring(0, 25)}...</small>` : ''}
+            </td>
             <td><span class="mono-text">${u.nik}</span></td>
             <td>${u.divisi}</td>
             <td><span class="mono-text">${u.username}</span></td>
             <td><span class="mono-text" style="color: var(--accent-primary); font-weight: 600;">${u.password || '-'}</span></td>
+            <td>
+              <span class="badge-kpi-grade ${kpi.gradeClass}" style="cursor:pointer;" onclick="openUserKpiDetail('${u.nik}')" title="Klik untuk lihat rincian KPI">
+                ${kpi.grade} • ${kpi.totalScore}%
+              </span>
+            </td>
             <td><span class="mono-text">${formatRupiah(u.gajiPokok)}</span></td>
             <td><span class="mono-text">${formatRupiah(u.rateLembur || 25000)}/jam</span></td>
             <td>
@@ -3257,11 +3305,12 @@ function renderUserTable() {
             </td>
             <td><span class="status ${u.role === 'admin' ? 'disetujui' : 'diajukan'}">${u.role}</span></td>
             <td class="action-cell">
+              <button class="action-btn" style="background: rgba(99, 102, 241, 0.12); color: var(--accent, #6366f1); border: 1px solid var(--accent, #6366f1); margin-right: 4px;" onclick="openUserKpiDetail('${u.nik}')" title="Lihat Profil Lengkap & Evaluasi KPI">📊 KPI</button>
               <button class="action-btn edit" onclick="editUser('${u.nik}')">Edit</button>
               <button class="action-btn delete" onclick="deleteUserRecord('${u.nik}')">Hapus</button>
             </td>
           </tr>
-        `).join('')}
+        `}).join('')}
       </tbody>
     </table>
   `;
@@ -3742,409 +3791,535 @@ async function startApp() {
     ]);
 
     renderEmployeeShiftDashboard();
+    renderUserProfileTab();
   } catch (err) {
     console.error('Error starting app:', err);
   }
 }
 
 
-// ================= INVENTORY MODULE =================
+// ================= PROFIL & PENILAIAN KPI KARYAWAN =================
 
-const INV_OUTLET_MAP = [
-  // RETAIL
-  { col: 'cpj',  label: 'CPJ',  name: 'Central Park Jakarta',         group: 'retail' },
-  { col: 'gst',  label: 'GST',  name: 'Gading Serpong Tangerang',     group: 'retail' },
-  { col: 'lmp',  label: 'LMP',  name: 'Lippo Mall Puri',              group: 'retail' },
-  { col: 'bts',  label: 'BTS',  name: 'By The Sea PIK',               group: 'retail' },
-  { col: 'cws',  label: 'CWS',  name: 'Ciputra World Surabaya',       group: 'retail' },
-  { col: 'dpm',  label: 'DPM',  name: 'Deli Park Medan',              group: 'retail' },
-  { col: 'phb',  label: 'PHB',  name: 'Paskal Hyper Square Bandung',  group: 'retail' },
-  { col: 'pms',  label: 'PMS',  name: 'Pakuwon Mall Surabaya',        group: 'retail' },
-  { col: 'mkg',  label: 'MKG',  name: 'Mall Kelapa Gading',           group: 'retail' },
-  { col: 'lwt',  label: 'LWT',  name: 'Living World Tangerang',       group: 'retail' },
-  { col: 'kyt',  label: 'KYT',  name: 'KYTE',                         group: 'retail' },
-  { col: 'nsj',  label: 'NSJ',  name: 'Neo Soho Jakarta',             group: 'retail' },
-  { col: 'bcpj', label: 'BCPJ', name: 'Bazaar Central Park',          group: 'retail' },
-  { col: 'blmp', label: 'BLMP', name: 'Bazaar Lippo Mall Puri',       group: 'retail' },
-  { col: 'pim',  label: 'PIM',  name: 'Puri Indah Mall',              group: 'retail' },
-  { col: 'lvt',  label: 'LVT',  name: 'La Vela Tangerang',            group: 'retail' },
-  { col: 'gaia', label: 'GAIA', name: 'Gaia Pontianak',               group: 'retail' },
-  { col: 'spm',  label: 'SPM',  name: 'Sun Plaza Medan',              group: 'retail' },
-  // ONLINE
-  { col: 'web',  label: 'WEB',  name: 'Website',                      group: 'online' },
-  { col: 'map_', label: 'MAP',  name: 'Marketplace',                  group: 'online' },
-  { col: 'shp',  label: 'SHP',  name: 'Shopee',                       group: 'online' },
-  { col: 'tpd',  label: 'TPD',  name: 'Tokopedia',                    group: 'online' },
-  { col: 'ttk',  label: 'TTK',  name: 'TikTok',                       group: 'online' },
-  { col: 'lzd',  label: 'LZD',  name: 'Lazada',                       group: 'online' },
-  { col: 'woo',  label: 'WOO',  name: 'Woocommerce',                  group: 'online' },
-  { col: 'cshp', label: 'CSHP', name: 'ChicShopee',                   group: 'online' },
-  { col: 'sdpm', label: 'SDPM', name: 'Shopee - Deli Park Medan',     group: 'online' },
-  { col: 'scws', label: 'SCWS', name: 'Shopee - Ciputra World Sby',   group: 'online' },
-  // GUDANG/INTERNAL
-  { col: 'wh',   label: 'WH',   name: 'Warehouse Utama',              group: 'gudang' },
-  { col: 'buy',  label: 'BUY',  name: 'Buying Staff',                 group: 'gudang' },
-  { col: 'dd',   label: 'DD',   name: 'Diskon Defect',                group: 'gudang' },
-  { col: 'endr', label: 'END',  name: 'Endorsement',                  group: 'gudang' },
-  { col: 'std',  label: 'STD',  name: 'Sample Studio',                group: 'gudang' },
-  { col: 'lnd',  label: 'LND',  name: 'Loss/Damage',                  group: 'gudang' },
-  { col: 'ga',   label: 'GA',   name: 'Gudang Awal',                  group: 'gudang' },
-  { col: 'qc',   label: 'QC',   name: 'Gudang QC',                    group: 'gudang' },
-  { col: 'pmk',  label: 'PMK',  name: 'Gudang Permak',                group: 'gudang' },
-  { col: 'ret',  label: 'RET',  name: 'Gudang Retur',                 group: 'gudang' },
-  { col: 'logx', label: 'LOG',  name: 'Gudang Logistik',              group: 'gudang' },
-  { col: 'live', label: 'LIVE', name: 'Sample Live',                  group: 'gudang' },
-];
+function calculateKPI(nik, period = 'thisMonth') {
+  if (!nik) return null;
+  const now = new Date();
+  const curY = now.getFullYear();
+  const curM = now.getMonth(); // 0-indexed
 
-// CSV header → Supabase column mapping
-const CSV_COL_MAP = {
-  'Inventory_Central Park Jakarta':           'cpj',
-  'Inventory_Gading Serpong Tangerang':       'gst',
-  'Inventory_Lippo Mall Puri':               'lmp',
-  'Inventory_By The Sea PIK':               'bts',
-  'Inventory_Ciputra World Surabaya':        'cws',
-  'Inventory_Deli Park Medan':              'dpm',
-  'Inventory_Paskal Hyper Square Bandung':  'phb',
-  'Inventory_Pakuwon Mall Surabaya':        'pms',
-  'Inventory_Mall Kelapa Gading':           'mkg',
-  'Inventory_Living World Tangerang':       'lwt',
-  'Inventory_KYTE':                         'kyt',
-  'Inventory_Neo Soho Jakarta':             'nsj',
-  'Inventory_Bazaar Central Park':          'bcpj',
-  'Inventory_Bazaar Lippo Mall Puri':       'blmp',
-  'Inventory_Puri Indah Mall':              'pim',
-  'Inventory_La Vela Tangerang':            'lvt',
-  'Inventory_Gaia Pontianak':               'gaia',
-  'Inventory_Sun Plaza Medan':              'spm',
-  'Inventory_Website':                      'web',
-  'Inventory_Marketplace':                  'map_',
-  'Inventory_Shopee':                       'shp',
-  'Inventory_Tokopedia':                    'tpd',
-  'Inventory_TikTok':                       'ttk',
-  'Inventory_Lazada':                       'lzd',
-  'Inventory_Woocommerce':                  'woo',
-  'Inventory_ChicShopee':                   'cshp',
-  'Inventory_Shopee - Deli Park Medan':     'sdpm',
-  'Inventory_Shopee - Ciputra World Surabaya': 'scws',
-  'Inventory_Warehouse':                    'wh',
-  'Inventory_Buying Staff':                 'buy',
-  'Inventory_Diskon Defect':               'dd',
-  'Inventory_Endorsement':                 'endr',
-  'Inventory_Sample Studio':               'std',
-  'Inventory_Loss/Damage':                 'lnd',
-  'Inventory_Gudang Awal':                 'ga',
-  'Inventory_Gudang QC':                   'qc',
-  'Inventory_Gudang Permak':               'pmk',
-  'Inventory_Gudang Retur':               'ret',
-  'Inventory_Gudang Logistik':             'logx',
-  'Inventory_Sample Live':                 'live',
-};
+  let filterFn = () => true;
 
-let invAllData = [];
-let invFilteredData = [];
-let invCurrentPage = 1;
-const invRowsPerPage = 100;
-let invSearchTimeout = null;
-
-// Parse a CSV text string (handles quoted commas)
-function parseCSV(text) {
-  const rows = [];
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    const cells = [];
-    let inQ = false, cell = '';
-    for (let j = 0; j < line.length; j++) {
-      const c = line[j];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (c === ',' && !inQ) { cells.push(cell.trim()); cell = ''; continue; }
-      cell += c;
-    }
-    cells.push(cell.trim());
-    rows.push(cells);
+  if (period === 'thisMonth') {
+    const prefix = `${curY}-${String(curM + 1).padStart(2, '0')}`;
+    filterFn = (tgl) => tgl && tgl.startsWith(prefix);
+  } else if (period === 'lastMonth') {
+    const lastMDate = new Date(curY, curM - 1, 1);
+    const prefix = `${lastMDate.getFullYear()}-${String(lastMDate.getMonth() + 1).padStart(2, '0')}`;
+    filterFn = (tgl) => tgl && tgl.startsWith(prefix);
+  } else if (period === 'last3Months') {
+    const minDate = new Date(curY, curM - 2, 1);
+    const minStr = `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, '0')}-01`;
+    filterFn = (tgl) => tgl && tgl >= minStr;
   }
-  return rows;
-}
 
-// Load inventory from Supabase
-async function loadInventoryData(forceRefresh = false) {
-  const loadingEl = document.getElementById('invLoadingState');
-  const tableEl   = document.getElementById('invMatrixTable');
-  if (loadingEl) { loadingEl.style.display = 'block'; loadingEl.innerHTML = '<div style="padding:48px; text-align:center; color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:12px;">⏳</div><div>Memuat data dari Supabase...</div></div>'; }
-  if (tableEl) tableEl.classList.add('hidden');
+  // Filter Absensi Karyawan
+  const userAbsensi = (state.absensi || []).filter(a => 
+    String(a.nik).trim().toUpperCase() === String(nik).trim().toUpperCase() && filterFn(a.tanggal)
+  );
 
-  try {
-    // Load in pages (Supabase max 1000/request)
-    let all = [], from = 0, pageSize = 1000;
-    while (true) {
-      const batch = await supabaseFetch(`inv_products?select=*&order=category.asc,product.asc,variant.asc&limit=${pageSize}&offset=${from}`);
-      if (!batch || batch.length === 0) break;
-      all = all.concat(batch);
-      if (batch.length < pageSize) break;
-      from += pageSize;
-    }
-    invAllData = all;
-    populateCategoryFilter();
-    
-    // Bind filters
-    const searchInput = document.getElementById('invSearchInput');
-    if (searchInput && !searchInput.dataset.bound) {
-      searchInput.addEventListener('input', (e) => {
-        clearTimeout(invSearchTimeout);
-        invSearchTimeout = setTimeout(() => filterInventoryTable(), 300);
-      });
-      searchInput.dataset.bound = 'true';
-    }
-    ['invCategoryFilter', 'invGroupFilter', 'invOnlyStockFilter'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el && !el.dataset.bound) {
-        el.addEventListener('change', () => filterInventoryTable());
-        el.dataset.bound = 'true';
-      }
-    });
-    updateInvSummaryCards();
-    filterInventoryTable();
-    if (all.length === 0 && loadingEl) {
-      loadingEl.style.display = 'block';
-      loadingEl.innerHTML = '<div style="padding:48px; text-align:center; color:var(--text-muted);"><div style="font-size:2rem;margin-bottom:12px;">📦</div><div>Belum ada data inventory.</div><div style="margin-top:8px;font-size:0.82rem;">Klik <strong>Import CSV</strong> untuk upload data DealPOS.</div></div>';
-    }
-  } catch(e) {
-    console.error('loadInventoryData error:', e);
-    if (loadingEl) loadingEl.innerHTML = '<div style="padding:48px; text-align:center; color:var(--error);">❌ Gagal memuat data. Periksa koneksi Supabase.</div>';
-  }
-}
+  // Filter Roster Karyawan
+  const userRoster = (state.roster || []).filter(r => 
+    String(r.nik).trim().toUpperCase() === String(nik).trim().toUpperCase() && filterFn(r.tanggal)
+  );
 
-function populateCategoryFilter() {
-  const sel = document.getElementById('invCategoryFilter');
-  if (!sel) return;
-  const cats = [...new Set(invAllData.map(r => r.category).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">Semua Kategori</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
-}
+  // Filter Lembur Karyawan Disetujui
+  const userLembur = (state.lembur || []).filter(l => 
+    String(l.nik).trim().toUpperCase() === String(nik).trim().toUpperCase() && 
+    (l.status === 'Disetujui' || l.status === 'Approve') && 
+    filterFn(l.tanggal)
+  );
 
-function updateInvSummaryCards() {
-  const d = invAllData;
-  const retailCols = INV_OUTLET_MAP.filter(o => o.group === 'retail').map(o => o.col);
-  const onlineCols = INV_OUTLET_MAP.filter(o => o.group === 'online').map(o => o.col);
-  const gudangCols = INV_OUTLET_MAP.filter(o => o.group === 'gudang').map(o => o.col);
-  const allCols    = INV_OUTLET_MAP.map(o => o.col);
-  const totalQty   = row => allCols.reduce((s, c) => s + (Number(row[c]) || 0), 0);
-  const sumCols    = (rows, cols) => cols.reduce((s, c) => s + rows.reduce((ss, r) => ss + (Number(r[c]) || 0), 0), 0);
+  // Filter Cuti Karyawan Disetujui
+  const userCuti = (state.cuti || []).filter(c => 
+    String(c.nik).trim().toUpperCase() === String(nik).trim().toUpperCase() && 
+    (c.status === 'Disetujui' || c.status === 'Approve') && 
+    filterFn(c.tanggalMulai || c.tglMulai)
+  );
 
-  const el = id => document.getElementById(id);
-  if (el('invTotalSku'))   el('invTotalSku').textContent   = d.length.toLocaleString('id-ID');
-  if (el('invActiveSku'))  el('invActiveSku').textContent  = d.filter(r => totalQty(r) > 0).length.toLocaleString('id-ID');
-  if (el('invRetailTotal')) el('invRetailTotal').textContent = sumCols(d, retailCols).toLocaleString('id-ID');
-  if (el('invOnlineTotal')) el('invOnlineTotal').textContent = sumCols(d, onlineCols).toLocaleString('id-ID');
-  if (el('invWhTotal'))    el('invWhTotal').textContent    = sumCols(d, gudangCols).toLocaleString('id-ID');
-  if (el('invZeroSku'))    el('invZeroSku').textContent    = d.filter(r => totalQty(r) === 0).length.toLocaleString('id-ID');
-}
-
-function filterInventoryTable() {
-  const search  = (document.getElementById('invSearchInput')?.value || '').toLowerCase();
-  const cat     = document.getElementById('invCategoryFilter')?.value || '';
-  const group   = document.getElementById('invGroupFilter')?.value   || '';
-  const onlyStk = document.getElementById('invOnlyStockFilter')?.checked || false;
-
-  const activeCols = group ? INV_OUTLET_MAP.filter(o => o.group === group) : INV_OUTLET_MAP;
-  const allCols    = INV_OUTLET_MAP.map(o => o.col);
-  const totalQty   = row => allCols.reduce((s, c) => s + (Number(row[c]) || 0), 0);
-
-  invCurrentPage = 1;
-  invFilteredData = invAllData.filter(row => {
-    if (cat && row.category !== cat) return false;
-    if (onlyStk && totalQty(row) === 0) return false;
-    if (search && !((row.product || '').toLowerCase().includes(search) || (row.sku || '').toLowerCase().includes(search))) return false;
-    return true;
+  // Target Hari Kerja dari Roster (selain Libur/Off)
+  const workRosters = userRoster.filter(r => {
+    const s = String(r.shift || '').toLowerCase();
+    return !s.includes('off') && !s.includes('libur') && !s.includes('cuti');
   });
 
-  renderInventoryTable(invFilteredData, activeCols);
-  const cnt = document.getElementById('invRowCount');
-  if (cnt) cnt.textContent = `${invFilteredData.length.toLocaleString('id-ID')} produk ditampilkan`;
+  const totalTargetDays = workRosters.length > 0 ? workRosters.length : Math.max(userAbsensi.length, 1);
+
+  // Perhitungan Presensi & Disiplin
+  const totalHadir = userAbsensi.length;
+  let tepatWaktu = 0;
+  let terlambatCount = 0;
+  let totalMenitTerlambat = 0;
+  let lengkapCheckout = 0;
+
+  userAbsensi.forEach(a => {
+    const late = Number(a.keterlambatanMenit || a.terlambatMenit || 0);
+    if (late <= 0) {
+      tepatWaktu++;
+    } else {
+      terlambatCount++;
+      totalMenitTerlambat += late;
+    }
+
+    if (a.jamPulang && a.jamPulang !== '-' && a.jamPulang.trim() !== '') {
+      lengkapCheckout++;
+    }
+  });
+
+  const totalJamLembur = userLembur.reduce((sum, l) => sum + Number(l.totalJam || 0), 0);
+  const totalHariCuti = userCuti.reduce((sum, c) => sum + Number(c.totalHari || 1), 0);
+
+  // Pilar 1: Attendance Rate (Bobot 40%)
+  let attendanceRate = totalTargetDays > 0 ? Math.min(100, Math.round((totalHadir / totalTargetDays) * 100)) : (totalHadir > 0 ? 100 : 0);
+
+  // Pilar 2: Punctuality Rate (Bobot 35%)
+  let punctualityRate = totalHadir > 0 ? Math.round((tepatWaktu / totalHadir) * 100) : (totalTargetDays > 0 ? 0 : 100);
+  if (totalMenitTerlambat > 120) {
+    punctualityRate = Math.max(0, punctualityRate - Math.round((totalMenitTerlambat - 120) / 30) * 2);
+  }
+
+  // Pilar 3: Checkout Compliance (Bobot 15%)
+  let checkoutCompliance = totalHadir > 0 ? Math.round((lengkapCheckout / totalHadir) * 100) : 100;
+
+  // Pilar 4: Leave & Absence Index (Bobot 10%)
+  let leaveIndex = 100;
+  if (totalTargetDays > 0 && totalHadir < totalTargetDays) {
+    const gap = totalTargetDays - totalHadir;
+    if (gap > totalHariCuti) {
+      leaveIndex = Math.max(0, 100 - (gap - totalHariCuti) * 20);
+    }
+  }
+
+  // Skor Akhir KPI Terbobot (0 - 100)
+  const totalScore = Math.round(
+    (attendanceRate * 0.40) +
+    (punctualityRate * 0.35) +
+    (checkoutCompliance * 0.15) +
+    (leaveIndex * 0.10)
+  );
+
+  // Penentuan Grade & Evaluasi Otomatis
+  let grade = 'A';
+  let gradeClass = 'badge-kpi-grade-a';
+  let gradeTitle = 'Grade A (Sangat Baik)';
+  let gradeDesc = 'Kedisiplinan & kehadiran teladan! Standar kerja dan ketepatan waktu terpenuhi dengan optimal.';
+  let reviewNote = '🌟 <strong>Performa Sangat Baik!</strong> Anda mempertahankan tingkat kehadiran prima dan disiplin jam kerja yang konsisten.';
+
+  if (totalScore >= 90) {
+    grade = 'A';
+    gradeClass = 'badge-kpi-grade-a';
+    gradeTitle = '🌟 Grade A (Sangat Baik)';
+    gradeDesc = 'Disiplin dan kehadiran teladan! Standar kerja dan ketepatan waktu terpenuhi dengan optimal.';
+    reviewNote = `🌟 <strong>Performa Teladan (${totalScore}%):</strong> Kehadiran ${totalHadir}/${totalTargetDays} hari dengan ${tepatWaktu} kehadiran tepat waktu. Pertahankan standar kerja yang luar biasa ini!`;
+  } else if (totalScore >= 75) {
+    grade = 'B';
+    gradeClass = 'badge-kpi-grade-b';
+    gradeTitle = '🟢 Grade B (Baik)';
+    gradeDesc = 'Tingkat kehadiran baik dan konsisten. Kurangi keterlambatan untuk meraih Grade A.';
+    reviewNote = `🟢 <strong>Performa Baik (${totalScore}%):</strong> Kehadiran sudah cukup konsisten. ${terlambatCount > 0 ? `Terdapat ${terlambatCount} keterlambatan (${totalMenitTerlambat} menit) yang bisa diperbaiki di periode berikutnya.` : 'Pertahankan kedisiplinan Anda!'}`;
+  } else if (totalScore >= 60) {
+    grade = 'C';
+    gradeClass = 'badge-kpi-grade-c';
+    gradeTitle = '🟡 Grade C (Cukup)';
+    gradeDesc = 'Terdapat beberapa catatan keterlambatan / absensi. Tingkatkan ketepatan waktu jam masuk.';
+    reviewNote = `🟡 <strong>Perlu Perbaikan (${totalScore}%):</strong> Tingkat kehadiran atau ketepatan waktu masih di bawah target. Perhatikan toleransi jam masuk shift dan pastikan selalu presensi pulang.`;
+  } else {
+    grade = 'D';
+    gradeClass = 'badge-kpi-grade-d';
+    gradeTitle = '🔴 Grade D (Perlu Pembinaan)';
+    gradeDesc = 'Tingkat kehadiran di bawah standar minimal. Perlu evaluasi bersama tim leader / HR.';
+    reviewNote = `🔴 <strong>Evaluasi Khusus (${totalScore}%):</strong> Kehadiran sangat rendah atau frekuensi terlambat tinggi. Harap berkonsultasi dengan koordinator warehouse.`;
+  }
+
+  return {
+    period,
+    totalTargetDays,
+    totalHadir,
+    tepatWaktu,
+    terlambatCount,
+    totalMenitTerlambat,
+    lengkapCheckout,
+    totalJamLembur,
+    totalHariCuti,
+    attendanceRate,
+    punctualityRate,
+    checkoutCompliance,
+    leaveIndex,
+    totalScore,
+    grade,
+    gradeClass,
+    gradeTitle,
+    gradeDesc,
+    reviewNote
+  };
 }
 
-function renderInventoryTable(data, outlets) {
-  const thead = document.getElementById('invMatrixThead');
-  const tbody = document.getElementById('invMatrixTbody');
-  const table = document.getElementById('invMatrixTable');
-  const loading = document.getElementById('invLoadingState');
-  const pagination = document.getElementById('invPagination');
-  if (!thead || !tbody || !table) return;
+function renderUserProfileTab() {
+  if (!state.currentUser) return;
+  const u = state.currentUser;
 
-  const retailOutlets  = outlets.filter(o => o.group === 'retail');
-  const onlineOutlets  = outlets.filter(o => o.group === 'online');
-  const gudangOutlets  = outlets.filter(o => o.group === 'gudang');
+  // 1. Header Profile Box
+  const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const bigAvatar = document.getElementById('profileBigAvatar');
+  if (bigAvatar) bigAvatar.textContent = initials;
 
-  // Build group header row
-  const fixedCols = 6;
-  const rSpan = `<th colspan="${fixedCols}" class="sticky-col grp-sticky" style="left:0; z-index:25; background:var(--bg-panel); border-right:2px solid var(--border-color); border-bottom:1px solid var(--border-color);"></th>`;
-  let groupRow = `<tr class="group-row">${rSpan}`;
-  if (retailOutlets.length)  groupRow += `<th colspan="${retailOutlets.length}"  class="grp-retail">🏪 RETAIL (${retailOutlets.length})</th>`;
-  if (onlineOutlets.length)  groupRow += `<th colspan="${onlineOutlets.length}"  class="grp-online">🛍️ ONLINE (${onlineOutlets.length})</th>`;
-  if (gudangOutlets.length)  groupRow += `<th colspan="${gudangOutlets.length}" class="grp-gudang">🏭 GUDANG (${gudangOutlets.length})</th>`;
-  groupRow += '</tr>';
+  const dName = document.getElementById('profileDisplayName');
+  if (dName) dName.textContent = u.nama || 'Pengguna';
 
-  // Build column header row
-  let colRow = `<tr>
-    <th class="sticky-col col-no" style="left:0; z-index:24; background:var(--bg-panel); color:var(--text-primary);">#</th>
-    <th class="sticky-col col-cat" style="left:40px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">Kategori</th>
-    <th class="sticky-col col-prod" style="left:150px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">Produk</th>
-    <th class="sticky-col col-var" style="left:330px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">Varian</th>
-    <th class="sticky-col col-sku" style="left:390px; z-index:24; background:var(--bg-panel); color:var(--text-primary);">SKU</th>
-    <th class="sticky-col col-price" style="left:500px; z-index:24; background:var(--bg-panel); color:var(--text-primary); border-right:2px solid var(--border-color);">Harga</th>
+  const dNik = document.getElementById('profileDisplayNik');
+  if (dNik) dNik.textContent = u.nik || '-';
+
+  const dDiv = document.getElementById('profileDisplayDivisi');
+  if (dDiv) dDiv.textContent = u.divisi || 'Warehouse';
+
+  const dPhone = document.getElementById('profileDisplayPhone');
+  if (dPhone) dPhone.textContent = u.noHp || u.nohp || '-';
+
+  const dEmail = document.getElementById('profileDisplayEmail');
+  if (dEmail) dEmail.textContent = u.email || '-';
+
+  const roleBadge = document.getElementById('profileRoleBadge');
+  if (roleBadge) roleBadge.textContent = u.role === 'admin' ? 'Administrator' : (u.divisi || 'Staff Warehouse');
+
+  // 2. Kalkulasi KPI
+  const periodSel = document.getElementById('profileKpiPeriodSelect');
+  const period = periodSel ? periodSel.value : 'thisMonth';
+  const kpi = calculateKPI(u.nik, period) || {
+    totalScore: 0, grade: 'A', gradeClass: 'badge-kpi-grade-a',
+    gradeTitle: 'Memuat...', gradeDesc: '-',
+    attendanceRate: 0, punctualityRate: 0, checkoutCompliance: 0, leaveIndex: 0,
+    totalHadir: 0, tepatWaktu: 0, terlambatCount: 0, totalMenitTerlambat: 0,
+    totalJamLembur: 0, totalHariCuti: 0, reviewNote: '-'
+  };
+
+  const kpiBadge = document.getElementById('profileKpiGradeBadge');
+  if (kpiBadge) {
+    kpiBadge.className = `badge-kpi-grade ${kpi.gradeClass}`;
+    kpiBadge.textContent = `Grade ${kpi.grade} (${kpi.totalScore}%)`;
+  }
+
+  const scoreVal = document.getElementById('profileKpiTotalScore');
+  if (scoreVal) scoreVal.textContent = `${kpi.totalScore}%`;
+
+  const gradeTitle = document.getElementById('profileKpiGradeTitle');
+  if (gradeTitle) gradeTitle.textContent = kpi.gradeTitle;
+
+  const gradeDesc = document.getElementById('profileKpiGradeDesc');
+  if (gradeDesc) gradeDesc.textContent = kpi.gradeDesc;
+
+  // 4 Pilar Progress Bars
+  const p1Val = document.getElementById('kpiPillarAttendanceVal');
+  const p1Bar = document.getElementById('kpiPillarAttendanceBar');
+  if (p1Val) p1Val.textContent = `${kpi.attendanceRate}%`;
+  if (p1Bar) p1Bar.style.width = `${kpi.attendanceRate}%`;
+
+  const p2Val = document.getElementById('kpiPillarPunctualityVal');
+  const p2Bar = document.getElementById('kpiPillarPunctualityBar');
+  if (p2Val) p2Val.textContent = `${kpi.punctualityRate}%`;
+  if (p2Bar) p2Bar.style.width = `${kpi.punctualityRate}%`;
+
+  const p3Val = document.getElementById('kpiPillarCheckoutVal');
+  const p3Bar = document.getElementById('kpiPillarCheckoutBar');
+  if (p3Val) p3Val.textContent = `${kpi.checkoutCompliance}%`;
+  if (p3Bar) p3Bar.style.width = `${kpi.checkoutCompliance}%`;
+
+  const p4Val = document.getElementById('kpiPillarLeaveVal');
+  const p4Bar = document.getElementById('kpiPillarLeaveBar');
+  if (p4Val) p4Val.textContent = `${kpi.leaveIndex}%`;
+  if (p4Bar) p4Bar.style.width = `${kpi.leaveIndex}%`;
+
+  // Statistik Ringkasan
+  const stHadir = document.getElementById('kpiStatTotalHari');
+  if (stHadir) stHadir.textContent = `${kpi.totalHadir} Hari`;
+
+  const stTepat = document.getElementById('kpiStatTepatWaktu');
+  if (stTepat) stTepat.textContent = `${kpi.tepatWaktu} Hari`;
+
+  const stTelat = document.getElementById('kpiStatTerlambat');
+  if (stTelat) stTelat.textContent = `${kpi.terlambatCount} Hari (${kpi.totalMenitTerlambat} mnt)`;
+
+  const stLembur = document.getElementById('kpiStatTotalLembur');
+  if (stLembur) stLembur.textContent = `${kpi.totalJamLembur} Jam`;
+
+  const stCuti = document.getElementById('kpiStatTotalCuti');
+  if (stCuti) stCuti.textContent = `${kpi.totalHariCuti} Hari`;
+
+  const revBox = document.getElementById('profileKpiReviewBox');
+  if (revBox) revBox.innerHTML = `💡 ${kpi.reviewNote}`;
+
+  // 3. Mengisi Form Biodata
+  const fNik = document.getElementById('profNik');
+  if (fNik) fNik.value = u.nik || '';
+
+  const fNama = document.getElementById('profNama');
+  if (fNama) fNama.value = u.nama || '';
+
+  const fDiv = document.getElementById('profDivisi');
+  if (fDiv) fDiv.value = u.divisi || 'Warehouse';
+
+  const fRole = document.getElementById('profRole');
+  if (fRole) fRole.value = u.role === 'admin' ? 'Administrator' : 'Karyawan / User';
+
+  const fNoHp = document.getElementById('profNoHp');
+  if (fNoHp) fNoHp.value = u.noHp || u.nohp || '';
+
+  const fEmail = document.getElementById('profEmail');
+  if (fEmail) fEmail.value = u.email || '';
+
+  const fTglLahir = document.getElementById('profTglLahir');
+  if (fTglLahir) fTglLahir.value = u.tglLahir || u.tgllahir || '';
+
+  const fHobi = document.getElementById('profHobi');
+  if (fHobi) fHobi.value = u.hobi || '';
+
+  const fAlamat = document.getElementById('profAlamat');
+  if (fAlamat) fAlamat.value = u.alamat || '';
+
+  // Kontak Darurat (Parse jika disimpan format "Nama - Hubungan - NoTelp" atau plain)
+  const fEmNama = document.getElementById('profEmergencyNama');
+  const fEmHub = document.getElementById('profEmergencyHubungan');
+  const fEmPhone = document.getElementById('profEmergencyPhone');
+
+  const rawEmergency = u.kontakDarurat || u.kontakdarurat || '';
+  if (rawEmergency.includes(' - ')) {
+    const parts = rawEmergency.split(' - ');
+    if (fEmNama) fEmNama.value = parts[0] || '';
+    if (fEmHub) fEmHub.value = parts[1] || '';
+    if (fEmPhone) fEmPhone.value = parts[2] || '';
+  } else {
+    if (fEmNama) fEmNama.value = rawEmergency;
+    if (fEmPhone) fEmPhone.value = '';
+  }
+}
+
+async function saveUserProfile(e) {
+  if (e) e.preventDefault();
+  const btn = document.getElementById('btnSaveProfile');
+  const msg = document.getElementById('profileFormMessage');
+  if (msg) msg.textContent = '';
+  setButtonLoading(btn, true, 'Menyimpan Data Diri...');
+
+  const emNama = (document.getElementById('profEmergencyNama')?.value || '').trim();
+  const emHub = (document.getElementById('profEmergencyHubungan')?.value || '').trim();
+  const emPhone = (document.getElementById('profEmergencyPhone')?.value || '').trim();
+
+  let kontakDaruratStr = '';
+  if (emNama) {
+    kontakDaruratStr = [emNama, emHub, emPhone].filter(Boolean).join(' - ');
+  }
+
+  const payload = {
+    nik: state.currentUser.nik,
+    nama: (document.getElementById('profNama')?.value || '').trim(),
+    noHp: (document.getElementById('profNoHp')?.value || '').trim(),
+    email: (document.getElementById('profEmail')?.value || '').trim(),
+    tglLahir: (document.getElementById('profTglLahir')?.value || '').trim(),
+    hobi: (document.getElementById('profHobi')?.value || '').trim(),
+    alamat: (document.getElementById('profAlamat')?.value || '').trim(),
+    kontakDarurat: kontakDaruratStr
+  };
+
+  try {
+    const res = await apiRequest('saveUserProfile', payload);
+    setButtonLoading(btn, false);
+
+    if (res && res.success) {
+      // Update state.currentUser
+      Object.assign(state.currentUser, payload);
+      localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+
+      // Update state.users list
+      const userInList = (state.users || []).find(x => x.nik === state.currentUser.nik);
+      if (userInList) Object.assign(userInList, payload);
+
+      showToast('✅ Data diri Anda berhasil disimpan!');
+      if (msg) {
+        msg.textContent = '✅ Data diri Anda berhasil disimpan & diperbarui di sistem!';
+        msg.style.color = 'var(--success, #10b981)';
+      }
+      renderUserProfileTab();
+      if (state.currentUser.role === 'admin') renderUserTable();
+    } else {
+      throw new Error(res ? res.message : 'Gagal menyimpan');
+    }
+  } catch (err) {
+    setButtonLoading(btn, false);
+    showToast('Gagal menyimpan profil: ' + err.message, 'error');
+    if (msg) {
+      msg.textContent = '❌ Gagal menyimpan data: ' + err.message;
+      msg.style.color = 'var(--error, #ef4444)';
+    }
+  }
+}
+
+// Modal Admin untuk Melihat Detail KPI & Profil Staf
+window.openUserKpiDetail = function(nik, period = 'thisMonth') {
+  const u = (state.users || []).find(x => String(x.nik).trim() === String(nik).trim());
+  if (!u) return showToast('Data karyawan tidak ditemukan', 'error');
+
+  const kpi = calculateKPI(nik, period) || {
+    totalScore: 0, grade: 'A', gradeClass: 'badge-kpi-grade-a',
+    gradeTitle: 'Memuat...', gradeDesc: '-',
+    attendanceRate: 0, punctualityRate: 0, checkoutCompliance: 0, leaveIndex: 0,
+    totalHadir: 0, tepatWaktu: 0, terlambatCount: 0, totalMenitTerlambat: 0,
+    totalJamLembur: 0, totalHariCuti: 0, reviewNote: '-'
+  };
+
+  const initials = (u.nama || 'WH').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  const bodyEl = document.getElementById('modalDetailKpiUserBody');
+  if (!bodyEl) return;
+
+  bodyEl.innerHTML = `
+    <!-- PROFILE HEADER IN MODAL -->
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-subtle);">
+      <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700; flex-shrink: 0;">
+        ${initials}
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <h3 style="margin: 0;">${escapeHtml(u.nama)}</h3>
+          <span class="badge-role">${escapeHtml(u.divisi || 'Warehouse')}</span>
+          <span class="badge-kpi-grade ${kpi.gradeClass}">Grade ${kpi.grade} (${kpi.totalScore}%)</span>
+        </div>
+        <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">
+          <span>NIK: <strong>${u.nik}</strong></span> • 
+          <span>WhatsApp: <strong>${u.noHp || '-'}</strong></span> • 
+          <span>Email: <strong>${u.email || '-'}</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTER PERIODE MODAL -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h4 style="margin: 0;">📊 Evaluasi Performa Kehadiran</h4>
+      <select onchange="openUserKpiDetail('${nik}', this.value)" style="padding: 4px 10px; font-size: 0.82rem; border-radius: 6px;">
+        <option value="thisMonth" ${period === 'thisMonth' ? 'selected' : ''}>Bulan Ini</option>
+        <option value="lastMonth" ${period === 'lastMonth' ? 'selected' : ''}>Bulan Lalu</option>
+        <option value="last3Months" ${period === 'last3Months' ? 'selected' : ''}>3 Bulan Terakhir</option>
+        <option value="all" ${period === 'all' ? 'selected' : ''}>Semua Data</option>
+      </select>
+    </div>
+
+    <!-- KPI HERO GRID -->
+    <div class="kpi-hero-grid" style="margin-bottom: 16px;">
+      <div class="kpi-score-card">
+        <div class="kpi-score-circle">
+          <span class="kpi-score-val">${kpi.totalScore}%</span>
+          <span class="kpi-score-lbl">Skor KPI</span>
+        </div>
+        <div class="kpi-grade-summary">
+          <div class="kpi-grade-title">${kpi.gradeTitle}</div>
+          <div class="kpi-grade-desc">${kpi.gradeDesc}</div>
+        </div>
+      </div>
+
+      <div class="kpi-pillars-box">
+        <div class="kpi-pillar-row">
+          <div class="kpi-pillar-head">
+            <span>1. Tingkat Kehadiran (40%)</span>
+            <strong>${kpi.attendanceRate}%</strong>
+          </div>
+          <div class="kpi-progress-bar">
+            <div class="kpi-progress-fill fill-green" style="width: ${kpi.attendanceRate}%;"></div>
+          </div>
+        </div>
+        <div class="kpi-pillar-row">
+          <div class="kpi-pillar-head">
+            <span>2. Ketepatan Waktu Masuk (35%)</span>
+            <strong>${kpi.punctualityRate}%</strong>
+          </div>
+          <div class="kpi-progress-bar">
+            <div class="kpi-progress-fill fill-blue" style="width: ${kpi.punctualityRate}%;"></div>
+          </div>
+        </div>
+        <div class="kpi-pillar-row">
+          <div class="kpi-pillar-head">
+            <span>3. Kepatuhan Checkout Pulang (15%)</span>
+            <strong>${kpi.checkoutCompliance}%</strong>
+          </div>
+          <div class="kpi-progress-bar">
+            <div class="kpi-progress-fill fill-purple" style="width: ${kpi.checkoutCompliance}%;"></div>
+          </div>
+        </div>
+        <div class="kpi-pillar-row">
+          <div class="kpi-pillar-head">
+            <span>4. Indeks Cuti / Izin Terencana (10%)</span>
+            <strong>${kpi.leaveIndex}%</strong>
+          </div>
+          <div class="kpi-progress-bar">
+            <div class="kpi-progress-fill fill-amber" style="width: ${kpi.leaveIndex}%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATISTIK GRID -->
+    <div class="kpi-stats-grid" style="margin-bottom: 16px;">
+      <div class="kpi-stat-item">
+        <span class="kpi-stat-icon">📅</span>
+        <div>
+          <div class="kpi-stat-val">${kpi.totalHadir} Hari</div>
+          <div class="kpi-stat-label">Total Hadir</div>
+        </div>
+      </div>
+      <div class="kpi-stat-item">
+        <span class="kpi-stat-icon">⏰</span>
+        <div>
+          <div class="kpi-stat-val" style="color: var(--success, #10b981);">${kpi.tepatWaktu} Hari</div>
+          <div class="kpi-stat-label">Tepat Waktu</div>
+        </div>
+      </div>
+      <div class="kpi-stat-item">
+        <span class="kpi-stat-icon">⚠️</span>
+        <div>
+          <div class="kpi-stat-val" style="color: var(--error, #ef4444);">${kpi.terlambatCount} Hari (${kpi.totalMenitTerlambat}m)</div>
+          <div class="kpi-stat-label">Terlambat</div>
+        </div>
+      </div>
+      <div class="kpi-stat-item">
+        <span class="kpi-stat-icon">⚡</span>
+        <div>
+          <div class="kpi-stat-val">${kpi.totalJamLembur} Jam</div>
+          <div class="kpi-stat-label">Lembur Disetujui</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-review-note" style="margin-bottom: 20px;">
+      💡 ${kpi.reviewNote}
+    </div>
+
+    <!-- BIODATA LENGKAP STAF -->
+    <div style="background: var(--bg-app); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 14px 18px;">
+      <h4 style="margin: 0 0 10px 0;">📋 Informasi Biodata & Kontak Darurat</h4>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem;">
+        <div><strong>Alamat Domisili:</strong><br><span style="color: var(--text-muted);">${escapeHtml(u.alamat || '-')}</span></div>
+        <div><strong>Tanggal Lahir:</strong><br><span style="color: var(--text-muted);">${u.tglLahir || '-'}</span></div>
+        <div><strong>Hobi / Minat:</strong><br><span style="color: var(--text-muted);">${escapeHtml(u.hobi || '-')}</span></div>
+        <div><strong>Kontak Darurat:</strong><br><span style="color: var(--text-muted);">${escapeHtml(u.kontakDarurat || '-')}</span></div>
+      </div>
+    </div>
+
+    <div class="submit-row" style="margin-top: 18px; justify-content: flex-end;">
+      <button type="button" class="secondary-btn" onclick="closeModal('modalDetailKpiUser')">Tutup</button>
+    </div>
   `;
-  outlets.forEach(o => { colRow += `<th class="qty-cell" title="${o.name}" style="background:var(--bg-panel); color:var(--text-primary);">${o.label}</th>`; });
-  colRow += '</tr>';
-  thead.innerHTML = groupRow + colRow;
 
-  if (data.length === 0) {
-    loading.style.display = 'block';
-    loading.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);">Tidak ada data yang cocok dengan filter.</div>';
-    table.classList.add('hidden');
-    if (pagination) pagination.style.display = 'none';
-    return;
-  }
-
-  loading.style.display = 'none';
-  table.classList.remove('hidden');
-
-  // Pagination Logic
-  const totalPages = Math.ceil(data.length / invRowsPerPage);
-  if (invCurrentPage > totalPages) invCurrentPage = totalPages;
-  const startIdx = (invCurrentPage - 1) * invRowsPerPage;
-  const endIdx = Math.min(startIdx + invRowsPerPage, data.length);
-
-  let html = '';
-  for (let i = startIdx; i < endIdx; i++) {
-    const r = data[i];
-    html += `<tr>
-      <td class="sticky-col col-no" style="left:0; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;">${i + 1}</td>
-      <td class="sticky-col col-cat" style="left:40px; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;">${r.category || ''}</td>
-      <td class="sticky-col col-prod" style="left:150px; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;" title="${r.product || ''}">${(r.product || '').substring(0, 28)}${(r.product||'').length > 28 ? '…' : ''}</td>
-      <td class="sticky-col col-var" style="left:330px; z-index:8; background:var(--bg-card); color:var(--text-primary); position:sticky;">${r.variant || ''}</td>
-      <td class="sticky-col col-sku" style="left:390px; z-index:8; background:var(--bg-card); color:var(--text-muted); position:sticky;">${r.sku || ''}</td>
-      <td class="sticky-col col-price" style="left:500px; z-index:8; background:var(--bg-card); color:var(--text-secondary); position:sticky; border-right: 2px solid var(--border-color);">${r.price ? Number(r.price).toLocaleString('id-ID') : ''}</td>
-    `;
-    outlets.forEach(o => {
-      const qty = Number(r[o.col]) || 0;
-      const cls = qty > 0 ? 'qty-pos' : 'qty-zero';
-      html += `<td class="qty-cell ${cls}">${qty > 0 ? qty : '–'}</td>`;
-    });
-    html += '</tr>';
-  }
-  tbody.innerHTML = html;
-
-  // Render Pagination Controls
-  if (pagination) {
-    pagination.style.display = 'flex';
-    pagination.innerHTML = `
-      <button onclick="invChangePage(-1)" ${invCurrentPage === 1 ? 'disabled' : ''}>&laquo; Prev</button>
-      <span>Halaman <strong>${invCurrentPage}</strong> dari ${totalPages.toLocaleString('id-ID')}</span>
-      <button onclick="invChangePage(1)" ${invCurrentPage === totalPages ? 'disabled' : ''}>Next &raquo;</button>
-    `;
-  }
-}
-
-window.invChangePage = function(delta) {
-  invCurrentPage += delta;
-  const group   = document.getElementById('invGroupFilter')?.value   || '';
-  const activeCols = group ? INV_OUTLET_MAP.filter(o => o.group === group) : INV_OUTLET_MAP;
-  renderInventoryTable(invFilteredData, activeCols);
-  // scroll to top of table wrapper
-  const wrap = document.querySelector('.inv-matrix-wrapper');
-  if(wrap) wrap.scrollTop = 0;
+  openModal('modalDetailKpiUser');
 };
 
-// ── CSV IMPORT ──────────────────────────────────────────────────────────────
-
-async function startInventoryImport() {
-  const input  = document.getElementById('invImportFileInput');
-  const wrap   = document.getElementById('invImportStatusWrap');
-  const status = document.getElementById('invImportStatusText');
-  const bar    = document.getElementById('invImportProgressBar');
-  const btn    = document.getElementById('btnStartImportInv');
-
-  if (!input || !input.files || input.files.length === 0) {
-    return showToast('Pilih setidaknya 1 file CSV terlebih dahulu.', 'error');
-  }
-
-  wrap.style.display = 'block';
-  btn.disabled = true;
-  let allRecords = [];
-
-  // Parse all selected files
-  for (let fi = 0; fi < input.files.length; fi++) {
-    const file = input.files[fi];
-    if (status) status.textContent = `Membaca file ${fi + 1}/${input.files.length}: ${file.name}...`;
-    const text = await file.text();
-    const rows = parseCSV(text);
-    if (rows.length < 2) continue;
-    const headers = rows[0];
-
-    for (let ri = 1; ri < rows.length; ri++) {
-      const cells = rows[ri];
-      if (cells.length < 5) continue;
-      const get = (name) => {
-        const idx = headers.indexOf(name);
-        return idx >= 0 ? (cells[idx] || '').trim() : '';
-      };
-      const record = {
-        category: get('Category'),
-        product:  get('Product'),
-        sku:      get('Code'),
-        variant:  get('Variant'),
-        brand:    get('Brand') || get('Supplier'),
-        price:    parseFloat(get('UnitPrice')) || 0,
-      };
-      if (!record.sku) continue;
-      // Map outlet columns
-      Object.entries(CSV_COL_MAP).forEach(([csvHeader, dbCol]) => {
-        record[dbCol] = parseFloat(get(csvHeader)) || 0;
-      });
-      allRecords.push(record);
-    }
-  }
-
-  if (allRecords.length === 0) {
-    if (status) status.textContent = 'Tidak ada data valid ditemukan di file CSV.';
-    btn.disabled = false;
-    return;
-  }
-
-  // Batch upsert to Supabase
-  const BATCH = 500;
-  let uploaded = 0;
-  for (let i = 0; i < allRecords.length; i += BATCH) {
-    const batch = allRecords.slice(i, i + BATCH);
-    const pct   = Math.round(((i + batch.length) / allRecords.length) * 100);
-    if (status) status.textContent = `Menyimpan ke Supabase: ${i + batch.length}/${allRecords.length} SKU (${pct}%)...`;
-    if (bar)    bar.style.width = pct + '%';
-    try {
-      await supabaseFetch('inv_products?on_conflict=sku', {
-        method:  'POST',
-        headers: { 'Prefer': 'resolution=merge-duplicates' },
-        body:    batch,
-      });
-    } catch(e) {
-      console.error('Batch upload error:', e);
-    }
-    uploaded += batch.length;
-  }
-
-  if (status) status.textContent = `✅ Selesai! ${uploaded.toLocaleString('id-ID')} SKU berhasil diupload ke Supabase.`;
-  if (bar)    bar.style.width = '100%';
-  btn.disabled = false;
-  showToast(`✅ ${uploaded.toLocaleString('id-ID')} SKU berhasil diimport!`);
-  setTimeout(() => {
-    closeModal('modalImportInv');
-    loadInventoryData(true);
-  }, 1500);
-}
-
-// Expose to window for onclick
-window.loadInventoryData   = loadInventoryData;
-window.filterInventoryTable = filterInventoryTable;
-window.startInventoryImport = startInventoryImport;
+window.calculateKPI = calculateKPI;
+window.renderUserProfileTab = renderUserProfileTab;
+window.saveUserProfile = saveUserProfile;
 
 // ================= TAB NAVIGATION BINDINGS =================
 

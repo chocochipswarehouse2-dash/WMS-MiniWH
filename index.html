@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=8.9" />
+  <link rel="stylesheet" href="style.css?v=9.0" />
 </head>
 <body>
   <!-- Halaman Login -->
@@ -80,7 +80,10 @@
             <span class="nav-icon">👥</span>
             <span class="nav-label">Info Cuti Tim</span>
           </button>
-          
+          <button class="nav-item" data-tab="profileTab">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Profil & KPI Saya</span>
+          </button>
         </nav>
 
         <!-- 3. ADMIN MANAGEMENT (ADMIN ONLY) -->
@@ -109,7 +112,7 @@
         </div>
       </div>
 
-      <div class="sidebar-footer">
+      <div class="sidebar-footer" onclick="switchTab('profileTab')" style="cursor: pointer;" title="Buka Profil Saya">
         <div class="sidebar-user-info">
           <div class="sidebar-user-avatar" id="sidebarAvatarInitial">WH</div>
           <div class="user-meta">
@@ -344,6 +347,260 @@
           </div>
         </section>
 
+        <!-- TAB: PROFIL KARYAWAN & KPI KEHADIRAN -->
+        <section id="profileTab" class="tab-panel">
+          
+          <!-- 1. HEADER PROFIL CARD -->
+          <div class="panel profile-header-panel" style="margin-bottom: 24px;">
+            <div class="profile-header-content">
+              <div class="profile-avatar-box">
+                <div class="profile-avatar-large" id="profileBigAvatar">WH</div>
+                <div class="profile-status-dot" title="Status Akun: Aktif"></div>
+              </div>
+              <div class="profile-title-meta">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <h2 id="profileDisplayName" style="margin: 0;">Nama Karyawan</h2>
+                  <span id="profileRoleBadge" class="badge-role">Staff Warehouse</span>
+                  <span id="profileKpiGradeBadge" class="badge-kpi-grade">Grade A</span>
+                </div>
+                <div class="profile-subinfo" style="margin-top: 6px; color: var(--text-muted); font-size: 0.9rem;">
+                  <span>🆔 <strong id="profileDisplayNik">WH0000</strong></span> • 
+                  <span>🏢 <span id="profileDisplayDivisi">Warehouse</span></span> • 
+                  <span>📱 <span id="profileDisplayPhone">-</span></span> • 
+                  <span>✉️ <span id="profileDisplayEmail">-</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. SECTION KPI KEHADIRAN & PERFORMA -->
+          <div class="panel" style="margin-bottom: 24px;">
+            <div class="panel-header-row">
+              <div>
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                  <span>📊</span> Penilaian KPI & Kedisiplinan Kehadiran
+                </h3>
+                <small style="color: var(--text-muted);">Evaluasi performa kerja berbasis rekam jejak presensi, ketepatan waktu, dan kepatuhan jadwal.</small>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label style="margin: 0; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Periode KPI:</label>
+                <select id="profileKpiPeriodSelect" onchange="renderUserProfileTab()" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; min-width: 160px;">
+                  <option value="thisMonth">Bulan Ini</option>
+                  <option value="lastMonth">Bulan Lalu</option>
+                  <option value="last3Months">3 Bulan Terakhir</option>
+                  <option value="all">Semua Periode</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- KPI HERO GRID -->
+            <div class="kpi-hero-grid">
+              
+              <!-- KPI SCORE CARD -->
+              <div class="kpi-score-card">
+                <div class="kpi-score-circle">
+                  <span id="profileKpiTotalScore" class="kpi-score-val">0%</span>
+                  <span class="kpi-score-lbl">Skor KPI</span>
+                </div>
+                <div class="kpi-grade-summary">
+                  <div id="profileKpiGradeTitle" class="kpi-grade-title">Memuat...</div>
+                  <div id="profileKpiGradeDesc" class="kpi-grade-desc">Menganalisis data kehadiran...</div>
+                </div>
+              </div>
+
+              <!-- 4 PILAR KPI BREAKDOWN -->
+              <div class="kpi-pillars-box">
+                <div class="kpi-pillar-row">
+                  <div class="kpi-pillar-head">
+                    <span>1. Tingkat Kehadiran (Attendance Rate - 40%)</span>
+                    <strong id="kpiPillarAttendanceVal">0%</strong>
+                  </div>
+                  <div class="kpi-progress-bar">
+                    <div id="kpiPillarAttendanceBar" class="kpi-progress-fill fill-green" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="kpi-pillar-row">
+                  <div class="kpi-pillar-head">
+                    <span>2. Ketepatan Waktu Masuk (Punctuality - 35%)</span>
+                    <strong id="kpiPillarPunctualityVal">0%</strong>
+                  </div>
+                  <div class="kpi-progress-bar">
+                    <div id="kpiPillarPunctualityBar" class="kpi-progress-fill fill-blue" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="kpi-pillar-row">
+                  <div class="kpi-pillar-head">
+                    <span>3. Kepatuhan Checkout / Jam Pulang (15%)</span>
+                    <strong id="kpiPillarCheckoutVal">0%</strong>
+                  </div>
+                  <div class="kpi-progress-bar">
+                    <div id="kpiPillarCheckoutBar" class="kpi-progress-fill fill-purple" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="kpi-pillar-row">
+                  <div class="kpi-pillar-head">
+                    <span>4. Indeks Cuti / Izin Terencana (10%)</span>
+                    <strong id="kpiPillarLeaveVal">0%</strong>
+                  </div>
+                  <div class="kpi-progress-bar">
+                    <div id="kpiPillarLeaveBar" class="kpi-progress-fill fill-amber" style="width: 0%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STATISTIK RINGKASAN PRESENSI KPI -->
+            <div class="kpi-stats-grid">
+              <div class="kpi-stat-item">
+                <span class="kpi-stat-icon">📅</span>
+                <div>
+                  <div class="kpi-stat-val" id="kpiStatTotalHari">0 Hari</div>
+                  <div class="kpi-stat-label">Total Kehadiran</div>
+                </div>
+              </div>
+              <div class="kpi-stat-item">
+                <span class="kpi-stat-icon">⏰</span>
+                <div>
+                  <div class="kpi-stat-val" id="kpiStatTepatWaktu" style="color: var(--success, #10b981);">0 Hari</div>
+                  <div class="kpi-stat-label">Hadir Tepat Waktu</div>
+                </div>
+              </div>
+              <div class="kpi-stat-item">
+                <span class="kpi-stat-icon">⚠️</span>
+                <div>
+                  <div class="kpi-stat-val" id="kpiStatTerlambat" style="color: var(--error, #ef4444);">0 Hari (0 mnt)</div>
+                  <div class="kpi-stat-label">Total Terlambat</div>
+                </div>
+              </div>
+              <div class="kpi-stat-item">
+                <span class="kpi-stat-icon">⚡</span>
+                <div>
+                  <div class="kpi-stat-val" id="kpiStatTotalLembur">0 Jam</div>
+                  <div class="kpi-stat-label">Lembur Disetujui</div>
+                </div>
+              </div>
+              <div class="kpi-stat-item">
+                <span class="kpi-stat-icon">🏖️</span>
+                <div>
+                  <div class="kpi-stat-val" id="kpiStatTotalCuti">0 Hari</div>
+                  <div class="kpi-stat-label">Cuti / Izin</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CATATAN & REKOMENDASI EVALUASI -->
+            <div id="profileKpiReviewBox" class="kpi-review-note" style="margin-top: 18px;">
+              💡 <strong>Catatan Evaluasi:</strong> Memuat catatan performa...
+            </div>
+          </div>
+
+          <!-- 3. FORM DATA DIRI & BIODATA KARYAWAN -->
+          <div class="panel">
+            <div class="panel-header-row">
+              <div>
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                  <span>📝</span> Lengkapi Data Diri & Kontak Darurat
+                </h3>
+                <small style="color: var(--text-muted);">Pastikan data diri Anda selalu terbarui untuk keperluan administrasi dan keselamatan kerja.</small>
+              </div>
+            </div>
+
+            <form id="profileBiodataForm" onsubmit="saveUserProfile(event)" class="grid two-columns" style="gap: 16px;">
+              
+              <!-- DATA IDENTITAS -->
+              <div style="grid-column: 1 / -1;">
+                <h4 style="margin: 0 0 12px 0; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                  Informasi Identitas & Kontak
+                </h4>
+              </div>
+
+              <label>
+                <span>NIK Karyawan</span>
+                <input type="text" id="profNik" disabled style="background: var(--bg-app); font-weight: 600;" />
+              </label>
+
+              <label>
+                <span>Nama Lengkap</span>
+                <input type="text" id="profNama" required placeholder="Nama lengkap Anda..." />
+              </label>
+
+              <label>
+                <span>Divisi / Posisi</span>
+                <input type="text" id="profDivisi" disabled style="background: var(--bg-app);" />
+              </label>
+
+              <label>
+                <span>Role Akun</span>
+                <input type="text" id="profRole" disabled style="background: var(--bg-app);" />
+              </label>
+
+              <label>
+                <span>Nomor WhatsApp / HP Aktif</span>
+                <input type="tel" id="profNoHp" required placeholder="Contoh: 08123456789" />
+              </label>
+
+              <label>
+                <span>Alamat Email</span>
+                <input type="email" id="profEmail" placeholder="nama@email.com" />
+              </label>
+
+              <label>
+                <span>Tanggal Lahir</span>
+                <input type="date" id="profTglLahir" />
+              </label>
+
+              <label>
+                <span>Hobi / Minat</span>
+                <input type="text" id="profHobi" placeholder="Contoh: Futsal, Membaca, Badminton" />
+              </label>
+
+              <label style="grid-column: 1 / -1;">
+                <span>Alamat Lengkap Domisili / Tempat Tinggal</span>
+                <textarea id="profAlamat" rows="3" placeholder="Alamat tempat tinggal saat ini (Jalan, RT/RW, Kelurahan, Kecamatan, Kota/Kabupaten)..." style="width: 100%; border-radius: 6px; padding: 10px; border: 1px solid var(--border-subtle); background: var(--bg-panel); color: var(--text-primary); font-family: inherit; resize: vertical;"></textarea>
+              </label>
+
+              <!-- KONTAK DARURAT -->
+              <div style="grid-column: 1 / -1; margin-top: 12px;">
+                <h4 style="margin: 0 0 12px 0; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                  🚨 Kontak Darurat (Emergency Contact)
+                </h4>
+              </div>
+
+              <label>
+                <span>Nama Kontak Darurat</span>
+                <input type="text" id="profEmergencyNama" placeholder="Nama keluarga / kerabat..." />
+              </label>
+
+              <label>
+                <span>Hubungan / Relasi</span>
+                <select id="profEmergencyHubungan">
+                  <option value="">Pilih Hubungan...</option>
+                  <option value="Orang Tua">Orang Tua (Ayah / Ibu)</option>
+                  <option value="Suami / Istri">Suami / Istri</option>
+                  <option value="Saudara Kandung">Saudara Kandung (Kakak / Adik)</option>
+                  <option value="Wali / Kerabat">Wali / Kerabat Dekat</option>
+                  <option value="Teman / Rekan">Teman / Rekan</option>
+                </select>
+              </label>
+
+              <label style="grid-column: 1 / -1;">
+                <span>Nomor Telepon / WhatsApp Darurat</span>
+                <input type="tel" id="profEmergencyPhone" placeholder="Contoh: 081298765432" />
+              </label>
+
+              <div class="submit-row action-bar" style="grid-column: 1 / -1; margin-top: 8px;">
+                <button type="submit" id="btnSaveProfile" class="primary-btn">
+                  <span class="btn-text">💾 Simpan Perubahan Data Diri</span>
+                </button>
+              </div>
+            </form>
+            <div id="profileFormMessage" class="message-box" style="margin-top: 12px;"></div>
+          </div>
+        </section>
+
         <!-- TAB: SLIP GAJI SAYA (KARYAWAN) -->
         
 
@@ -483,6 +740,21 @@
   </div>
 
   <!-- ================= MODALS ================= -->
+
+  <!-- MODAL DETAIL KPI & PROFIL KARYAWAN (ADMIN VIEW) -->
+  <div id="modalDetailKpiUser" class="modal hidden">
+    <div class="modal-content" style="max-width: 750px;">
+      <div class="panel-header-row" style="margin-bottom: 16px;">
+        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+          <span>👤</span> Detail Profil & Evaluasi KPI Staf
+        </h3>
+        <button type="button" class="icon-btn" onclick="closeModal('modalDetailKpiUser')">✕</button>
+      </div>
+      <div class="modal-body" id="modalDetailKpiUserBody" style="max-height: 80vh; overflow-y: auto;">
+        <!-- Injected dynamically via JS -->
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL EDIT ROSTER -->
   <div id="modalEditRoster" class="modal hidden">
@@ -1150,6 +1422,6 @@
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js?v=8.9" defer></script>
+  <script src="script.js?v=9.0" defer></script>
 </body>
 </html>
