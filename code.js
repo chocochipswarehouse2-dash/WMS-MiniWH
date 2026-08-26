@@ -485,7 +485,7 @@ function saveUserProfile(payload) {
 
   if (payload.nama !== undefined) updateCol('nama', payload.nama);
   if (payload.email !== undefined) updateCol('email', payload.email);
-  if (payload.noHp !== undefined) updateCol('noHp', payload.noHp);
+  if (payload.noHp !== undefined) updateCol('noHP', payload.noHp);
   if (payload.alamat !== undefined) updateCol('alamat', payload.alamat);
   if (payload.tglLahir !== undefined) updateCol('tglLahir', payload.tglLahir);
   if (payload.tglBergabung !== undefined) updateCol('tglBergabung', payload.tglBergabung);

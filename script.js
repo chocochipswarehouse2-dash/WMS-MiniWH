@@ -395,8 +395,8 @@ async function supabaseApiRequest(action, payload) {
       if (p.email !== undefined) patchData.email = p.email;
       if (p.noHp !== undefined) patchData.no_hp = p.noHp;
       if (p.alamat !== undefined) patchData.alamat = p.alamat;
-      if (p.tglLahir !== undefined) patchData.tgl_lahir = p.tglLahir;
-      if (p.tglBergabung !== undefined) patchData.tgl_bergabung = p.tglBergabung;
+      if (p.tglLahir !== undefined) patchData.tgl_lahir = p.tglLahir || null;
+      if (p.tglBergabung !== undefined) patchData.tgl_bergabung = p.tglBergabung || null;
       if (p.foto !== undefined) patchData.foto = p.foto;
       if (p.hobi !== undefined) patchData.hobi = p.hobi;
       if (p.kontakDarurat !== undefined) patchData.kontak_darurat = p.kontakDarurat;
@@ -450,7 +450,7 @@ async function supabaseApiRequest(action, payload) {
         nama_baru: payload.namaBaru,
         no_hp_baru: payload.noHpBaru,
         email_baru: payload.emailBaru,
-        tgl_lahir_baru: payload.tglLahirBaru,
+        tgl_lahir_baru: payload.tglLahirBaru || null,
         alamat_baru: payload.alamatBaru,
         hobi_baru: payload.hobiBaru,
         kontak_darurat_baru: payload.kontakDaruratBaru,
@@ -485,7 +485,7 @@ async function supabaseApiRequest(action, payload) {
           nama: req.namaBaru,
           no_hp: req.noHpBaru,
           email: req.emailBaru,
-          tgl_lahir: req.tglLahirBaru,
+          tgl_lahir: req.tglLahirBaru || null,
           alamat: req.alamatBaru,
           hobi: req.hobiBaru,
           kontak_darurat: req.kontakDaruratBaru,

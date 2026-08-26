@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS karyawan (
     saldo_kasbon NUMERIC(15, 2) NOT NULL DEFAULT 0,
     email VARCHAR(150),
     no_hp VARCHAR(50),
+    tgl_lahir DATE,
+    tgl_bergabung DATE,
+    alamat TEXT,
+    hobi VARCHAR(255),
+    kontak_darurat VARCHAR(255),
+    foto TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -192,6 +198,30 @@ CREATE TABLE IF NOT EXISTS warehouse_tasks (
 );
 
 -- ==============================================================================
+-- WAREHOUSE TASKS (PICKING & PACKING)
+-- ==============================================================================
+
+-- 13. TABEL PENGAJUAN PERUBAHAN PROFIL
+CREATE TABLE IF NOT EXISTS pengajuan_profil (
+    id VARCHAR(50) PRIMARY KEY,
+    nik VARCHAR(50) REFERENCES karyawan(nik) ON DELETE CASCADE,
+    nama_lama VARCHAR(150),
+    nama_baru VARCHAR(150),
+    no_hp_baru VARCHAR(50),
+    email_baru VARCHAR(150),
+    tgl_lahir_baru DATE,
+    alamat_baru TEXT,
+    hobi_baru VARCHAR(255),
+    kontak_darurat_baru VARCHAR(255),
+    alasan TEXT,
+    status VARCHAR(30) DEFAULT 'Diajukan',
+    tanggal DATE,
+    alasan_tolak TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==============================================================================
 -- DEFAULT DATA SEEDING (DATA AWAL)
 -- ==============================================================================
 
@@ -363,6 +393,7 @@ ALTER TABLE inv_log_mutasi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_stock_opname ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_produksi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inv_qc ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pengajuan_profil ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public all access on karyawan" ON karyawan FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on master_shift" ON master_shift FOR ALL USING (true) WITH CHECK (true);
@@ -383,4 +414,5 @@ CREATE POLICY "Allow public all access on inv_log_mutasi" ON inv_log_mutasi FOR 
 CREATE POLICY "Allow public all access on inv_stock_opname" ON inv_stock_opname FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on inv_produksi" ON inv_produksi FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all access on inv_qc" ON inv_qc FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all access on pengajuan_profil" ON pengajuan_profil FOR ALL USING (true) WITH CHECK (true);
 
