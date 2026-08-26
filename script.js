@@ -459,12 +459,10 @@ async function supabaseApiRequest(action, payload) {
         tanggal: payload.tanggal || new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       };
-      try {
         await supabaseFetch('pengajuan_profil', {
           method: 'POST',
           body: [row]
         });
-      } catch (e) {}
       const localReqs = JSON.parse(localStorage.getItem('wms_profile_requests') || '[]');
       localReqs.unshift(payload);
       localStorage.setItem('wms_profile_requests', JSON.stringify(localReqs));
